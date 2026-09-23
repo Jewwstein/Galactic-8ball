@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
       try(InputStream in=c.getAssets().open("ui/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         if(b!=null && b.getHeight()>b.getWidth()){
-          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(-90);
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
           return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
     protected void onDraw(Canvas c){
       super.onDraw(c);
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
-      float ui=Math.max(1f,h/720f);
+      float ui=Math.max(.75f,Math.min(w/1080f,h/720f));
 
       saberMenuRect.set(28*ui,24*ui,190*ui,78*ui);
       rackRect.set(202*ui,24*ui,352*ui,78*ui);
@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
     }
 
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
-      float pw=Math.min(w*.78f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
+      float pw=Math.min(w*.82f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       RectF panel=new RectF(x,y,x+pw,y+ph);
       p.setColor(0xF010141C);p.setStyle(Paint.Style.FILL);c.drawRoundRect(panel,24,24,p);
       stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24,24,stroke);
@@ -149,7 +149,7 @@ public class MainActivity extends Activity {
     }
 
     void drawEnglish(Canvas c,int w,int h,float ui,GameRenderer r){
-      englishCx=w*.79f;englishCy=h*.48f;englishR=Math.min(h*.205f,145*ui);
+      boolean portrait=h>w;englishCx=portrait?w*.5f:w*.79f;englishCy=portrait?h*.56f:h*.48f;englishR=Math.min(portrait?w*.31f:h*.205f,145*ui);
       p.setColor(0xC8000000);c.drawRoundRect(new RectF(englishCx-englishR-28*ui,englishCy-englishR-54*ui,englishCx+englishR+28*ui,englishCy+englishR+126*ui),24,24,p);
       p.setColor(0xFFF5F5F5);c.drawCircle(englishCx,englishCy,englishR,p);
       stroke.setStrokeWidth(4*ui);stroke.setColor(0xFF9CA3AF);c.drawCircle(englishCx,englishCy,englishR,stroke);
@@ -169,18 +169,18 @@ public class MainActivity extends Activity {
     }
 
     void drawCharge(Canvas c,int w,int h,float ui,GameRenderer r){
-      float meterW=Math.min(w*.56f,760*ui),meterH=68*ui;
-      float x=w*.5f-meterW*.5f,y=h-105*ui;
+      boolean portrait=h>w;float meterW=Math.min(portrait?w*.86f:w*.56f,760*ui),meterH=(portrait?82:68)*ui;
+      float x=w*.5f-meterW*.5f,y=h-(portrait?150:105)*ui;
       Bitmap hilt=hilts[r.hiltIndex],blade=blades[r.bladeIndex];
       float hiltW=145*ui;
       if(blade!=null && r.power>0.1f){
-        RectF dst=new RectF(x+hiltW-7*ui,y+15*ui,x+hiltW-7*ui+(meterW-hiltW)*(r.power/100f),y+meterH-15*ui);
+        RectF dst=new RectF(x+hiltW-16*ui,y+4*ui,x+hiltW-16*ui+(meterW-hiltW+9*ui)*(r.power/100f),y+meterH-4*ui);
         p.setAlpha(255);c.drawBitmap(blade,null,dst,p);
       }
       if(hilt!=null){RectF dst=new RectF(x,y,x+hiltW,y+meterH);p.setAlpha(255);c.drawBitmap(hilt,null,dst,p);}
       p.setColor(0xD9000000);c.drawRoundRect(new RectF(x-16*ui,y-46*ui,x+meterW+16*ui,y+meterH+16*ui),18,18,p);
       if(blade!=null && r.power>0.1f){
-        RectF dst=new RectF(x+hiltW-7*ui,y+15*ui,x+hiltW-7*ui+(meterW-hiltW)*(r.power/100f),y+meterH-15*ui);
+        RectF dst=new RectF(x+hiltW-16*ui,y+4*ui,x+hiltW-16*ui+(meterW-hiltW+9*ui)*(r.power/100f),y+meterH-4*ui);
         p.setAlpha(255);c.drawBitmap(blade,null,dst,p);
       }
       if(hilt!=null){RectF dst=new RectF(x,y,x+hiltW,y+meterH);p.setAlpha(255);c.drawBitmap(hilt,null,dst,p);}
@@ -317,8 +317,9 @@ public class MainActivity extends Activity {
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
       android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
-      float yaw=(float)Math.toRadians(camYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*camDist;
-      float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*camDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
+      float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.12f:1f);
+      float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
+      float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*viewDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
       android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
       for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
@@ -419,7 +420,7 @@ public class MainActivity extends Activity {
 
     void executeShot(){
       Ball cue=balls.get(0);if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
-      float speed=power*.18f;cue.vx=aimX*speed;cue.vz=aimZ*speed;sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargeStartY=-1;
+      float speed=power*.46f;cue.vx=aimX*speed;cue.vz=aimZ*speed;sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargeStartY=-1;
     }
 
     void step(float dt){
@@ -431,14 +432,14 @@ public class MainActivity extends Activity {
           b.rotX+=moveZ/R*57.29578f;b.rotZ-=moveX/R*57.29578f;
           float sp=(float)Math.sqrt(b.vx*b.vx+b.vz*b.vz);
           if(sp>0){
-            float decel=(1.55f+.025f*sp)*(1f-topSpin*.08f);
+            float decel=(1.10f+.014f*sp)*(1f-topSpin*.07f);
             float ns=Math.max(0,sp-decel*dt),sc=ns/sp;b.vx*=sc;b.vz*=sc;
           }
           if(Math.abs(b.vx)<.02)b.vx=0;if(Math.abs(b.vz)<.02)b.vz=0;
-          if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*.78f;b.vz+=sideSpin*Math.abs(b.vx)*.10f;}
-          if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*.78f;b.vz-=sideSpin*Math.abs(b.vx)*.10f;}
-          if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*.78f;b.vx-=sideSpin*Math.abs(b.vz)*.10f;}
-          if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*.78f;b.vx+=sideSpin*Math.abs(b.vz)*.10f;}
+          if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*.82f;b.vz+=sideSpin*Math.abs(b.vx)*.10f;}
+          if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*.82f;b.vz-=sideSpin*Math.abs(b.vx)*.10f;}
+          if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*.82f;b.vx-=sideSpin*Math.abs(b.vz)*.10f;}
+          if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*.82f;b.vx+=sideSpin*Math.abs(b.vz)*.10f;}
         }
         for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++)collide(balls.get(i),balls.get(j));
         for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
