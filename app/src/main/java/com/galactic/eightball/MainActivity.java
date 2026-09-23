@@ -4,7 +4,7 @@ import android.app.*;
 import android.os.*;
 import android.opengl.*;
 import android.content.*;
-import android.graphics.*;
+import android.graphics.Bitmap;import android.graphics.BitmapFactory;
 import android.view.*;
 import java.io.*;
 import java.nio.*;
