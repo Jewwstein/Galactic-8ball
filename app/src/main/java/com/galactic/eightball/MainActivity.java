@@ -224,6 +224,7 @@ public class MainActivity extends Activity {
 
     public boolean onTouchEvent(MotionEvent e){
       final int a=e.getActionMasked();final float x=e.getX(),y=e.getY();final int w=getWidth(),h=getHeight();
+      final float ui=Math.max(.90f,Math.min(w/900f,h/640f));
       final GameRenderer r=game.r;
 
       // Two-finger camera control: orbit + pinch zoom.
