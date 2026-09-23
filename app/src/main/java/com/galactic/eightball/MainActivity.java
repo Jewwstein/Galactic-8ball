@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
     HudView(Context c,GameView g){
       super(c);game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
-      for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadHorizontal(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
+      for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
     }
 
     Bitmap loadHorizontal(Context c,String n){
@@ -76,6 +76,26 @@ public class MainActivity extends Activity {
         if(b!=null && b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
           return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+        }
+        return b;
+      }catch(Exception e){return null;}
+    }
+
+    Bitmap loadBlade(Context c,String n){
+      try(InputStream in=c.getAssets().open("ui/"+n)){
+        Bitmap b=BitmapFactory.decodeStream(in);if(b==null)return null;
+        int minX=b.getWidth(),minY=b.getHeight(),maxX=-1,maxY=-1;
+        for(int yy=0;yy<b.getHeight();yy+=2)for(int xx=0;xx<b.getWidth();xx+=2){
+          if(Color.alpha(b.getPixel(xx,yy))>10){if(xx<minX)minX=xx;if(xx>maxX)maxX=xx;if(yy<minY)minY=yy;if(yy>maxY)maxY=yy;}
+        }
+        if(maxX>=minX&&maxY>=minY){
+          minX=Math.max(0,minX-3);minY=Math.max(0,minY-3);
+          maxX=Math.min(b.getWidth()-1,maxX+3);maxY=Math.min(b.getHeight()-1,maxY+3);
+          b=Bitmap.createBitmap(b,minX,minY,maxX-minX+1,maxY-minY+1);
+        }
+        if(b.getHeight()>b.getWidth()){
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
+          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
       }catch(Exception e){return null;}
@@ -189,7 +209,10 @@ public class MainActivity extends Activity {
       float dx=cue[0]-hp[0],dy=cue[1]-hp[1],d=(float)Math.sqrt(dx*dx+dy*dy);
       if(d<1){dx=1;dy=0;d=1;}
       worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
-      float len=Math.max(150f,h*.158f),thick=Math.max(58f,h*.060f);
+      Bitmap hb=hilts[Math.max(0,Math.min(5,r.hiltIndex))];
+      float len=Math.max(125f,h*.132f);
+      float aspect=(hb!=null&&hb.getHeight()>0)?((float)hb.getWidth()/hb.getHeight()):1.70f;
+      float thick=len/Math.max(1.15f,aspect);
       float cx=hp[0],cy=hp[1];
       worldHiltRect.set(cx-len*.5f,cy-thick*.5f,cx+len*.5f,cy+thick*.5f);
     }
@@ -212,7 +235,8 @@ public class MainActivity extends Activity {
         float endX=ex+(worldCueX-ex)*(r.power/100f),endY=ey+(worldCueY-ey)*(r.power/100f);
         float ang=(float)Math.toDegrees(Math.atan2(endY-ey,endX-ex));
         float len=(float)Math.sqrt((endX-ex)*(endX-ex)+(endY-ey)*(endY-ey));
-        float thick=Math.max(78f,h*.078f);
+        float aspect=(blade!=null&&blade.getHeight()>0)?((float)blade.getWidth()/blade.getHeight()):7f;
+        float thick=Math.max(18f,Math.min(h*.060f,len/Math.max(3f,aspect)));
         RectF bladeDst=new RectF(ex,ey-thick*.5f,ex+Math.max(2,len),ey+thick*.5f);
         c.save();c.rotate(ang,ex,ey);
         if(blade!=null)c.drawBitmap(blade,null,bladeDst,p);
@@ -363,7 +387,7 @@ public class MainActivity extends Activity {
     volatile float camYaw=0f,camPitch=41f,camDist=128f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
-    float aimX=1,aimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0;
+    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
@@ -393,6 +417,11 @@ public class MainActivity extends Activity {
     public void onDrawFrame(GL10 gl){
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
+      if(state==AIMING){
+        float k=.085f;
+        aimX=aimX*(1f-k)+desiredAimX*k;aimZ=aimZ*(1f-k)+desiredAimZ*k;
+        float an=(float)Math.sqrt(aimX*aimX+aimZ*aimZ);if(an>.0001f){aimX/=an;aimZ/=an;}
+      }
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
       android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
@@ -426,7 +455,7 @@ public class MainActivity extends Activity {
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
         for(int i=0;i<6;i++){
-          try{saberMeshes[i]=loadObj("sabers/"+saberFolders[i]+"/blade.obj");}catch(Exception e){saberMeshes[i]=null;}
+          saberMeshes[i]=null;
           try{saberTextures[i]=loadTexture("sabers/"+saberFolders[i]+"/blade.png");}catch(Exception e){saberTextures[i]=0;}
         }
       }catch(Exception e){e.printStackTrace();}
@@ -474,7 +503,7 @@ public class MainActivity extends Activity {
 
     void createRail(float x1,float z1,float x2,float z2){
       EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
-      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=.045f;fd.restitution=.72f;
+      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=.055f;fd.restitution=.70f;
       railBody.createFixture(fd);
     }
 
@@ -497,7 +526,7 @@ public class MainActivity extends Activity {
       bd.linearDamping=0f;bd.angularDamping=.08f;
       Body body=world.createBody(bd);
       CircleShape shape=new CircleShape();shape.m_radius=R;
-      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.020f;fd.restitution=.92f;
+      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.032f;fd.restitution=.90f;
       body.createFixture(fd);body.setSleepingAllowed(true);
       return body;
     }
@@ -514,13 +543,13 @@ public class MainActivity extends Activity {
         {20f+3*DX,-3*HX},{20f+3*DX,-HX},{20f+3*DX,HX},{20f+3*DX,3*HX},
         {20f+4*DX,-2*S},{20f+4*DX,-S},{20f+4*DX,0f},{20f+4*DX,S},{20f+4*DX,2*S}};
       for(int i=0;i<15;i++){Ball b=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));b.body=makeBallBody(b.x,b.z,false);balls.add(b);}
-      state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=1;aimZ=0;sideSpin=topSpin=0;
+      state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;breakAssistArmed=true;
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
       if(state!=AIMING||!allStopped())return;
       if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_MOVE||action==MotionEvent.ACTION_UP){
-        float[] q=screenToTable(sx,sy,w,h);if(q!=null){Ball cue=balls.get(0);if(cue.body!=null){Vec2 cp=cue.body.getPosition();cue.x=cp.x;cue.z=cp.y;}float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>.5f){aimX=dx/d;aimZ=dz/d;}}
+        float[] q=screenToTable(sx,sy,w,h);if(q!=null){Ball cue=balls.get(0);if(cue.body!=null){Vec2 cp=cue.body.getPosition();cue.x=cp.x;cue.z=cp.y;}float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}}
       }
     }
 
@@ -552,7 +581,7 @@ public class MainActivity extends Activity {
       if(!cue.active){
         cue.active=true;cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);cue.x=-20;cue.z=0;
       }
-      float speed=power*.34f;
+      float speed=power*.33f;
       cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
       for(Ball b:balls)if(b.body!=null&&b.active)b.body.setAwake(true);
       sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
@@ -562,8 +591,8 @@ public class MainActivity extends Activity {
       for(int i=0;i<balls.size();i++){
         Ball b=balls.get(i);if(!b.active||b.body==null||!b.body.isActive())continue;
         Vec2 v=b.body.getLinearVelocity();float sp=v.length();
-        if(sp<.18f){b.body.setLinearVelocity(new Vec2());continue;}
-        float decel=(2.35f+.028f*sp)*(1f-(i==0?topSpin*.035f:0));
+        if(sp<.14f){b.body.setLinearVelocity(new Vec2());continue;}
+        float decel=(3.00f+.035f*sp)*(1f-(i==0?topSpin*.030f:0));
         float ns=Math.max(0,sp-decel*h);
         if(ns==0)b.body.setLinearVelocity(new Vec2());
         else{float sc=ns/sp;b.body.setLinearVelocity(new Vec2(v.x*sc,v.y*sc));}
@@ -589,6 +618,31 @@ public class MainActivity extends Activity {
       else if(nearZ)c.body.setLinearVelocity(new Vec2(v.x-sideSpin*Math.abs(v.y)*.030f,v.y));
     }
 
+    void maybeDisperseBreak(){
+      if(!breakAssistArmed||balls.size()<16)return;
+      Ball cue=balls.get(0),apex=balls.get(1);
+      if(!cue.active||!apex.active)return;
+      Vec2 cp=cue.body.getPosition(),ap=apex.body.getPosition(),cv=cue.body.getLinearVelocity();
+      float dx=ap.x-cp.x,dz=ap.y-cp.y,dist2=dx*dx+dz*dz,sp=cv.length();
+      if(sp<14f||dist2>(2*R+.18f)*(2*R+.18f))return;
+      breakAssistArmed=false;
+      float rackCx=24.15f,rackCz=0f;
+      for(int i=1;i<balls.size();i++){
+        Ball b=balls.get(i);if(!b.active)continue;
+        Vec2 p=b.body.getPosition(),v=b.body.getLinearVelocity();
+        float rx=p.x-rackCx,rz=p.y-rackCz;
+        float n=(float)Math.sqrt(rx*rx+rz*rz);
+        if(n<.15f){rx=.20f;rz=((i&1)==0?.14f:-.14f);n=(float)Math.sqrt(rx*rx+rz*rz);}
+        rx/=n;rz/=n;
+        float row=Math.max(0f,Math.min(4f,(p.x-20f)/2.08f));
+        float outward=sp*(.022f+.0045f*row);
+        float forward=sp*.010f;
+        float jitter=((i%3)-1)*sp*.0035f;
+        b.body.setLinearVelocity(new Vec2(v.x+rx*outward+forward, v.y+rz*outward+jitter));
+        b.body.setAwake(true);
+      }
+    }
+
     void step(float dt){
       if(balls.isEmpty()||world==null)return;
       if(state==ROLLING){
@@ -597,6 +651,7 @@ public class MainActivity extends Activity {
         while(physicsAccum>=FIXED_DT && loops<16){
           applyRollingResistance(FIXED_DT);
           world.step(FIXED_DT,24,12);
+          maybeDisperseBreak();
           syncBalls();
           applyCueSpinAtRails();
           for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
@@ -661,36 +716,24 @@ public class MainActivity extends Activity {
 
     void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
       int idx=Math.max(0,Math.min(5,bladeIndex));
-      Mesh mesh=saberMeshes[idx];
-      if(mesh==null){drawFallbackBlade(pv,x1,z1,x2,z2,r,g,b);return;}
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
+      float[] nativeAspect={67f/485f,90f/485f,84f/485f,79f/485f,75f/485f,78f/485f};
+      float width=10f*nativeAspect[idx]; // actual TTS blade texture proportions at a 10-unit native blade
+      int texture=saberTextures[idx];
+
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-
-      // Two passes of the ORIGINAL TTS blade geometry: a soft emissive shell and
-      // its bright native core. No layered neon rectangles.
-      drawSaberMeshPass(mesh,saberTextures[idx],pv,x1,z1,len,angle,31f,r,g,b,.16f);
-      drawSaberMeshPass(mesh,saberTextures[idx],pv,x1,z1,len,angle,23f,1f,1f,1f,.94f);
-
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width*1.45f,.28f);
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.00f);
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    void drawSaberMeshPass(Mesh mesh,int texture,float[] pv,float x,float z,float len,float angle,float cross,float r,float g,float b,float a){
-      float[] M=identity();
-      android.opengl.Matrix.translateM(M,0,x,2.47f,z);
-      android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
-      android.opengl.Matrix.scaleM(M,0,len,cross,cross);
-      drawMesh(mesh,pv,M,texture,new float[]{r,g,b,a});
-    }
-
-    void drawFallbackBlade(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
-      float dx=x2-x1,dz=z2-z1,d=(float)Math.sqrt(dx*dx+dz*dz);if(d<.02)return;
-      float px=-dz/d*.42f,pz=dx/d*.42f;
-      float[] v={x1+px,2.46f,z1+pz,x1-px,2.46f,z1-pz,x2-px,2.46f,z2-pz,x1+px,2.46f,z1+pz,x2-px,2.46f,z2-pz,x2+px,2.46f,z2+pz};
-      float[] u={0,0,0,1,1,1,0,0,1,1,1,0};
-      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      drawMesh(new Mesh(v,u),pv,identity(),0,new float[]{r,g,b,.88f});
-      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
+    void drawTexturedBlade(int texture,float[] pv,float x,float z,float len,float angle,float width,float alpha){
+      float[] v={0,2.47f,-.5f, 0,2.47f,.5f, 1,2.47f,.5f, 0,2.47f,-.5f, 1,2.47f,.5f, 1,2.47f,-.5f};
+      float[] u={0,1,0,0,1,0,0,1,1,0,1,1};
+      Mesh q=new Mesh(v,u);
+      float[] M=identity();android.opengl.Matrix.translateM(M,0,x,0,z);android.opengl.Matrix.rotateM(M,0,angle,0,1,0);android.opengl.Matrix.scaleM(M,0,len,1,width);
+      drawMesh(q,pv,M,texture,new float[]{1,1,1,alpha});
     }
 
     static float[] identity(){float[] m=new float[16];android.opengl.Matrix.setIdentityM(m,0);return m;}
