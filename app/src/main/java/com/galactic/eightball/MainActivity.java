@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
       try(InputStream in=c.getAssets().open("ui/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         if(b!=null && b.getHeight()>b.getWidth()){
-          Matrix m=new Matrix();m.postRotate(-90);
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(-90);
           return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
@@ -248,15 +248,15 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      Matrix.perspectiveM(P,0,40,aspect,.1f,300f);Matrix.setLookAtM(V,0,0,62,72,0,-1,0,0,1,0);
-      Matrix.multiplyMM(pvCache,0,P,0,V,0);
+      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,300f);android.opengl.Matrix.setLookAtM(V,0,0,62,72,0,-1,0,0,1,0);
+      android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
       for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
       if(state!=ROLLING)drawPredictor(pvCache);
-      for(Ball b:balls)if(b.active){float[] M=identity();Matrix.translateM(M,0,b.x,2.22f,b.z);Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
+      for(Ball b:balls)if(b.active){float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,2.22f,b.z);android.opengl.Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
     }
 
     void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
-      if(m==null)return;float[] mvp=new float[16];Matrix.multiplyMM(mvp,0,pv,0,model,0);
+      if(m==null)return;float[] mvp=new float[16];android.opengl.Matrix.multiplyMM(mvp,0,pv,0,model,0);
       GLES20.glUniformMatrix4fv(uMvp,1,false,mvp,0);GLES20.glUniform4fv(uColor,1,color,0);GLES20.glUniform1f(uUseTex,texture!=0?1f:0f);
       if(texture!=0){GLES20.glActiveTexture(GLES20.GL_TEXTURE0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,texture);GLES20.glUniform1i(uTex,0);}
       GLES20.glEnableVertexAttribArray(aPos);GLES20.glVertexAttribPointer(aPos,3,GLES20.GL_FLOAT,false,0,m.pos);
@@ -319,8 +319,8 @@ public class MainActivity extends Activity {
     }
 
     float[] screenToTable(float sx,float sy,int w,int h){
-      float nx=2f*sx/w-1f,ny=1f-2f*sy/h;float[] inv=new float[16];if(!Matrix.invertM(inv,0,pvCache,0))return null;
-      float[] a={nx,ny,-1,1},b={nx,ny,1,1},wa=new float[4],wb=new float[4];Matrix.multiplyMV(wa,0,inv,0,a,0);Matrix.multiplyMV(wb,0,inv,0,b,0);
+      float nx=2f*sx/w-1f,ny=1f-2f*sy/h;float[] inv=new float[16];if(!android.opengl.Matrix.invertM(inv,0,pvCache,0))return null;
+      float[] a={nx,ny,-1,1},b={nx,ny,1,1},wa=new float[4],wb=new float[4];android.opengl.Matrix.multiplyMV(wa,0,inv,0,a,0);android.opengl.Matrix.multiplyMV(wb,0,inv,0,b,0);
       for(int i=0;i<3;i++){wa[i]/=wa[3];wb[i]/=wb[3];}
       float dy=wb[1]-wa[1];if(Math.abs(dy)<1e-5)return null;float t=(2.22f-wa[1])/dy;if(t<0)return null;
       return new float[]{wa[0]+(wb[0]-wa[0])*t,wa[2]+(wb[2]-wa[2])*t};
@@ -417,6 +417,6 @@ public class MainActivity extends Activity {
       float[] u={0,0,0,1,1,1,0,0,1,1,1,0};drawMesh(new Mesh(v,u),pv,identity(),0,new float[]{r,g,b,a});
     }
 
-    static float[] identity(){float[] m=new float[16];Matrix.setIdentityM(m,0);return m;}
+    static float[] identity(){float[] m=new float[16];android.opengl.Matrix.setIdentityM(m,0);return m;}
   }
 }
