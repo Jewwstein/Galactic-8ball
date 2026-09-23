@@ -24,10 +24,16 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Fetch original Galactic Unity table bundle
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12707506843866704649/88B0FF640B639E479D43D04957146C9CA95D3224/" -o app/src/main/assets/galactic_table.unity3d
+          test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
+          ls -lh app/src/main/assets/galactic_table.unity3d
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - run: gradle :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Galactic-8-Ball-v0.1
+          name: Galactic-8-Ball-Embedded-Real-Asset
           path: app/build/outputs/apk/debug/app-debug.apk
