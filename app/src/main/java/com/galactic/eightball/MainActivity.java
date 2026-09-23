@@ -73,19 +73,9 @@ public class MainActivity extends Activity {
     Bitmap loadHorizontal(Context c,String n){
       try(InputStream in=c.getAssets().open("ui/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
-        if(b==null)return null;
-        int minX=b.getWidth(),minY=b.getHeight(),maxX=-1,maxY=-1;
-        for(int yy=0;yy<b.getHeight();yy+=2)for(int xx=0;xx<b.getWidth();xx+=2){
-          if(Color.alpha(b.getPixel(xx,yy))>8){if(xx<minX)minX=xx;if(xx>maxX)maxX=xx;if(yy<minY)minY=yy;if(yy>maxY)maxY=yy;}
-        }
-        if(maxX>=minX&&maxY>=minY){
-          minX=Math.max(0,minX-2);minY=Math.max(0,minY-2);
-          maxX=Math.min(b.getWidth()-1,maxX+2);maxY=Math.min(b.getHeight()-1,maxY+2);
-          b=Bitmap.createBitmap(b,minX,minY,maxX-minX+1,maxY-minY+1);
-        }
-        if(b.getHeight()>b.getWidth()){
+        if(b!=null && b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
-          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+          return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
       }catch(Exception e){return null;}
@@ -192,14 +182,14 @@ public class MainActivity extends Activity {
     void updateWorldHiltGeometry(int w,int h,GameRenderer r,float pullPx){
       float[] cue=r.worldToScreen(r.balls.size()>0?r.balls.get(0).x:-20f,2.45f,r.balls.size()>0?r.balls.get(0).z:0f,w,h);
       if(cue==null){worldHiltRect.setEmpty();return;}
-      float backWorld=16.5f + pullPx/Math.max(10f,h*.030f);
+      float backWorld=14.8f + pullPx/Math.max(10f,h*.030f);
       float[] hp=r.worldToScreen(r.balls.get(0).x-r.aimX*backWorld,2.45f,r.balls.get(0).z-r.aimZ*backWorld,w,h);
       if(hp==null){worldHiltRect.setEmpty();return;}
       worldCueX=cue[0];worldCueY=cue[1];
       float dx=cue[0]-hp[0],dy=cue[1]-hp[1],d=(float)Math.sqrt(dx*dx+dy*dy);
       if(d<1){dx=1;dy=0;d=1;}
       worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
-      float len=Math.max(205f,h*.22f),thick=Math.max(84f,h*.086f);
+      float len=Math.max(185f,h*.195f),thick=Math.max(72f,h*.074f);
       float cx=hp[0],cy=hp[1];
       worldHiltRect.set(cx-len*.5f,cy-thick*.5f,cx+len*.5f,cy+thick*.5f);
     }
@@ -497,26 +487,28 @@ public class MainActivity extends Activity {
       createRail(MAXX,MINZ+cornerGap, MAXX,MAXZ-cornerGap);
     }
 
-    Body makeBallBody(float x,float z){
-      BodyDef bd=new BodyDef();bd.type=BodyType.DYNAMIC;bd.position.set(x,z);bd.bullet=true;
+    Body makeBallBody(float x,float z,boolean bullet){
+      BodyDef bd=new BodyDef();bd.type=BodyType.DYNAMIC;bd.position.set(x,z);bd.bullet=bullet;
       bd.linearDamping=0f;bd.angularDamping=.08f;
       Body body=world.createBody(bd);
       CircleShape shape=new CircleShape();shape.m_radius=R;
-      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.028f;fd.restitution=.92f;
+      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.015f;fd.restitution=.97f;
       body.createFixture(fd);body.setSleepingAllowed(true);
       return body;
     }
 
     void resetRack(){
       buildPhysicsWorld();balls.clear();physicsAccum=0;
-      Ball cue=new Ball(-20,0,tex.getOrDefault("ball0",0));cue.body=makeBallBody(cue.x,cue.z);balls.add(cue);
+      Ball cue=new Ball(-20,0,tex.getOrDefault("ball0",0));cue.body=makeBallBody(cue.x,cue.z,true);balls.add(cue);
 
-      // Original accepted TTS rack geometry. Every center-to-center spacing is
-      // greater than the 2.384 ball diameter, so the rack starts with ZERO overlap.
-      // The previous "imperfections" accidentally overlapped two pairs and the
-      // solver expelled the rear-right ball before/at impact.
-      float[][] p={{20f,0f},{22.09f,-1.21f},{22.09f,1.21f},{24.18f,-2.42f},{24.18f,0f},{24.18f,2.42f},{26.27f,-3.63f},{26.27f,-1.21f},{26.27f,1.21f},{26.27f,3.63f},{28.36f,-4.84f},{28.36f,-2.42f},{28.36f,0f},{28.36f,2.42f},{28.36f,4.84f}};
-      for(int i=0;i<15;i++){Ball b=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));b.body=makeBallBody(b.x,b.z);balls.add(b);}
+      // Tight billiards triangle: 0.004 units of clearance between neighbors.
+      // This transfers break energy through the full rack without starting overlapped.
+      float S=2.388f, HX=S*.5f, DX=S*.8660254f;
+      float[][] p={{20f,0f},{20f+DX,-HX},{20f+DX,HX},
+        {20f+2*DX,-S},{20f+2*DX,0f},{20f+2*DX,S},
+        {20f+3*DX,-3*HX},{20f+3*DX,-HX},{20f+3*DX,HX},{20f+3*DX,3*HX},
+        {20f+4*DX,-2*S},{20f+4*DX,-S},{20f+4*DX,0f},{20f+4*DX,S},{20f+4*DX,2*S}};
+      for(int i=0;i<15;i++){Ball b=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));b.body=makeBallBody(b.x,b.z,false);balls.add(b);}
       state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=1;aimZ=0;sideSpin=topSpin=0;
     }
 
@@ -543,7 +535,7 @@ public class MainActivity extends Activity {
     void beginWorldCharge(){if(state==CHARGING){power=0;chargePullPx=0;}}
     void updateWorldCharge(float pullPx,int h){
       if(state!=CHARGING)return;chargePullPx=pullPx;
-      power=Math.min(100f,pullPx/Math.max(100f,h*.34f)*100f);
+      power=Math.min(100f,pullPx/Math.max(85f,h*.18f)*100f);
     }
     void releaseWorldCharge(){
       if(state!=CHARGING)return;
@@ -555,7 +547,7 @@ public class MainActivity extends Activity {
       if(!cue.active){
         cue.active=true;cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);cue.x=-20;cue.z=0;
       }
-      float speed=power*.46f;
+      float speed=power*.52f;
       cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
       for(Ball b:balls)if(b.body!=null&&b.active)b.body.setAwake(true);
       sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
@@ -566,7 +558,7 @@ public class MainActivity extends Activity {
         Ball b=balls.get(i);if(!b.active||b.body==null||!b.body.isActive())continue;
         Vec2 v=b.body.getLinearVelocity();float sp=v.length();
         if(sp<.055f){b.body.setLinearVelocity(new Vec2());continue;}
-        float decel=(2.05f+.012f*sp)*(1f-(i==0?topSpin*.045f:0));
+        float decel=(.72f+.006f*sp)*(1f-(i==0?topSpin*.045f:0));
         float ns=Math.max(0,sp-decel*h);
         if(ns==0)b.body.setLinearVelocity(new Vec2());
         else{float sc=ns/sp;b.body.setLinearVelocity(new Vec2(v.x*sc,v.y*sc));}
