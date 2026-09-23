@@ -73,9 +73,19 @@ public class MainActivity extends Activity {
     Bitmap loadHorizontal(Context c,String n){
       try(InputStream in=c.getAssets().open("ui/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
-        if(b!=null && b.getHeight()>b.getWidth()){
+        if(b==null)return null;
+        int minX=b.getWidth(),minY=b.getHeight(),maxX=-1,maxY=-1;
+        for(int yy=0;yy<b.getHeight();yy+=2)for(int xx=0;xx<b.getWidth();xx+=2){
+          if(Color.alpha(b.getPixel(xx,yy))>8){if(xx<minX)minX=xx;if(xx>maxX)maxX=xx;if(yy<minY)minY=yy;if(yy>maxY)maxY=yy;}
+        }
+        if(maxX>=minX&&maxY>=minY){
+          minX=Math.max(0,minX-2);minY=Math.max(0,minY-2);
+          maxX=Math.min(b.getWidth()-1,maxX+2);maxY=Math.min(b.getHeight()-1,maxY+2);
+          b=Bitmap.createBitmap(b,minX,minY,maxX-minX+1,maxY-minY+1);
+        }
+        if(b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
-          return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
       }catch(Exception e){return null;}
@@ -182,14 +192,14 @@ public class MainActivity extends Activity {
     void updateWorldHiltGeometry(int w,int h,GameRenderer r,float pullPx){
       float[] cue=r.worldToScreen(r.balls.size()>0?r.balls.get(0).x:-20f,2.45f,r.balls.size()>0?r.balls.get(0).z:0f,w,h);
       if(cue==null){worldHiltRect.setEmpty();return;}
-      float backWorld=13.5f + pullPx/Math.max(10f,h*.030f);
+      float backWorld=16.5f + pullPx/Math.max(10f,h*.030f);
       float[] hp=r.worldToScreen(r.balls.get(0).x-r.aimX*backWorld,2.45f,r.balls.get(0).z-r.aimZ*backWorld,w,h);
       if(hp==null){worldHiltRect.setEmpty();return;}
       worldCueX=cue[0];worldCueY=cue[1];
       float dx=cue[0]-hp[0],dy=cue[1]-hp[1],d=(float)Math.sqrt(dx*dx+dy*dy);
       if(d<1){dx=1;dy=0;d=1;}
       worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
-      float len=Math.max(240f,h*.26f),thick=Math.max(105f,h*.105f);
+      float len=Math.max(205f,h*.22f),thick=Math.max(84f,h*.086f);
       float cx=hp[0],cy=hp[1];
       worldHiltRect.set(cx-len*.5f,cy-thick*.5f,cx+len*.5f,cy+thick*.5f);
     }
@@ -474,7 +484,7 @@ public class MainActivity extends Activity {
     }
 
     void buildPhysicsWorld(){
-      world=new World(new Vec2(0,0));
+      world=new World(new Vec2(0,0));world.setAllowSleep(true);world.setWarmStarting(true);world.setContinuousPhysics(true);
       BodyDef rd=new BodyDef();rd.type=BodyType.STATIC;railBody=world.createBody(rd);
 
       // Real pocket openings instead of a single sealed rectangular wall.
@@ -489,7 +499,7 @@ public class MainActivity extends Activity {
 
     Body makeBallBody(float x,float z){
       BodyDef bd=new BodyDef();bd.type=BodyType.DYNAMIC;bd.position.set(x,z);bd.bullet=true;
-      bd.linearDamping=.02f;bd.angularDamping=.10f;
+      bd.linearDamping=0f;bd.angularDamping=.08f;
       Body body=world.createBody(bd);
       CircleShape shape=new CircleShape();shape.m_radius=R;
       FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.028f;fd.restitution=.92f;
@@ -501,9 +511,11 @@ public class MainActivity extends Activity {
       buildPhysicsWorld();balls.clear();physicsAccum=0;
       Ball cue=new Ball(-20,0,tex.getOrDefault("ball0",0));cue.body=makeBallBody(cue.x,cue.z);balls.add(cue);
 
-      // Tiny deterministic rack imperfections prevent the unrealistic Newton-cradle
-      // energy channel that was sending only the rear corner balls flying.
-      float[][] p={{20,0},{22.07f,-1.205f},{22.11f,1.215f},{24.16f,-2.415f},{24.20f,.018f},{24.17f,2.425f},{26.25f,-3.625f},{26.30f,-1.198f},{26.24f,1.226f},{26.29f,3.638f},{28.34f,-4.835f},{28.39f,-2.405f},{28.33f,.012f},{28.40f,2.432f},{28.35f,4.848f}};
+      // Original accepted TTS rack geometry. Every center-to-center spacing is
+      // greater than the 2.384 ball diameter, so the rack starts with ZERO overlap.
+      // The previous "imperfections" accidentally overlapped two pairs and the
+      // solver expelled the rear-right ball before/at impact.
+      float[][] p={{20f,0f},{22.09f,-1.21f},{22.09f,1.21f},{24.18f,-2.42f},{24.18f,0f},{24.18f,2.42f},{26.27f,-3.63f},{26.27f,-1.21f},{26.27f,1.21f},{26.27f,3.63f},{28.36f,-4.84f},{28.36f,-2.42f},{28.36f,0f},{28.36f,2.42f},{28.36f,4.84f}};
       for(int i=0;i<15;i++){Ball b=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));b.body=makeBallBody(b.x,b.z);balls.add(b);}
       state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=1;aimZ=0;sideSpin=topSpin=0;
     }
@@ -545,7 +557,7 @@ public class MainActivity extends Activity {
       }
       float speed=power*.46f;
       cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
-      cue.body.setAwake(true);
+      for(Ball b:balls)if(b.body!=null&&b.active)b.body.setAwake(true);
       sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
     }
 
@@ -554,7 +566,7 @@ public class MainActivity extends Activity {
         Ball b=balls.get(i);if(!b.active||b.body==null||!b.body.isActive())continue;
         Vec2 v=b.body.getLinearVelocity();float sp=v.length();
         if(sp<.055f){b.body.setLinearVelocity(new Vec2());continue;}
-        float decel=(3.55f+.020f*sp)*(1f-(i==0?topSpin*.045f:0));
+        float decel=(2.05f+.012f*sp)*(1f-(i==0?topSpin*.045f:0));
         float ns=Math.max(0,sp-decel*h);
         if(ns==0)b.body.setLinearVelocity(new Vec2());
         else{float sc=ns/sp;b.body.setLinearVelocity(new Vec2(v.x*sc,v.y*sc));}
@@ -587,7 +599,7 @@ public class MainActivity extends Activity {
         int loops=0;
         while(physicsAccum>=FIXED_DT && loops<16){
           applyRollingResistance(FIXED_DT);
-          world.step(FIXED_DT,16,8);
+          world.step(FIXED_DT,24,12);
           syncBalls();
           applyCueSpinAtRails();
           for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
@@ -652,7 +664,7 @@ public class MainActivity extends Activity {
 
     void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      drawQuad(pv,x1,z1,x2,z2,1.95f,2.43f,r,g,b,.18f);drawQuad(pv,x1,z1,x2,z2,1.02f,2.445f,r,g,b,.72f);drawQuad(pv,x1,z1,x2,z2,.36f,2.46f,1,1,1,.98f);
+      drawQuad(pv,x1,z1,x2,z2,2.75f,2.43f,r,g,b,.20f);drawQuad(pv,x1,z1,x2,z2,1.45f,2.445f,r,g,b,.76f);drawQuad(pv,x1,z1,x2,z2,.52f,2.46f,1,1,1,.99f);
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
