@@ -30,7 +30,7 @@ jobs:
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12707506843866704649/88B0FF640B639E479D43D04957146C9CA95D3224/" -o app/src/main/assets/galactic_table.unity3d
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           ls -lh app/src/main/assets/galactic_table.unity3d
-      - uses: gradle/actions/setup-gradle@v4
+      - name: Extract original Unity assets\n        run: |\n          python -m pip install -q UnityPy Pillow\n          python tools/extract_unity.py\n          ls -lh app/src/main/assets/extracted || true\n      - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
       - run: gradle :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
