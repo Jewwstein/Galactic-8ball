@@ -1,5 +1,5 @@
 package com.galactic.eightball;
-import android.app.*;import android.os.*;import android.opengl.*;import android.content.*;import java.io.*;import java.nio.*;import java.util.*;
+import android.app.*;import javax.microedition.khronos.opengles.GL10;import javax.microedition.khronos.egl.EGLConfig;import android.os.*;import android.opengl.*;import android.content.*;import java.io.*;import java.nio.*;import java.util.*;
 public class MainActivity extends Activity{
  public void onCreate(Bundle b){super.onCreate(b);getWindow().setFlags(1024,1024);GLSurfaceView v=new GLSurfaceView(this);v.setEGLContextClientVersion(2);v.setRenderer(new R(this));setContentView(v);}
  static class M{FloatBuffer v;int n;M(float[]a){n=a.length/3;ByteBuffer b=ByteBuffer.allocateDirect(a.length*4).order(ByteOrder.nativeOrder());v=b.asFloatBuffer();v.put(a).position(0);}}
