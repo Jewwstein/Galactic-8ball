@@ -10,7 +10,7 @@ for obj in env.objects:
  if obj.type.name=="Texture2D":
   try:data.image.save(out/f"{obj.path_id}_{clean(name)}.png")
   except:pass
- if obj.type.name=="Mesh":
+ if obj.type.name=="Material":\n  try:\n   rec["texenvs"]=str(getattr(data,"m_SavedProperties",None))\n  except:pass\n if obj.type.name=="Mesh":
   try:
    with open(out/f"{obj.path_id}_{clean(name)}.obj","wt",newline="") as q:q.write(data.export())
   except Exception as e:print("MESHERR",obj.path_id,repr(e))
