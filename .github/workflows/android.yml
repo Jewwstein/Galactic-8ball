@@ -28,7 +28,7 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
-          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles
+          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
@@ -46,6 +46,19 @@ jobs:
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/11922640746717027681/3E7E3A685D08B8A6C454128DAEAA4F7422B133C8/" -o app/src/main/assets/bundles/14_Felucia.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12102627026755944649/0BD5B4C1F88FBE2C3400E58960CA9D5F38C58E5A/" -o app/src/main/assets/bundles/15_Dathomir.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18019963734976864613/033228830365C3C7DC6A809D52049D969D1BB303/" -o app/src/main/assets/bundles/00_DeathStar.unity3d
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/16592652791177328012/7952F99F19B694422DC410AB62236D57547DA00B/" -o app/src/main/assets/ui/hilt_default.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11541815155918764269/E6731AB62A972F13292D9837D076FAAAD63AC39B/" -o app/src/main/assets/ui/hilt_2.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/14809402903243454095/B801B8DBEC9866F37728D3647692CCAC6C861AA6/" -o app/src/main/assets/ui/hilt_crystal.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/14166142156015969094/7917862EB5284157EAE59FB820F182EB61499BEF/" -o app/src/main/assets/ui/hilt_double.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/10217183308198287965/2B389B21625CF09D34618AC1847A1B0A4BBF6347/" -o app/src/main/assets/ui/hilt_classic.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/10227699883064345710/4F0530A979BF4B09A213D0439D0E3126E44B13A3/" -o app/src/main/assets/ui/hilt_weathered.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11276006983226989350/CFB4E42B430A20C3DC6AD3959B556C3BCC51A7DA/" -o app/src/main/assets/ui/blade_dark.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/15601371395550036893/2145580FC350A1815612550D4538C26D39DC7C85/" -o app/src/main/assets/ui/blade_gold.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12320415776356535227/70C5F49BD2AC31F3FB7FAD572D434124A31AF9EE/" -o app/src/main/assets/ui/blade_purple.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/18413044388287686309/11ACF45720BA8B9BB48D2BDECFAD744CC9840FAB/" -o app/src/main/assets/ui/blade_green.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/9494571780957515383/6C134CAF718A941D2B536CA1152CBE86EF2AE0A0/" -o app/src/main/assets/ui/blade_red.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12253231560154659811/C5D4EE438F43ED139FCA39C5BC653143187A71E6/" -o app/src/main/assets/ui/blade_blue.png
+          file app/src/main/assets/ui/*
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           python -m pip install -q UnityPy Pillow
           python tools/extract_unity.py
