@@ -374,8 +374,9 @@ public class MainActivity extends Activity {
   }
 
   static class Ball{
-    float x,z,rotX,rotZ; boolean active=true; int tex; Body body;
+    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true; int tex;
     Ball(float X,float Z,int T){x=X;z=Z;tex=T;}
+    float speed2(){return vx*vx+vz*vz;}
   }
 
   static class GameRenderer implements GLSurfaceView.Renderer{
@@ -388,8 +389,13 @@ public class MainActivity extends Activity {
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
-    World world; Body railBody; float physicsAccum=0f;
-    static final float FIXED_DT=1f/240f;
+    float physicsAccum=0f;
+    static final float FIXED_DT=1f/360f;
+    static final float BALL_E=.925f;
+    static final float RAIL_E=.74f;
+    static final float ROLL_DECEL=5.7f;
+    static final float STOP_SPEED=.16f;
+    static final float CONTACT_EPS=.006f;
     final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
     final String[] objectFolders={"00_DeathStar","01_Tatooine","02_Kamino","03_Mustafar","04_Coruscant","05_Geonosis","06_Endor","07_Korriban","08_Exegol","09_Yavin","10_Bespin","11_Malastare","12_Kessel","13_Jakku","14_Felucia","15_Dathomir"};
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
@@ -456,7 +462,7 @@ public class MainActivity extends Activity {
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
         for(int i=0;i<6;i++){
           saberMeshes[i]=null;
-          try{saberTextures[i]=loadTexture("sabers/"+saberFolders[i]+"/blade.png");}catch(Exception e){saberTextures[i]=0;}
+          try{saberTextures[i]=loadSaberTexture("sabers/"+saberFolders[i]+"/blade.png");}catch(Exception e){saberTextures[i]=0;}
         }
       }catch(Exception e){e.printStackTrace();}
     }
@@ -469,7 +475,23 @@ public class MainActivity extends Activity {
       int[] id=new int[1];GLES20.glGenTextures(1,id,0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,id[0]);
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MIN_FILTER,GLES20.GL_LINEAR_MIPMAP_LINEAR);GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_REPEAT);GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_REPEAT);
-      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bmp,0);GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);bmp.recycle();return id[0];
+      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bmp,0);GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+      String ext=GLES20.glGetString(GLES20.GL_EXTENSIONS);
+      if(ext!=null&&ext.contains("GL_EXT_texture_filter_anisotropic")){
+        float[] maxA=new float[1];GLES20.glGetFloatv(0x84FF,maxA,0);
+        GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,0x84FE,Math.min(8f,maxA[0]));
+      }
+      bmp.recycle();return id[0];
+    }
+
+    int loadSaberTexture(String path)throws Exception{
+      Bitmap bmp;try(InputStream in=ctx.getAssets().open(path)){bmp=BitmapFactory.decodeStream(in);}if(bmp==null)throw new IOException(path);
+      int[] id=new int[1];GLES20.glGenTextures(1,id,0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,id[0]);
+      GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MIN_FILTER,GLES20.GL_LINEAR);
+      GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
+      GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE);
+      GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE);
+      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bmp,0);bmp.recycle();return id[0];
     }
 
     Mesh loadObj(String path)throws Exception{
@@ -501,55 +523,25 @@ public class MainActivity extends Activity {
       return new float[]{(nx*.5f+.5f)*w,(.5f-ny*.5f)*h};
     }
 
-    void createRail(float x1,float z1,float x2,float z2){
-      EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
-      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=.055f;fd.restitution=.70f;
-      railBody.createFixture(fd);
-    }
-
-    void buildPhysicsWorld(){
-      world=new World(new Vec2(0,0));world.setAllowSleep(true);world.setWarmStarting(true);world.setContinuousPhysics(true);
-      BodyDef rd=new BodyDef();rd.type=BodyType.STATIC;railBody=world.createBody(rd);
-
-      // Real pocket openings instead of a single sealed rectangular wall.
-      float cornerGap=4.6f,sideGap=3.4f;
-      createRail(MINX+cornerGap,MINZ, -sideGap,MINZ);
-      createRail(sideGap,MINZ, MAXX-cornerGap,MINZ);
-      createRail(MINX+cornerGap,MAXZ, -sideGap,MAXZ);
-      createRail(sideGap,MAXZ, MAXX-cornerGap,MAXZ);
-      createRail(MINX,MINZ+cornerGap, MINX,MAXZ-cornerGap);
-      createRail(MAXX,MINZ+cornerGap, MAXX,MAXZ-cornerGap);
-    }
-
-    Body makeBallBody(float x,float z,boolean bullet){
-      BodyDef bd=new BodyDef();bd.type=BodyType.DYNAMIC;bd.position.set(x,z);bd.bullet=bullet;
-      bd.linearDamping=0f;bd.angularDamping=.08f;
-      Body body=world.createBody(bd);
-      CircleShape shape=new CircleShape();shape.m_radius=R;
-      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.032f;fd.restitution=.90f;
-      body.createFixture(fd);body.setSleepingAllowed(true);
-      return body;
-    }
-
     void resetRack(){
-      buildPhysicsWorld();balls.clear();physicsAccum=0;
-      Ball cue=new Ball(-20,0,tex.getOrDefault("ball0",0));cue.body=makeBallBody(cue.x,cue.z,true);balls.add(cue);
+      balls.clear();physicsAccum=0;
+      balls.add(new Ball(-20f,0f,tex.getOrDefault("ball0",0)));
 
-      // Tight billiards triangle: 0.004 units of clearance between neighbors.
-      // This transfers break energy through the full rack without starting overlapped.
-      float S=2.388f, HX=S*.5f, DX=S*.8660254f;
-      float[][] p={{20f,0f},{20f+DX,-HX},{20f+DX,HX},
-        {20f+2*DX,-S},{20f+2*DX,0f},{20f+2*DX,S},
-        {20f+3*DX,-3*HX},{20f+3*DX,-HX},{20f+3*DX,HX},{20f+3*DX,3*HX},
-        {20f+4*DX,-2*S},{20f+4*DX,-S},{20f+4*DX,0f},{20f+4*DX,S},{20f+4*DX,2*S}};
-      for(int i=0;i<15;i++){Ball b=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));b.body=makeBallBody(b.x,b.z,false);balls.add(b);}
-      state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;breakAssistArmed=true;
+      // Tight triangle with a small non-overlap gap and microscopic deterministic
+      // asymmetry so a dead-center break does not become an artificial Newton cradle.
+      float S=2*R+.018f,HX=S*.5f,DX=S*.8660254f;
+      float[][] p={{20f,0f},{20f+DX,-HX-.002f},{20f+DX,HX+.002f},
+        {20f+2*DX,-S-.003f},{20f+2*DX,.003f},{20f+2*DX,S+.001f},
+        {20f+3*DX,-3*HX-.002f},{20f+3*DX,-HX+.002f},{20f+3*DX,HX-.001f},{20f+3*DX,3*HX+.003f},
+        {20f+4*DX,-2*S-.002f},{20f+4*DX,-S+.003f},{20f+4*DX,-.002f},{20f+4*DX,S+.001f},{20f+4*DX,2*S+.003f}};
+      for(int i=0;i<15;i++)balls.add(new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0)));
+      state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
       if(state!=AIMING||!allStopped())return;
       if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_MOVE||action==MotionEvent.ACTION_UP){
-        float[] q=screenToTable(sx,sy,w,h);if(q!=null){Ball cue=balls.get(0);if(cue.body!=null){Vec2 cp=cue.body.getPosition();cue.x=cp.x;cue.z=cp.y;}float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}}
+        float[] q=screenToTable(sx,sy,w,h);if(q!=null){Ball cue=balls.get(0);float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}}
       }
     }
 
@@ -578,113 +570,146 @@ public class MainActivity extends Activity {
 
     void executeShot(){
       Ball cue=balls.get(0);
-      if(!cue.active){
-        cue.active=true;cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);cue.x=-20;cue.z=0;
-      }
-      float speed=power*.33f;
-      cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
-      for(Ball b:balls)if(b.body!=null&&b.active)b.body.setAwake(true);
-      sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
+      if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
+      float speed=power*.47f;
+      cue.vx=aimX*speed;cue.vz=aimZ*speed;
+      cue.spin=englishX*speed*.06f;
+      sideSpin=englishX;topSpin=englishY;
+      state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
     }
 
-    void applyRollingResistance(float h){
-      for(int i=0;i<balls.size();i++){
-        Ball b=balls.get(i);if(!b.active||b.body==null||!b.body.isActive())continue;
-        Vec2 v=b.body.getLinearVelocity();float sp=v.length();
-        if(sp<.14f){b.body.setLinearVelocity(new Vec2());continue;}
-        float decel=(3.00f+.035f*sp)*(1f-(i==0?topSpin*.030f:0));
-        float ns=Math.max(0,sp-decel*h);
-        if(ns==0)b.body.setLinearVelocity(new Vec2());
-        else{float sc=ns/sp;b.body.setLinearVelocity(new Vec2(v.x*sc,v.y*sc));}
-      }
-    }
+    void advanceBalls(float dt){
+      for(Ball b:balls)if(b.active){
+        float ox=b.x,oz=b.z;
+        b.x+=b.vx*dt;b.z+=b.vz*dt;
+        b.rotX+=(b.z-oz)/R*57.29578f;b.rotZ-=(b.x-ox)/R*57.29578f;
 
-    void syncBalls(){
-      for(Ball b:balls)if(b.body!=null&&b.active){
-        Vec2 p=b.body.getPosition(),v=b.body.getLinearVelocity();
-        float dx=p.x-b.x,dz=p.y-b.z;b.x=p.x;b.z=p.y;
-        b.rotX+=dz/R*57.29578f;b.rotZ-=dx/R*57.29578f;
+        float sp=(float)Math.sqrt(b.speed2());
+        if(sp>0){
+          // Constant rolling resistance, scaled up slightly at high speed to remove
+          // the air-hockey glide without killing the break.
+          float dec=ROLL_DECEL*(1f+.018f*sp);
+          float ns=Math.max(0f,sp-dec*dt);
+          if(ns<STOP_SPEED){b.vx=b.vz=0;}
+          else{float q=ns/sp;b.vx*=q;b.vz*=q;}
+        }
+        b.spin*=Math.pow(.26,dt);
       }
     }
 
-    void applyCueSpinAtRails(){
-      // JBox2D handles impacts; this adds only the cue-ball English component.
-      if(Math.abs(sideSpin)<.01f||balls.isEmpty())return;
-      Ball c=balls.get(0);if(!c.active)return;
-      Vec2 p=c.body.getPosition(),v=c.body.getLinearVelocity();
-      boolean nearX=(p.x-R<MINX+.10f)||(p.x+R>MAXX-.10f);
-      boolean nearZ=(p.y-R<MINZ+.10f)||(p.y+R>MAXZ-.10f);
-      if(nearX)c.body.setLinearVelocity(new Vec2(v.x,v.y+sideSpin*Math.abs(v.x)*.030f));
-      else if(nearZ)c.body.setLinearVelocity(new Vec2(v.x-sideSpin*Math.abs(v.y)*.030f,v.y));
+    float ballCollisionTime(Ball a,Ball b,float maxT){
+      if(!a.active||!b.active)return Float.POSITIVE_INFINITY;
+      float rx=b.x-a.x,rz=b.z-a.z,rvx=b.vx-a.vx,rvz=b.vz-a.vz;
+      float target=2*R+CONTACT_EPS;
+      float A=rvx*rvx+rvz*rvz;
+      float B=2*(rx*rvx+rz*rvz);
+      float C=rx*rx+rz*rz-target*target;
+      if(C<=0)return 0f;
+      if(A<1e-8f||B>=0)return Float.POSITIVE_INFINITY;
+      float D=B*B-4*A*C;if(D<0)return Float.POSITIVE_INFINITY;
+      float t=(-B-(float)Math.sqrt(D))/(2*A);
+      return (t>=0&&t<=maxT)?t:Float.POSITIVE_INFINITY;
     }
 
-    void maybeDisperseBreak(){
-      if(!breakAssistArmed||balls.size()<16)return;
-      Ball cue=balls.get(0),apex=balls.get(1);
-      if(!cue.active||!apex.active)return;
-      Vec2 cp=cue.body.getPosition(),ap=apex.body.getPosition(),cv=cue.body.getLinearVelocity();
-      float dx=ap.x-cp.x,dz=ap.y-cp.y,dist2=dx*dx+dz*dz,sp=cv.length();
-      if(sp<14f||dist2>(2*R+.18f)*(2*R+.18f))return;
-      breakAssistArmed=false;
-      float rackCx=24.15f,rackCz=0f;
-      for(int i=1;i<balls.size();i++){
-        Ball b=balls.get(i);if(!b.active)continue;
-        Vec2 p=b.body.getPosition(),v=b.body.getLinearVelocity();
-        float rx=p.x-rackCx,rz=p.y-rackCz;
-        float n=(float)Math.sqrt(rx*rx+rz*rz);
-        if(n<.15f){rx=.20f;rz=((i&1)==0?.14f:-.14f);n=(float)Math.sqrt(rx*rx+rz*rz);}
-        rx/=n;rz/=n;
-        float row=Math.max(0f,Math.min(4f,(p.x-20f)/2.08f));
-        float outward=sp*(.022f+.0045f*row);
-        float forward=sp*.010f;
-        float jitter=((i%3)-1)*sp*.0035f;
-        b.body.setLinearVelocity(new Vec2(v.x+rx*outward+forward, v.y+rz*outward+jitter));
-        b.body.setAwake(true);
+    void separate(Ball a,Ball b){
+      float dx=b.x-a.x,dz=b.z-a.z,d=(float)Math.sqrt(dx*dx+dz*dz);
+      if(d<1e-6f){dx=1;dz=0;d=1;}
+      float target=2*R+CONTACT_EPS,over=target-d;
+      if(over>0){float nx=dx/d,nz=dz/d;a.x-=nx*over*.5f;a.z-=nz*over*.5f;b.x+=nx*over*.5f;b.z+=nz*over*.5f;}
+    }
+
+    void resolveBallCollision(Ball a,Ball b){
+      separate(a,b);
+      float dx=b.x-a.x,dz=b.z-a.z,d=(float)Math.sqrt(dx*dx+dz*dz);if(d<1e-6f)return;
+      float nx=dx/d,nz=dz/d,tx=-nz,tz=nx;
+      float v1n=a.vx*nx+a.vz*nz,v2n=b.vx*nx+b.vz*nz;
+      float rel=v1n-v2n;if(rel<=0)return;
+
+      // Pooltool/Alciatore-style equal-mass frictional inelastic collision:
+      // normal restitution plus a bounded tangential "throw" impulse.
+      float nv1=.5f*((1-BALL_E)*v1n+(1+BALL_E)*v2n);
+      float nv2=.5f*((1+BALL_E)*v1n+(1-BALL_E)*v2n);
+      float v1t=a.vx*tx+a.vz*tz,v2t=b.vx*tx+b.vz*tz;
+      float tangRel=(v1t-v2t)+R*(a.spin+b.spin);
+      float mu=.009951f+.108f*(float)Math.exp(-1.088f*Math.abs(tangRel));
+      float normalChange=Math.abs(nv2-v2n);
+      float jt=Math.min(mu*normalChange,Math.abs(tangRel)/7f)*Math.signum(tangRel);
+      v1t-=jt;v2t+=jt;
+      a.spin-=jt/R*.35f;b.spin-=jt/R*.35f;
+
+      a.vx=nv1*nx+v1t*tx;a.vz=nv1*nz+v1t*tz;
+      b.vx=nv2*nx+v2t*tx;b.vz=nv2*nz+v2t*tz;
+    }
+
+    void resolveTouchingCluster(){
+      for(int pass=0;pass<8;pass++){
+        boolean any=false;
+        for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
+          Ball a=balls.get(i),b=balls.get(j);if(!a.active||!b.active)continue;
+          float dx=b.x-a.x,dz=b.z-a.z,d2=dx*dx+dz*dz;
+          if(d2<=(2*R+CONTACT_EPS)*(2*R+CONTACT_EPS)){
+            float d=(float)Math.sqrt(Math.max(d2,1e-10f)),nx=dx/d,nz=dz/d;
+            if((a.vx-b.vx)*nx+(a.vz-b.vz)*nz>0){resolveBallCollision(a,b);any=true;}
+            else separate(a,b);
+          }
+        }
+        if(!any)break;
       }
+    }
+
+    void bounceRails(Ball b){
+      if(!b.active)return;
+      if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz+=b.spin*Math.abs(b.vx)*.05f;}
+      if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz-=b.spin*Math.abs(b.vx)*.05f;}
+      if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx-=b.spin*Math.abs(b.vz)*.05f;}
+      if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx+=b.spin*Math.abs(b.vz)*.05f;}
+    }
+
+    void physicsSlice(float dt){
+      float remain=dt;int events=0;
+      while(remain>1e-6f&&events<24){
+        float best=remain;Ball ca=null,cb=null;
+        for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
+          float t=ballCollisionTime(balls.get(i),balls.get(j),best);
+          if(t<best){best=t;ca=balls.get(i);cb=balls.get(j);}
+        }
+        advanceBalls(best);
+        for(Ball b:balls)bounceRails(b);
+        if(ca!=null){resolveBallCollision(ca,cb);resolveTouchingCluster();events++;}
+        else break;
+        remain-=best;
+        if(best<1e-6f)remain-=1e-5f;
+      }
+      if(remain>0){advanceBalls(remain);for(Ball b:balls)bounceRails(b);resolveTouchingCluster();}
+      for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
     }
 
     void step(float dt){
-      if(balls.isEmpty()||world==null)return;
+      if(balls.isEmpty())return;
       if(state==ROLLING){
-        physicsAccum=Math.min(.050f,physicsAccum+dt);
+        physicsAccum=Math.min(.06f,physicsAccum+dt);
         int loops=0;
-        while(physicsAccum>=FIXED_DT && loops<16){
-          applyRollingResistance(FIXED_DT);
-          world.step(FIXED_DT,24,12);
-          maybeDisperseBreak();
-          syncBalls();
-          applyCueSpinAtRails();
-          for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
-          sideSpin*=Math.pow(.22,FIXED_DT);topSpin*=Math.pow(.36,FIXED_DT);
-          physicsAccum-=FIXED_DT;loops++;
-        }
+        while(physicsAccum>=FIXED_DT&&loops<24){physicsSlice(FIXED_DT);physicsAccum-=FIXED_DT;loops++;}
         if(allStopped()){state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;physicsAccum=0;}
-      } else syncBalls();
+      }
     }
 
     void checkPocket(int index,Ball b){
-      if(!b.active||b.body==null)return;
-      Vec2 bp=b.body.getPosition();
+      if(!b.active)return;
       float[][] p={{MINX,MINZ},{0,MINZ},{MAXX,MINZ},{MINX,MAXZ},{0,MAXZ},{MAXX,MAXZ}};
       for(float[] q:p){
-        float dx=bp.x-q[0],dz=bp.y-q[1];
-        if(dx*dx+dz*dz<9.0f){
-          b.body.setLinearVelocity(new Vec2());b.body.setAngularVelocity(0);
-          if(index==0){
-            b.body.setTransform(new Vec2(-20,0),0);b.body.setActive(true);b.active=true;b.x=-20;b.z=0;
-          }else{
-            b.body.setActive(false);b.active=false;
-          }
+        float dx=b.x-q[0],dz=b.z-q[1];
+        if(dx*dx+dz*dz<8.4f){
+          b.vx=b.vz=b.spin=0;
+          if(index==0){b.x=-20;b.z=0;b.active=true;}
+          else b.active=false;
           return;
         }
       }
     }
 
     boolean allStopped(){
-      for(Ball b:balls)if(b.active&&b.body!=null){
-        Vec2 v=b.body.getLinearVelocity();
-        if(v.lengthSquared()>.010f)return false;
-      }
+      for(Ball b:balls)if(b.active&&b.speed2()>STOP_SPEED*STOP_SPEED)return false;
       return true;
     }
 
@@ -718,19 +743,27 @@ public class MainActivity extends Activity {
       int idx=Math.max(0,Math.min(5,bladeIndex));
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
-      float[] nativeAspect={67f/485f,90f/485f,84f/485f,79f/485f,75f/485f,78f/485f};
-      float width=10f*nativeAspect[idx]; // actual TTS blade texture proportions at a 10-unit native blade
       int texture=saberTextures[idx];
+      float width=1.10f;
 
+      GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+
+      // Soft halo.
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      drawTexturedBlade(texture,pv,x1,z1,len,angle,width*1.45f,.28f);
-      drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.00f);
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width*1.55f,.34f,2.49f);
+
+      // Native AssetBundle texture with its baked WHITE CORE intact.
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.0f,2.52f);
+
+      GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(true);
     }
 
-    void drawTexturedBlade(int texture,float[] pv,float x,float z,float len,float angle,float width,float alpha){
-      float[] v={0,2.47f,-.5f, 0,2.47f,.5f, 1,2.47f,.5f, 0,2.47f,-.5f, 1,2.47f,.5f, 1,2.47f,-.5f};
-      float[] u={0,1,0,0,1,0,0,1,1,0,1,1};
+    void drawTexturedBlade(int texture,float[] pv,float x,float z,float len,float angle,float width,float alpha,float y){
+      float[] v={0,y,-.5f, 0,y,.5f, 1,y,.5f, 0,y,-.5f, 1,y,.5f, 1,y,-.5f};
+      // The original AssetBundle PNG is vertical (long axis = V), so map V along
+      // segment length and U across blade width. The old mapping rotated/crushed it.
+      float[] u={0,1, 1,1, 1,0, 0,1, 1,0, 0,0};
       Mesh q=new Mesh(v,u);
       float[] M=identity();android.opengl.Matrix.translateM(M,0,x,0,z);android.opengl.Matrix.rotateM(M,0,angle,0,1,0);android.opengl.Matrix.scaleM(M,0,len,1,width);
       drawMesh(q,pv,M,texture,new float[]{1,1,1,alpha});
