@@ -11,4 +11,3 @@ public class MainActivity extends Activity{
  public void onSurfaceChanged(GL10 g,int w,int h){GLES20.glViewport(0,0,w,h);}
  public void onDrawFrame(GL10 g){GLES20.glClear(16640);GLES20.glUseProgram(pr);float[]P=new float[16],V=new float[16],M=new float[16],PV=new float[16];Matrix.perspectiveM(P,0,45,2.0f,.1f,200);Matrix.setLookAtM(V,0,0,22,28,0,0,0,0,1,0);Matrix.multiplyMM(PV,0,P,0,V,0);Matrix.setIdentityM(M,0);Matrix.rotateM(M,0,ang,0,1,0);float[]F=new float[16];Matrix.multiplyMM(F,0,PV,0,M,0);int u=GLES20.glGetUniformLocation(pr,"m"),p=GLES20.glGetAttribLocation(pr,"p");GLES20.glUniformMatrix4fv(u,1,false,F,0);GLES20.glEnableVertexAttribArray(p);for(M m:ms){GLES20.glVertexAttribPointer(p,3,5126,false,0,m.v);GLES20.glDrawArrays(4,0,m.n);}GLES20.glDisableVertexAttribArray(p);ang+=.05f;}
  }}
-}
