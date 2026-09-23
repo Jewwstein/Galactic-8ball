@@ -45,9 +45,11 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),hiltRect=new RectF(),bladeRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
+    RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false;
+    boolean touchingEnglish=false,menuOpen=false,camGesture=false;
+    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0;
 
     final String[] hiltFiles={"hilt_default.png","hilt_2.png","hilt_crystal.png","hilt_double.png","hilt_classic.png","hilt_weathered.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
@@ -57,7 +59,7 @@ public class MainActivity extends Activity {
     HudView(Context c,GameView g){
       super(c);game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
-      for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadHorizontal(c,bladeFiles[i]);}
+      for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadHorizontal(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
     }
 
     Bitmap loadHorizontal(Context c,String n){
@@ -76,13 +78,13 @@ public class MainActivity extends Activity {
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
       float ui=Math.max(1f,h/720f);
 
-      hiltRect.set(28*ui,24*ui,170*ui,78*ui);
-      bladeRect.set(182*ui,24*ui,324*ui,78*ui);
+      saberMenuRect.set(28*ui,24*ui,190*ui,78*ui);
+      rackRect.set(202*ui,24*ui,352*ui,78*ui);
       lockRect.set(w-142*ui,24*ui,w-28*ui,138*ui);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      drawButton(c,hiltRect,"HILT: "+hiltNames[r.hiltIndex],18*ui,0xCC10151F);
-      drawButton(c,bladeRect,"BLADE: "+bladeNames[r.bladeIndex],18*ui,0xCC10151F);
+      drawButton(c,saberMenuRect,"SABER MENU",17*ui,0xCC10151F);
+      drawButton(c,rackRect,"NEW RACK",17*ui,0xCC3A1010);
 
       if(r.state==GameRenderer.AIMING){
         drawCrosshairButton(c,lockRect,ui);
@@ -96,6 +98,9 @@ public class MainActivity extends Activity {
         p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
         c.drawText("BALLS ROLLING",w*.5f,42*ui,p);
       }
+      p.setTextSize(13*ui);p.setColor(0xBBD1D5DB);p.setTextAlign(Paint.Align.CENTER);
+      c.drawText("2 FINGERS: ORBIT CAMERA   •   PINCH: ZOOM",w*.5f,h-12*ui,p);
+      if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
     }
 
@@ -104,6 +109,34 @@ public class MainActivity extends Activity {
       stroke.setColor(0xAAFFFFFF);stroke.setStrokeWidth(2);c.drawRoundRect(rr,14,14,stroke);
       p.setColor(Color.WHITE);p.setTextSize(fs);p.setTextAlign(Paint.Align.CENTER);
       c.drawText(text,rr.centerX(),rr.centerY()+fs*.34f,p);
+    }
+
+    void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
+      float pw=Math.min(w*.78f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
+      RectF panel=new RectF(x,y,x+pw,y+ph);
+      p.setColor(0xF010141C);p.setStyle(Paint.Style.FILL);c.drawRoundRect(panel,24,24,p);
+      stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24,24,stroke);
+      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(22*ui);p.setColor(Color.WHITE);
+      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
+      p.setTextSize(14*ui);p.setColor(0xFFD1D5DB);c.drawText("HILT",x+45*ui,y+75*ui,p);c.drawText("BLADE",x+45*ui,y+235*ui,p);
+      float gap=12*ui,cw=(pw-56*ui-gap*5)/6f;
+      for(int i=0;i<6;i++){
+        float lx=x+28*ui+i*(cw+gap);
+        hiltChoices[i].set(lx,y+88*ui,lx+cw,y+198*ui);
+        bladeChoices[i].set(lx,y+248*ui,lx+cw,y+360*ui);
+        int hb=(i==r.hiltIndex)?0xCC5B4514:0xAA171C25;
+        int bb=(i==r.bladeIndex)?0xCC5B4514:0xAA171C25;
+        p.setColor(hb);c.drawRoundRect(hiltChoices[i],12,12,p);
+        p.setColor(bb);c.drawRoundRect(bladeChoices[i],12,12,p);
+        stroke.setColor(i==r.hiltIndex?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(i==r.hiltIndex?3*ui:1.5f*ui);c.drawRoundRect(hiltChoices[i],12,12,stroke);
+        stroke.setColor(i==r.bladeIndex?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(i==r.bladeIndex?3*ui:1.5f*ui);c.drawRoundRect(bladeChoices[i],12,12,stroke);
+        if(hilts[i]!=null){RectF img=new RectF(hiltChoices[i].left+5*ui,hiltChoices[i].top+19*ui,hiltChoices[i].right-5*ui,hiltChoices[i].bottom-27*ui);c.drawBitmap(hilts[i],null,img,p);}
+        if(blades[i]!=null){RectF img=new RectF(bladeChoices[i].left+7*ui,bladeChoices[i].top+32*ui,bladeChoices[i].right-7*ui,bladeChoices[i].top+57*ui);c.drawBitmap(blades[i],null,img,p);}
+        p.setTextSize(10*ui);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);
+        c.drawText(hiltNames[i],hiltChoices[i].centerX(),hiltChoices[i].bottom-9*ui,p);
+        c.drawText(bladeNames[i],bladeChoices[i].centerX(),bladeChoices[i].bottom-9*ui,p);
+      }
+      p.setTextSize(13*ui);p.setColor(0xFFB9C1CC);c.drawText("Tap SABER MENU again to close",w*.5f,y+ph-18*ui,p);
     }
 
     void drawCrosshairButton(Canvas c,RectF rr,float ui){
@@ -158,9 +191,42 @@ public class MainActivity extends Activity {
     public boolean onTouchEvent(MotionEvent e){
       final int a=e.getActionMasked();final float x=e.getX(),y=e.getY();final int w=getWidth(),h=getHeight();
       final GameRenderer r=game.r;
+
+      // Two-finger camera control always wins: drag to orbit, pinch to zoom.
+      if(e.getPointerCount()>=2 || camGesture){
+        if((a==MotionEvent.ACTION_POINTER_DOWN||a==MotionEvent.ACTION_DOWN) && e.getPointerCount()>=2){
+          camGesture=true;
+          float x0=e.getX(0),y0=e.getY(0),x1=e.getX(1),y1=e.getY(1);
+          camPrevMidX=(x0+x1)*.5f;camPrevMidY=(y0+y1)*.5f;
+          float dx=x1-x0,dy=y1-y0;camPrevDist=(float)Math.sqrt(dx*dx+dy*dy);
+          return true;
+        }
+        if(a==MotionEvent.ACTION_MOVE && e.getPointerCount()>=2){
+          float x0=e.getX(0),y0=e.getY(0),x1=e.getX(1),y1=e.getY(1);
+          float midX=(x0+x1)*.5f,midY=(y0+y1)*.5f,dx=x1-x0,dy=y1-y0;
+          float dist=(float)Math.sqrt(dx*dx+dy*dy);
+          final float dragX=midX-camPrevMidX,dragY=midY-camPrevMidY;
+          final float pinch=(camPrevDist>8)?dist/camPrevDist:1f;
+          camPrevMidX=midX;camPrevMidY=midY;camPrevDist=dist;
+          game.queueEvent(()->r.cameraGesture(dragX,dragY,pinch));
+          return true;
+        }
+        if(a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
+          if(e.getPointerCount()<=2)camGesture=false;
+          return true;
+        }
+      }
+
       if(a==MotionEvent.ACTION_DOWN){
-        if(hiltRect.contains(x,y)){game.queueEvent(()->r.hiltIndex=(r.hiltIndex+1)%6);return true;}
-        if(bladeRect.contains(x,y)){game.queueEvent(()->r.bladeIndex=(r.bladeIndex+1)%6);return true;}
+        if(saberMenuRect.contains(x,y)){menuOpen=!menuOpen;return true;}
+        if(rackRect.contains(x,y)){menuOpen=false;game.queueEvent(()->r.resetRack());return true;}
+        if(menuOpen){
+          for(int i=0;i<6;i++){
+            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.hiltIndex=k);return true;}
+            if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.bladeIndex=k);return true;}
+          }
+          return true;
+        }
         if(r.state==GameRenderer.AIMING && lockRect.contains(x,y)){game.queueEvent(()->r.lockAngle());return true;}
         if(r.state==GameRenderer.SELECTING_ENGLISH){
           float dx=x-englishCx,dy=y-englishCy;
@@ -169,6 +235,7 @@ public class MainActivity extends Activity {
           if(cancelRect.contains(x,y)){game.queueEvent(()->r.cancelEnglish());return true;}
         }
       }
+      if(menuOpen)return true;
       if(r.state==GameRenderer.SELECTING_ENGLISH && touchingEnglish){
         if(a==MotionEvent.ACTION_MOVE)setEnglishFromTouch(x,y);
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL)touchingEnglish=false;
@@ -207,7 +274,7 @@ public class MainActivity extends Activity {
   }
 
   static class Ball{
-    float x,z,vx,vz; boolean active=true; int tex;
+    float x,z,vx,vz,rotX,rotZ; boolean active=true; int tex;
     Ball(float X,float Z,int T){x=X;z=Z;tex=T;}
   }
 
@@ -217,6 +284,7 @@ public class MainActivity extends Activity {
     Mesh sphere; HashMap<String,Integer> tex=new HashMap<>();
     int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
+    volatile float camYaw=0f,camPitch=41f,camDist=96f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0;
@@ -248,11 +316,14 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,300f);android.opengl.Matrix.setLookAtM(V,0,0,62,72,0,-1,0,0,1,0);
+      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
+      float yaw=(float)Math.toRadians(camYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*camDist;
+      float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*camDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
+      android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
       for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
       if(state!=ROLLING)drawPredictor(pvCache);
-      for(Ball b:balls)if(b.active){float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,2.22f,b.z);android.opengl.Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
+      for(Ball b:balls)if(b.active){float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,2.22f,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
     }
 
     void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
@@ -304,6 +375,12 @@ public class MainActivity extends Activity {
     }
     int parseIndex(String s,int size){int i=Integer.parseInt(s);return i<0?size+i:i-1;}
 
+    void cameraGesture(float dragX,float dragY,float pinch){
+      camYaw-=dragX*.16f;
+      camPitch=Math.max(18f,Math.min(78f,camPitch+dragY*.12f));
+      if(pinch>.01f)camDist=Math.max(48f,Math.min(150f,camDist/pinch));
+    }
+
     void resetRack(){
       balls.clear();balls.add(new Ball(-20,0,tex.getOrDefault("ball0",0)));
       float[][] p={{20,0},{22.09f,-1.21f},{22.09f,1.21f},{24.18f,-2.42f},{24.18f,0},{24.18f,2.42f},{26.27f,-3.63f},{26.27f,-1.21f},{26.27f,1.21f},{26.27f,3.63f},{28.36f,-4.84f},{28.36f,-2.42f},{28.36f,0},{28.36f,2.42f},{28.36f,4.84f}};
@@ -342,24 +419,30 @@ public class MainActivity extends Activity {
 
     void executeShot(){
       Ball cue=balls.get(0);if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
-      float speed=power*.34f;cue.vx=aimX*speed;cue.vz=aimZ*speed;sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargeStartY=-1;
+      float speed=power*.18f;cue.vx=aimX*speed;cue.vz=aimZ*speed;sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargeStartY=-1;
     }
 
     void step(float dt){
       if(balls.isEmpty())return;
       if(state==ROLLING){
-        float base=Math.max(.19f,Math.min(.39f,.29f+topSpin*.055f));float damp=(float)Math.pow(base,dt);
         for(Ball b:balls)if(b.active){
-          b.x+=b.vx*dt*3.2f;b.z+=b.vz*dt*3.2f;b.vx*=damp;b.vz*=damp;
-          if(Math.abs(b.vx)<.012)b.vx=0;if(Math.abs(b.vz)<.012)b.vz=0;
-          if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*.88f;b.vz+=sideSpin*Math.abs(b.vx)*.16f;}
-          if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*.88f;b.vz-=sideSpin*Math.abs(b.vx)*.16f;}
-          if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*.88f;b.vx-=sideSpin*Math.abs(b.vz)*.16f;}
-          if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*.88f;b.vx+=sideSpin*Math.abs(b.vz)*.16f;}
+          float moveX=b.vx*dt,moveZ=b.vz*dt;
+          b.x+=moveX;b.z+=moveZ;
+          b.rotX+=moveZ/R*57.29578f;b.rotZ-=moveX/R*57.29578f;
+          float sp=(float)Math.sqrt(b.vx*b.vx+b.vz*b.vz);
+          if(sp>0){
+            float decel=(1.55f+.025f*sp)*(1f-topSpin*.08f);
+            float ns=Math.max(0,sp-decel*dt),sc=ns/sp;b.vx*=sc;b.vz*=sc;
+          }
+          if(Math.abs(b.vx)<.02)b.vx=0;if(Math.abs(b.vz)<.02)b.vz=0;
+          if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*.78f;b.vz+=sideSpin*Math.abs(b.vx)*.10f;}
+          if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*.78f;b.vz-=sideSpin*Math.abs(b.vx)*.10f;}
+          if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*.78f;b.vx-=sideSpin*Math.abs(b.vz)*.10f;}
+          if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*.78f;b.vx+=sideSpin*Math.abs(b.vz)*.10f;}
         }
         for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++)collide(balls.get(i),balls.get(j));
         for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
-        sideSpin*=Math.pow(.45,dt);topSpin*=Math.pow(.55,dt);
+        sideSpin*=Math.pow(.30,dt);topSpin*=Math.pow(.42,dt);
         if(allStopped()){state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;}
       }
     }
@@ -367,8 +450,8 @@ public class MainActivity extends Activity {
     void collide(Ball a,Ball b){
       if(!a.active||!b.active)return;float dx=b.x-a.x,dz=b.z-a.z,d2=dx*dx+dz*dz,min=2*R;if(d2<=0||d2>=min*min)return;
       float d=(float)Math.sqrt(d2),nx=dx/d,nz=dz/d,over=min-d;a.x-=nx*over*.5f;a.z-=nz*over*.5f;b.x+=nx*over*.5f;b.z+=nz*over*.5f;
-      float rel=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;if(rel<0){float imp=-rel*.98f;a.vx-=imp*nx;a.vz-=imp*nz;b.vx+=imp*nx;b.vz+=imp*nz;
-        Ball cue=balls.get(0);if(a==cue){a.vx+=nx*topSpin*3.0f;a.vz+=nz*topSpin*3.0f;}else if(b==cue){b.vx-=nx*topSpin*3.0f;b.vz-=nz*topSpin*3.0f;}
+      float rel=(b.vx-a.vx)*nx+(b.vz-a.vz)*nz;if(rel<0){float imp=-rel*.96f;a.vx-=imp*nx;a.vz-=imp*nz;b.vx+=imp*nx;b.vz+=imp*nz;
+        Ball cue=balls.get(0);if(a==cue){a.vx+=nx*topSpin*1.8f;a.vz+=nz*topSpin*1.8f;}else if(b==cue){b.vx-=nx*topSpin*1.8f;b.vz-=nz*topSpin*1.8f;}
       }
     }
 
