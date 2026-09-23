@@ -27,6 +27,6 @@ for obj in env.objects:
                         for v in verts:q.write(f"v {v[0]} {v[1]} {v[2]}\n")
                         for i in range(0,len(inds)-2,3):q.write(f"f {inds[i]+1} {inds[i+1]+1} {inds[i+2]+1}\n")
             except: pass
-(out/"inventory.json").write_text(json.dumps(inv,indent=2))
+(out/"inventory.json").write_text(json.dumps(inv,indent=2))\nfor x in inv:\n    if x["type"]=="Mesh": print("MESHDBG",json.dumps(x))
 print("objects",len(inv),"textures",len(list(out.glob("*.png"))),"meshes",len(list(out.glob("*.obj"))))
 print("types",json.dumps({t:sum(1 for x in inv if x["type"]==t) for t in sorted(set(x["type"] for x in inv))}))
