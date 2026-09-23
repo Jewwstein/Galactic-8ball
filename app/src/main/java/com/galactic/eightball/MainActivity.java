@@ -182,14 +182,14 @@ public class MainActivity extends Activity {
     void updateWorldHiltGeometry(int w,int h,GameRenderer r,float pullPx){
       float[] cue=r.worldToScreen(r.balls.size()>0?r.balls.get(0).x:-20f,2.45f,r.balls.size()>0?r.balls.get(0).z:0f,w,h);
       if(cue==null){worldHiltRect.setEmpty();return;}
-      float backWorld=14.8f + pullPx/Math.max(10f,h*.030f);
+      float backWorld=14.2f + pullPx/Math.max(10f,h*.030f);
       float[] hp=r.worldToScreen(r.balls.get(0).x-r.aimX*backWorld,2.45f,r.balls.get(0).z-r.aimZ*backWorld,w,h);
       if(hp==null){worldHiltRect.setEmpty();return;}
       worldCueX=cue[0];worldCueY=cue[1];
       float dx=cue[0]-hp[0],dy=cue[1]-hp[1],d=(float)Math.sqrt(dx*dx+dy*dy);
       if(d<1){dx=1;dy=0;d=1;}
       worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
-      float len=Math.max(185f,h*.195f),thick=Math.max(72f,h*.074f);
+      float len=Math.max(150f,h*.158f),thick=Math.max(58f,h*.060f);
       float cx=hp[0],cy=hp[1];
       worldHiltRect.set(cx-len*.5f,cy-thick*.5f,cx+len*.5f,cy+thick*.5f);
     }
@@ -357,7 +357,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=0f,camPitch=41f,camDist=128f,camTargetX=0f,camTargetZ=0f;
@@ -368,7 +368,8 @@ public class MainActivity extends Activity {
     static final float FIXED_DT=1f/240f;
     final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
     final String[] objectFolders={"00_DeathStar","01_Tatooine","02_Kamino","03_Mustafar","04_Coruscant","05_Geonosis","06_Endor","07_Korriban","08_Exegol","09_Yavin","10_Bespin","11_Malastare","12_Kessel","13_Jakku","14_Felucia","15_Dathomir"};
-    final float[][] bladeRgb={{.75f,.78f,.85f},{1f,.68f,.12f},{.65f,.22f,1f},{.15f,1f,.38f},{1f,.10f,.08f},{.18f,.62f,1f}};
+    final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
+    final String[] saberFolders={"white","gold","purple","green","red","blue"};
 
     GameRenderer(Context c){ctx=c;}
 
@@ -424,6 +425,10 @@ public class MainActivity extends Activity {
         addTable("-4920293310515908916_default.obj",null,.063f,.063f,.063f);addTable("6851484603853778718_default.obj",null,.9f,.92f,.96f);addTable("6459398429916909974_default.obj",null,.8f,.8f,.8f);
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
+        for(int i=0;i<6;i++){
+          try{saberMeshes[i]=loadObj("sabers/"+saberFolders[i]+"/blade.obj");}catch(Exception e){saberMeshes[i]=null;}
+          try{saberTextures[i]=loadTexture("sabers/"+saberFolders[i]+"/blade.png");}catch(Exception e){saberTextures[i]=0;}
+        }
       }catch(Exception e){e.printStackTrace();}
     }
 
@@ -469,7 +474,7 @@ public class MainActivity extends Activity {
 
     void createRail(float x1,float z1,float x2,float z2){
       EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
-      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=.035f;fd.restitution=.78f;
+      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=.045f;fd.restitution=.72f;
       railBody.createFixture(fd);
     }
 
@@ -492,7 +497,7 @@ public class MainActivity extends Activity {
       bd.linearDamping=0f;bd.angularDamping=.08f;
       Body body=world.createBody(bd);
       CircleShape shape=new CircleShape();shape.m_radius=R;
-      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.015f;fd.restitution=.97f;
+      FixtureDef fd=new FixtureDef();fd.shape=shape;fd.density=1f;fd.friction=.020f;fd.restitution=.92f;
       body.createFixture(fd);body.setSleepingAllowed(true);
       return body;
     }
@@ -547,7 +552,7 @@ public class MainActivity extends Activity {
       if(!cue.active){
         cue.active=true;cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);cue.x=-20;cue.z=0;
       }
-      float speed=power*.52f;
+      float speed=power*.34f;
       cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
       for(Ball b:balls)if(b.body!=null&&b.active)b.body.setAwake(true);
       sideSpin=englishX;topSpin=englishY;state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
@@ -557,8 +562,8 @@ public class MainActivity extends Activity {
       for(int i=0;i<balls.size();i++){
         Ball b=balls.get(i);if(!b.active||b.body==null||!b.body.isActive())continue;
         Vec2 v=b.body.getLinearVelocity();float sp=v.length();
-        if(sp<.055f){b.body.setLinearVelocity(new Vec2());continue;}
-        float decel=(.72f+.006f*sp)*(1f-(i==0?topSpin*.045f:0));
+        if(sp<.18f){b.body.setLinearVelocity(new Vec2());continue;}
+        float decel=(2.35f+.028f*sp)*(1f-(i==0?topSpin*.035f:0));
         float ns=Math.max(0,sp-decel*h);
         if(ns==0)b.body.setLinearVelocity(new Vec2());
         else{float sc=ns/sp;b.body.setLinearVelocity(new Vec2(v.x*sc,v.y*sc));}
@@ -655,15 +660,37 @@ public class MainActivity extends Activity {
     }
 
     void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
+      int idx=Math.max(0,Math.min(5,bladeIndex));
+      Mesh mesh=saberMeshes[idx];
+      if(mesh==null){drawFallbackBlade(pv,x1,z1,x2,z2,r,g,b);return;}
+      float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
+      float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      drawQuad(pv,x1,z1,x2,z2,2.75f,2.43f,r,g,b,.20f);drawQuad(pv,x1,z1,x2,z2,1.45f,2.445f,r,g,b,.76f);drawQuad(pv,x1,z1,x2,z2,.52f,2.46f,1,1,1,.99f);
+
+      // Two passes of the ORIGINAL TTS blade geometry: a soft emissive shell and
+      // its bright native core. No layered neon rectangles.
+      drawSaberMeshPass(mesh,saberTextures[idx],pv,x1,z1,len,angle,31f,r,g,b,.16f);
+      drawSaberMeshPass(mesh,saberTextures[idx],pv,x1,z1,len,angle,23f,1f,1f,1f,.94f);
+
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    void drawQuad(float[] pv,float x1,float z1,float x2,float z2,float width,float y,float r,float g,float b,float a){
-      float dx=x2-x1,dz=z2-z1,d=(float)Math.sqrt(dx*dx+dz*dz);if(d<.02)return;float px=-dz/d*width*.5f,pz=dx/d*width*.5f;
-      float[] v={x1+px,y,z1+pz,x1-px,y,z1-pz,x2-px,y,z2-pz,x1+px,y,z1+pz,x2-px,y,z2-pz,x2+px,y,z2+pz};
-      float[] u={0,0,0,1,1,1,0,0,1,1,1,0};drawMesh(new Mesh(v,u),pv,identity(),0,new float[]{r,g,b,a});
+    void drawSaberMeshPass(Mesh mesh,int texture,float[] pv,float x,float z,float len,float angle,float cross,float r,float g,float b,float a){
+      float[] M=identity();
+      android.opengl.Matrix.translateM(M,0,x,2.47f,z);
+      android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
+      android.opengl.Matrix.scaleM(M,0,len,cross,cross);
+      drawMesh(mesh,pv,M,texture,new float[]{r,g,b,a});
+    }
+
+    void drawFallbackBlade(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
+      float dx=x2-x1,dz=z2-z1,d=(float)Math.sqrt(dx*dx+dz*dz);if(d<.02)return;
+      float px=-dz/d*.42f,pz=dx/d*.42f;
+      float[] v={x1+px,2.46f,z1+pz,x1-px,2.46f,z1-pz,x2-px,2.46f,z2-pz,x1+px,2.46f,z1+pz,x2-px,2.46f,z2-pz,x2+px,2.46f,z2+pz};
+      float[] u={0,0,0,1,1,1,0,0,1,1,1,0};
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+      drawMesh(new Mesh(v,u),pv,identity(),0,new float[]{r,g,b,.88f});
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
     }
 
     static float[] identity(){float[] m=new float[16];android.opengl.Matrix.setIdentityM(m,0);return m;}
