@@ -32,6 +32,10 @@ public class MainActivity extends Activity {
     game=new GameView(this);
     hud=new HudView(this,game);
     FrameLayout root=new FrameLayout(this);
+    ImageView space=new ImageView(this);
+    space.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    try(InputStream in=getAssets().open("environment/sky.jpg")){space.setImageBitmap(BitmapFactory.decodeStream(in));}catch(Exception ignored){space.setBackgroundColor(Color.BLACK);}
+    root.addView(space,new FrameLayout.LayoutParams(-1,-1));
     root.addView(game,new FrameLayout.LayoutParams(-1,-1));
     root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
     setContentView(root);
@@ -42,6 +46,9 @@ public class MainActivity extends Activity {
     GameView(Context c){
       super(c);
       setEGLContextClientVersion(2);
+      setEGLConfigChooser(8,8,8,8,16,0);
+      getHolder().setFormat(PixelFormat.TRANSLUCENT);
+      setZOrderOnTop(false);
       r=new GameRenderer(c);
       setRenderer(r);
       setRenderMode(RENDERMODE_CONTINUOUSLY);
@@ -57,7 +64,8 @@ public class MainActivity extends Activity {
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false;
-    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0;
+    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0;
+    long lastAimTapMs=0;
 
     final String[] hiltFiles={"hilt_default.png","hilt_2.png","hilt_crystal.png","hilt_double.png","hilt_classic.png","hilt_weathered.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
@@ -117,7 +125,7 @@ public class MainActivity extends Activity {
       if(r.state==GameRenderer.AIMING){
         drawWorldShotHilt(c,w,h,ui,r);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("AIM WITH ONE FINGER",w*.5f,42*ui,p);
+        c.drawText("AIM • DOUBLE TAP TO LOCK",w*.5f,42*ui,p);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
@@ -247,7 +255,7 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("PULL HILT BACK FOR ENGLISH",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
+        c.drawText("DOUBLE TAP TO LOCK AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
       } else if(r.state==GameRenderer.CHARGING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEFFFFFF);p.setTextAlign(Paint.Align.CENTER);
         c.drawText("PULL BACK • RELEASE TO STRIKE",worldHiltRect.centerX(),worldHiltRect.centerY()+worldHiltRect.height()*1.15f,p);
@@ -294,11 +302,14 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.AIMING){
-          updateWorldHiltGeometry(w,h,r,0);
-          RectF hit=new RectF(worldHiltRect);hit.inset(-28*ui,-28*ui);
-          if(hit.contains(x,y)){
-            pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;return true;
+          long now=System.currentTimeMillis();
+          float ddx=x-lastAimTapX,ddy=y-lastAimTapY;
+          if(lastAimTapMs>0 && now-lastAimTapMs<=320 && ddx*ddx+ddy*ddy<Math.max(80*ui,64)*Math.max(80*ui,64)){
+            lastAimTapMs=0;
+            game.queueEvent(()->r.lockAngle());
+            return true;
           }
+          lastAimTapMs=now;lastAimTapX=x;lastAimTapY=y;
         }
 
         if(r.state==GameRenderer.SELECTING_ENGLISH){
@@ -329,9 +340,7 @@ public class MainActivity extends Activity {
           float dx=x-hiltPullStartX,dy=y-hiltPullStartY;
           float pull=-(dx*worldDirX+dy*worldDirY);
           pullingHilt=false;
-          if(r.state==GameRenderer.AIMING){
-            if(pull>Math.max(55f,h*.065f))game.queueEvent(()->r.lockAngle());
-          } else if(r.state==GameRenderer.CHARGING){
+          if(r.state==GameRenderer.CHARGING){
             game.queueEvent(()->r.releaseWorldCharge());
           }
           return true;
@@ -381,7 +390,7 @@ public class MainActivity extends Activity {
 
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
-    Context ctx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
+    Context ctx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
     Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
@@ -404,7 +413,7 @@ public class MainActivity extends Activity {
     GameRenderer(Context c){ctx=c;}
 
     public void onSurfaceCreated(GL10 gl,EGLConfig cfg){
-      GLES20.glClearColor(0.002f,0.004f,0.012f,1);
+      GLES20.glClearColor(0f,0f,0f,0f);
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_BLEND);
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
       String vs="attribute vec3 aPos;attribute vec2 aUv;uniform mat4 uMvp;varying vec2 vUv;void main(){gl_Position=uMvp*vec4(aPos,1.0);vUv=vec2(aUv.x,1.0-aUv.y);}";
@@ -436,6 +445,14 @@ public class MainActivity extends Activity {
       float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*viewDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
       android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
+      if(!falconMeshes.isEmpty()){
+        float[] FM=identity();
+        android.opengl.Matrix.translateM(FM,0,0f,-6.0953f,0f);
+        android.opengl.Matrix.rotateM(FM,0,90f,0,1,0);
+        android.opengl.Matrix.scaleM(FM,0,11.25f,6f,11.25f);
+        int ft=tex.getOrDefault("falcon",0);
+        for(Mesh fm:falconMeshes)drawMesh(fm,pvCache,FM,ft,new float[]{1,1,1,1});
+      }
       for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
       if(state!=ROLLING)drawPredictor(pvCache);
       for(Ball b:balls)if(b.active){float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,2.22f,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
@@ -458,6 +475,13 @@ public class MainActivity extends Activity {
         addTable("327116407711713708_default.obj","foot",1,1,1);
         addTable("-7406165369254709877_default.obj",null,.376f,.376f,.376f);addTable("-1542075189251850320_default.obj",null,.376f,.376f,.376f);
         addTable("-4920293310515908916_default.obj",null,.063f,.063f,.063f);addTable("6851484603853778718_default.obj",null,.9f,.92f,.96f);addTable("6459398429916909974_default.obj",null,.8f,.8f,.8f);
+        try{
+          tex.put("falcon",loadTexture("falcon/falcon_diffuse.png"));
+          for(int i=1;i<=16;i++){
+            String n=String.format(java.util.Locale.US,"falcon/chassis_%02d.obj",i);
+            try{falconMeshes.add(loadObj(n));}catch(Exception ignored){}
+          }
+        }catch(Exception ignored){}
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
         for(int i=0;i<6;i++){
@@ -744,7 +768,7 @@ public class MainActivity extends Activity {
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
       int texture=saberTextures[idx];
-      float width=3.90f;
+      float width=5.50f;
 
       GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 
