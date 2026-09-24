@@ -971,9 +971,7 @@ public class MainActivity extends Activity {
     final Runnable microRepeat=new Runnable(){
       public void run(){
         if(!microHolding)return;
-        final boolean left=microHoldDir<0;
-        final int ww=microHoldW,hh=microHoldH;
-        game.queueEvent(()->game.r.microAimScreen(left,ww,hh,3.6f));
+        game.queueEvent(()->game.r.microAimHoldStep(3.6f));
         uiHandler.postDelayed(this,30);
       }
     };
@@ -1280,9 +1278,16 @@ public class MainActivity extends Activity {
 
     void drawTeamCard(Canvas c,RectF rr,int team,float ui,GameRenderer r){
       boolean active=!r.gameOver&&r.currentTeam==team;
-      p.setStyle(Paint.Style.FILL);p.setColor(active?0xD91E2732:0xC70F141C);c.drawRoundRect(rr,10*ui,10*ui,p);
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((active?2.2f:1.1f)*ui);
-      stroke.setColor(active?0xFFF4C542:(team==1?0x9955A8FF:0x99FF5F5F));c.drawRoundRect(rr,10*ui,10*ui,stroke);
+      int teamAccent=team==1?0xFF55B8FF:0xFFFF6262;
+      int teamAccentDim=team==1?0x9955A8FF:0x99FF5F5F;
+      p.setStyle(Paint.Style.FILL);
+      p.setColor(active?(team==1?0xD9182B3A:0xD9361D24):0xC70F141C);
+      c.drawRoundRect(rr,10*ui,10*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((active?2.6f:1.2f)*ui);
+      stroke.setColor(active?teamAccent:teamAccentDim);
+      if(active){stroke.setShadowLayer(7*ui,0,0,teamAccent);}
+      c.drawRoundRect(rr,10*ui,10*ui,stroke);
+      stroke.clearShadowLayer();
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
       p.setTextSize(10.5f*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
@@ -1349,7 +1354,10 @@ public class MainActivity extends Activity {
     }
 
     void drawEnglish(Canvas c,int w,int h,float ui,GameRenderer r){
-      boolean portrait=h>w;englishCx=portrait?w*.5f:w*.79f;englishCy=portrait?h*.56f:h*.48f;englishR=Math.min(portrait?w*.31f:h*.205f,145*ui);
+      boolean portrait=h>w;
+      englishR=Math.min(portrait?w*.27f:h*.205f,145*ui);
+      englishCx=w-englishR-34*ui;
+      englishCy=portrait?h*.48f:h*.43f;
       p.setColor(0xC8000000);c.drawRoundRect(new RectF(englishCx-englishR-28*ui,englishCy-englishR-54*ui,englishCx+englishR+28*ui,englishCy+englishR+126*ui),24,24,p);
       p.setColor(0xFFF5F5F5);c.drawCircle(englishCx,englishCy,englishR,p);
       stroke.setStrokeWidth(4*ui);stroke.setColor(0xFF9CA3AF);c.drawCircle(englishCx,englishCy,englishR,stroke);
@@ -1445,14 +1453,14 @@ public class MainActivity extends Activity {
     void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
-      float baseW=154*ui,baseH=76*ui;
-      float cx=w-82*ui;
-      float baseCy=Math.max(155*ui,lockRect.top-92*ui);
-      float travel=Math.min(150*ui,r.chargePullPx*.62f);
+      float baseW=188*ui,baseH=112*ui;
+      float cx=w-76*ui;
+      float baseCy=Math.max(150*ui,h*.43f);
+      float travel=Math.min(178*ui,r.chargePullPx*.68f);
       float cy=baseCy+travel;
       thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.58f,cx+baseW*.5f,cy+baseH*.58f);
 
-      float trackTop=baseCy-62*ui,trackBottom=Math.min(h-24*ui,baseCy+174*ui);
+      float trackTop=baseCy-88*ui,trackBottom=Math.min(h-20*ui,baseCy+205*ui);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
@@ -1659,13 +1667,17 @@ public class MainActivity extends Activity {
       endMicroHold();
       microHolding=true;microHoldDir=dir;microHoldW=w;microHoldH=h;
       final boolean left=dir<0;
-      game.queueEvent(()->game.r.microAimScreen(left,w,h));
+      // Lock the WORLD rotation direction once at press-down. The old code
+      // re-evaluated "screen-left" every repeat; at the screen-space 180-degree
+      // extremum the sign flipped back and forth and trapped the aim there.
+      game.queueEvent(()->game.r.beginMicroAimHold(left,w,h));
       uiHandler.postDelayed(microRepeat,220);
     }
 
     void endMicroHold(){
       microHolding=false;microHoldDir=0;
       uiHandler.removeCallbacks(microRepeat);
+      game.queueEvent(()->game.r.endMicroAimHold());
     }
 
     void setEnglishFromTouch(float x,float y){
@@ -1776,7 +1788,10 @@ public class MainActivity extends Activity {
     volatile long aiReadyAt=0;
     volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
-    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0,chargePullWorld=0; boolean breakAssistArmed=true;
+    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0;
+    volatile float chargePullPx=0,chargePullWorld=0;
+    volatile int microAimHoldSign=0;
+    boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
@@ -2004,14 +2019,14 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.orthoM(O,0,-aspect,aspect,-1f,1f,-5f,5f);
 
       float pullNorm=Math.max(0f,Math.min(1f,power/100f));
-      float x=aspect*.815f;
-      float baseY=-.13f;
-      float hiltTravel=.42f*pullNorm;
+      float x=aspect*.885f;
+      float baseY=.07f;
+      float hiltTravel=.55f*pullNorm;
       float hiltY=baseY-hiltTravel;
-      float hiltScale=.34f;
+      float hiltScale=.54f;
       float emitterAtRest=baseY+hiltScale*.52f;
       float emitterY=hiltY+hiltScale*.52f;
-      float bladeLen=Math.max(0f,emitterAtRest-emitterY);
+      float bladeLen=Math.max(0f,(emitterAtRest-emitterY)*1.12f);
 
       GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
 
@@ -2020,9 +2035,9 @@ public class MainActivity extends Activity {
       int bladeTex=saberTextures[Math.max(0,Math.min(5,bladeIndex))];
       if(bladeLen>.004f){
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.105f,.32f);
+        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.145f,.32f);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
-        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.060f,1f);
+        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.082f,1f);
       }
 
       float[] M=identity();
@@ -2626,27 +2641,69 @@ public class MainActivity extends Activity {
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
 
+    int screenMicroAimSign(boolean left,int w,int h){
+      if(balls.isEmpty())return left?-1:1;
+      Ball cue=balls.get(0);
+      float base=(float)Math.atan2(aimZ,aimX);
+      float probe=(float)Math.toRadians(1.0f);
+      float am=base-probe,ap=base+probe;
+      float[] pm=worldToScreen(cue.x+(float)Math.cos(am)*14f,2.22f,cue.z+(float)Math.sin(am)*14f,w,h);
+      float[] pp=worldToScreen(cue.x+(float)Math.cos(ap)*14f,2.22f,cue.z+(float)Math.sin(ap)*14f,w,h);
+
+      if(pm!=null&&pp!=null){
+        float dx=pp[0]-pm[0];
+        if(Math.abs(dx)>.12f){
+          // +1 means increasing world angle. Pick it if that screen motion is
+          // toward the requested left/right side at the START of the hold.
+          if(left)return dx<0?1:-1;
+          return dx>0?1:-1;
+        }
+
+        // Exactly at a horizontal screen-space extremum, use the projected Y
+        // tangent only to choose a deterministic continuation direction.
+        float dy=pp[1]-pm[1];
+        if(Math.abs(dy)>.12f){
+          if(left)return dy<0?-1:1;
+          return dy<0?1:-1;
+        }
+      }
+      return left?-1:1;
+    }
+
+    void beginMicroAimHold(boolean left,int w,int h){
+      if(!localCanControl()||state!=AIMING||gameOver)return;
+      microAimHoldSign=screenMicroAimSign(left,w,h);
+      microAimByWorldSign(microAimHoldSign,.35f);
+    }
+
+    void endMicroAimHold(){
+      microAimHoldSign=0;
+    }
+
+    void microAimHoldStep(float degrees){
+      if(microAimHoldSign==0||!localCanControl()||state!=AIMING||gameOver)return;
+      microAimByWorldSign(microAimHoldSign,degrees);
+    }
+
+    void microAimByWorldSign(int sign,float degrees){
+      float base=(float)Math.atan2(aimZ,aimX);
+      float step=(float)Math.toRadians(Math.max(.05f,degrees));
+      float next=base+(sign<0?-step:step);
+      // atan2/cos/sin naturally wrap through ±PI, so a held button can continue
+      // indefinitely through 360 degrees with no 180-degree clamp or oscillation.
+      previewAimAngle(next);
+    }
+
     void microAimScreen(boolean left,int w,int h){
-      microAimScreen(left,w,h,.35f);
+      if(!localCanControl()||state!=AIMING||gameOver)return;
+      int sign=screenMicroAimSign(left,w,h);
+      microAimByWorldSign(sign,.35f);
     }
 
     void microAimScreen(boolean left,int w,int h,float degrees){
-      if(!localCanControl()||state!=AIMING||gameOver||balls.isEmpty())return;
-      Ball cue=balls.get(0);
-      float base=(float)Math.atan2(aimZ,aimX);
-      float step=(float)Math.toRadians(Math.max(.05f,degrees));
-      float a1=base-step,a2=base+step;
-
-      float[] p0=worldToScreen(cue.x+aimX*12f,2.22f,cue.z+aimZ*12f,w,h);
-      float[] p1=worldToScreen(cue.x+(float)Math.cos(a1)*12f,2.22f,cue.z+(float)Math.sin(a1)*12f,w,h);
-      float[] p2=worldToScreen(cue.x+(float)Math.cos(a2)*12f,2.22f,cue.z+(float)Math.sin(a2)*12f,w,h);
-
-      float chosen=left?a1:a2;
-      if(p0!=null&&p1!=null&&p2!=null){
-        if(left)chosen=(p1[0]<p2[0])?a1:a2;
-        else chosen=(p1[0]>p2[0])?a1:a2;
-      }
-      previewAimAngle(chosen);
+      if(!localCanControl()||state!=AIMING||gameOver)return;
+      int sign=screenMicroAimSign(left,w,h);
+      microAimByWorldSign(sign,degrees);
     }
 
     void previewAimAngle(float angle){
