@@ -28,7 +28,7 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
-          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers
+          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
@@ -64,12 +64,41 @@ jobs:
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/18413044388287686309/11ACF45720BA8B9BB48D2BDECFAD744CC9840FAB/" -o app/src/main/assets/ui/blade_green.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/9494571780957515383/6C134CAF718A941D2B536CA1152CBE86EF2AE0A0/" -o app/src/main/assets/ui/blade_red.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12253231560154659811/C5D4EE438F43ED139FCA39C5BC653143187A71E6/" -o app/src/main/assets/ui/blade_blue.png
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12489902566732672122/F982242C4464A0CD14319498F3D8AA1091E3600F/" -o app/src/main/assets/environment/sky.jpg
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13646917746033826234/F87345FD33AC8DBAD61455CF0F085288447FFE3D/" -o app/src/main/assets/falcon/falcon_diffuse.png
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17965017157805881315/D503CE0E1276E8B5C009C59A494C8EF9EA814A5A/" -o app/src/main/assets/falcon/chassis_01.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16997992461173518810/33AFE7004B809B66F15559EFBED9904B6B565D98/" -o app/src/main/assets/falcon/chassis_02.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16674397479478892246/29115E2D27BD3A9C16386B9369AC632AD9DB7769/" -o app/src/main/assets/falcon/chassis_03.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12825996570221392226/8A6C5D4F25A187E437086B7F2F2A8E5E0C442ABC/" -o app/src/main/assets/falcon/chassis_04.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16042947132404434113/88E019AF3A863F190AB6D634497C90A5954D5D7C/" -o app/src/main/assets/falcon/chassis_05.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/10625304863591423267/3983ABDB38E52362F7F2E0E562258E02B1067161/" -o app/src/main/assets/falcon/chassis_06.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13702828624687405789/F3EFC11FC02B744E75DC2CDF2E32CD83438FC781/" -o app/src/main/assets/falcon/chassis_07.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13551617456302770107/A2242EB1220D11C939494849C8F5088DEBFDD9FA/" -o app/src/main/assets/falcon/chassis_08.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12778385617138784373/3060A373DA66FE67BEE9A81152B06EBB9A54970E/" -o app/src/main/assets/falcon/chassis_09.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/15086151667637913549/4C5062E0A0CED5E496749630DD0EC9B2D9928440/" -o app/src/main/assets/falcon/chassis_10.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12398662499909814570/62FFD5E680B2DE31C33BA12802AD57693FE45B49/" -o app/src/main/assets/falcon/chassis_11.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17238107269122244663/9166A75500DD247727FF1E2B06C7BFDD62FD74C4/" -o app/src/main/assets/falcon/chassis_12.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/10829498683673206498/53970916CEA0CF5EAF7B53E2C13B98916E8A92C7/" -o app/src/main/assets/falcon/chassis_13.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18065636552419750820/66E903DB480987277E1101F82FEF30628694F917/" -o app/src/main/assets/falcon/chassis_14.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12497312252648627707/35D55F36047FD22100144798BFCE87D1A4D7FCC9/" -o app/src/main/assets/falcon/chassis_15.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13770302263070663477/9FAA634851060F90C1F67949E934ED89DC334690/" -o app/src/main/assets/falcon/chassis_16.obj
           file app/src/main/assets/ui/*
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           python -m pip install -q UnityPy Pillow
           python tools/extract_unity.py
           python tools/extract_balls.py
           python tools/extract_sabers.py
+          python - <<'PY'
+from PIL import Image, ImageEnhance, ImageFilter
+from pathlib import Path
+for name in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"]:
+    p=Path("app/src/main/assets/extracted")/name
+    if p.exists():
+        im=Image.open(p).convert("RGB")
+        im=ImageEnhance.Sharpness(im).enhance(1.28)
+        im=ImageEnhance.Contrast(im).enhance(1.06)
+        im.save(p)
+PY
           sha256sum app/src/main/assets/galactic_table.unity3d app/src/main/assets/bundles/*.unity3d
       - uses: actions/upload-artifact@v4
         with:
