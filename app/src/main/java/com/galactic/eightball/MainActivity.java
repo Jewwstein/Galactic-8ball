@@ -677,13 +677,13 @@ public class MainActivity extends Activity {
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
-    static final float TTS_DRAG=.82f;
+    static final float TTS_DRAG=.52f;
     static final float TTS_ANGULAR_DRAG=.45f;
     static final float TTS_STATIC_FRICTION=.40f;
     static final float TTS_DYNAMIC_FRICTION=.20f;
     static final float TTS_BOUNCINESS=1.0f;
     static final float STOP_SPEED=.16f;
-    static final float ROLL_DECEL=2.35f;
+    static final float ROLL_DECEL_FAST=1.45f;\n    static final float ROLL_DECEL_SLOW=4.35f;
     // Visual radius is the TTS predictor radius. Collision radius is derived from
     // the exact TTS rack spacing sqrt(2.09^2+1.21^2)/2 so the rack is actually in contact.
     final float R=1.192f, PHYS_R=1.1900001f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
@@ -729,7 +729,7 @@ public class MainActivity extends Activity {
         int ft=tex.getOrDefault("falcon",0);
         for(Mesh fm:falconMeshes)drawMesh(fm,pvCache,FM,ft,new float[]{1,1,1,1});
       }
-      for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
+      for(Part p:table){int tt=p.texKey==null?0:tex.getOrDefault(p.texKey,0);if("felt".equals(p.texKey))drawMesh(p.mesh,pvCache,identity(),tt,p.color);else drawLitMesh(p.mesh,pvCache,identity(),tt,p.color);}
       if(state!=ROLLING)drawPredictor(pvCache);
       for(Ball b:balls)if(b.active){
         float sinkEase=b.sinking?(1f-(1f-b.sinkT)*(1f-b.sinkT)):0f;
@@ -1196,7 +1196,7 @@ public class MainActivity extends Activity {
         bd.bullet=(b.index==0);bd.allowSleep=true;
         b.body=world.createBody(bd);
         CircleShape cs=new CircleShape();cs.m_radius=PHYS_R;
-        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.91f;
+        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.89f;
         b.body.createFixture(fd);
         b.body.setUserData(b);
       }
@@ -1281,7 +1281,15 @@ public class MainActivity extends Activity {
         {26.271f,-3.635f},{26.267f,-1.205f},{26.274f, 1.216f},{26.269f, 3.626f},
         {28.355f,-4.846f},{28.364f,-2.414f},{28.357f,-0.006f},{28.366f, 2.427f},{28.360f, 4.836f}
       };
-      for(int i=0;i<15;i++){Ball nb=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);}
+      // TTS visual rack coordinates leave a tiny gap relative to the extracted
+      // 1.19-radius SphereCollider. Compress the rack by ~1.3% around the apex so
+      // neighboring physical colliders are actually touching like a real tight rack.
+      final float rackPack=.987f;
+      for(int i=0;i<15;i++){
+        float px=20f+(p[i][0]-20f)*rackPack;
+        float pz=p[i][1]*rackPack;
+        Ball nb=new Ball(px,pz,tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);
+      }
       buildPhysicsWorld();
       state=AIMING;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
@@ -1351,7 +1359,9 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
       // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
-      float speed=power*1.65f*1.25f*.62f;
+      float pn=Math.max(0f,Math.min(1f,power/100f));
+      float androidScale=.58f+.14f*pn*pn;
+      float speed=power*1.65f*1.25f*androidScale;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
       if(cue.body!=null){
@@ -1390,7 +1400,9 @@ public class MainActivity extends Activity {
         // the balls roll down naturally and then come to a clean stop.
         float sp=(float)Math.sqrt(v.x*v.x+v.y*v.y);
         if(sp>0){
-          float ns=Math.max(0f,sp-ROLL_DECEL*FIXED_DT);
+          float slowBlend=1f-Math.min(1f,sp/9f);
+          float clothDecel=ROLL_DECEL_FAST+(ROLL_DECEL_SLOW-ROLL_DECEL_FAST)*slowBlend;
+          float ns=Math.max(0f,sp-clothDecel*FIXED_DT);
           if(ns<STOP_SPEED){
             b.body.setLinearVelocity(new Vec2(0,0));
             b.body.setAngularVelocity(0);
