@@ -871,7 +871,7 @@ public class MainActivity extends Activity {
 
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
-    Context ctx; SfxManager sfx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
+    Context ctx; SfxManager sfx; MultiplayerManager net; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
     Mesh sphere,hiltCylinder,hiltBox; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
@@ -898,7 +898,7 @@ public class MainActivity extends Activity {
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
-    volatile int currentTeam=1,winnerTeam=0;
+    volatile int currentTeam=1,winnerTeam=0,activeShooter=1;
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
     volatile boolean tableOpen=true,gameOver=false;
@@ -974,6 +974,7 @@ public class MainActivity extends Activity {
         drawPlanetRing(pvCache,b);
       }
       if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
+      if(net!=null)net.onFrame(this);
     }
 
     float[] quatMatrix(Ball b){
@@ -1461,7 +1462,7 @@ public class MainActivity extends Activity {
 
     void resetRules(){
       if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
-      currentTeam=1;winnerTeam=0;teamSuit[0]=teamSuit[1]=0;
+      currentTeam=1;winnerTeam=0;activeShooter=1;teamSuit[0]=teamSuit[1]=0;
       tableOpen=true;gameOver=false;ballsSunkThisShot.clear();
       ruleMessage="BREAK • TEAM 1";
     }
@@ -1506,7 +1507,55 @@ public class MainActivity extends Activity {
         currentTeam=currentTeam==1?2:1;
         ruleMessage="TEAM "+currentTeam+" TURN";
       }
+      activeShooter=currentTeam;
       ballsSunkThisShot.clear();
+    }
+
+    boolean localCanControl(){
+      return net==null||net.canLocalControl(activeShooter);
+    }
+
+    boolean routeFollowerCommand(String cmd){
+      if(net!=null&&net.isFollower()){
+        if(localCanControl())net.send("CMD|"+cmd);
+        return true;
+      }
+      return false;
+    }
+
+    void userResetRack(){
+      if(net!=null&&net.isFollower()){net.send("CMD|RACK");return;}
+      resetRack();
+    }
+
+    void userSelectHilt(int k){
+      k=Math.max(0,Math.min(5,k));
+      if(net!=null&&net.isFollower()){
+        if(localCanControl()){hiltIndex=k;net.send("CMD|HILT|"+k);}
+        return;
+      }
+      if(localCanControl())hiltIndex=k;
+    }
+
+    void userSelectBlade(int k){
+      k=Math.max(0,Math.min(5,k));
+      if(net!=null&&net.isFollower()){
+        if(localCanControl()){bladeIndex=k;net.send("CMD|BLADE|"+k);}
+        return;
+      }
+      if(localCanControl())bladeIndex=k;
+    }
+
+    void userToggleActiveShooter(){
+      if(net!=null&&net.isFollower()){net.send("CMD|SHOOTER");return;}
+      activeShooter=activeShooter==1?2:1;
+      ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";
+    }
+
+    void userSwitchTeam(){
+      if(net!=null&&net.isFollower()){net.send("CMD|TEAM");return;}
+      currentTeam=currentTeam==1?2:1;
+      ruleMessage="TEAM "+currentTeam+" ACTIVE";
     }
 
     void resetRack(){
@@ -1531,7 +1580,7 @@ public class MainActivity extends Activity {
         Ball nb=new Ball(px,pz,tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);
       }
       buildPhysicsWorld();
-      state=AIMING;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
+      state=AIMING;activeShooter=1;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
@@ -1549,42 +1598,97 @@ public class MainActivity extends Activity {
       return new float[]{wa[0]+(wb[0]-wa[0])*t,wa[2]+(wb[2]-wa[2])*t};
     }
 
+    void setAimAngleDirect(float angle){
+      float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
+      aimX=desiredAimX=x;aimZ=desiredAimZ=z;
+    }
+
     void previewAimAngle(float angle){
-      float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
-      aimX=desiredAimX=x;aimZ=desiredAimZ=z;
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){setAimAngleDirect(angle);net.send("CMD|AIM|"+angle);return;}
+      setAimAngleDirect(angle);
     }
+
     void commitAimAngle(float angle){
-      float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
-      aimX=desiredAimX=x;aimZ=desiredAimZ=z;
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){setAimAngleDirect(angle);net.send("CMD|AIM|"+angle);return;}
+      setAimAngleDirect(angle);
     }
-    void lockAngle(){
+
+    void lockAngleDirect(){
       if(state==AIMING&&!gameOver&&allStopped()){
         float n=(float)Math.sqrt(desiredAimX*desiredAimX+desiredAimZ*desiredAimZ);
         if(n>.0001f){aimX=desiredAimX/n;aimZ=desiredAimZ/n;desiredAimX=aimX;desiredAimZ=aimZ;}
         state=SELECTING_ENGLISH;power=0;englishX=englishY=0;
       }
     }
-    void setEnglish(float x,float y){englishX=Math.max(-1,Math.min(1,x));englishY=Math.max(-1,Math.min(1,y));}
-    void confirmEnglish(){
+
+    void lockAngle(){
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){net.send("CMD|LOCK");return;}
+      lockAngleDirect();
+    }
+
+    void setEnglishDirect(float x,float y){
+      englishX=Math.max(-1,Math.min(1,x));englishY=Math.max(-1,Math.min(1,y));
+    }
+
+    void setEnglish(float x,float y){
+      if(!localCanControl())return;
+      setEnglishDirect(x,y);
+      if(net!=null&&net.isFollower())net.send("CMD|ENG|"+englishX+"|"+englishY);
+    }
+
+    void confirmEnglishDirect(){
       if(state==SELECTING_ENGLISH){
-        state=CHARGING;power=0;chargePullPx=0;chargeStartY=-1;
-        if(sfx!=null)sfx.ignite(false); // TTS default faction is Sith unless a player overrides it.
+        state=CHARGING;power=0;chargePullPx=0;chargePullWorld=0;chargeStartY=-1;
+        if(sfx!=null)sfx.ignite(false);
       }
     }
-    void cancelEnglish(){
+
+    void confirmEnglish(){
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){net.send("CMD|CONFIRM");confirmEnglishDirect();return;}
+      confirmEnglishDirect();
+    }
+
+    void cancelEnglishDirect(){
       if(state==SELECTING_ENGLISH){
-        state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;
+        state=AIMING;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;
         if(sfx!=null)sfx.deactivate();
       }
     }
 
-    void beginWorldCharge(){if(state==CHARGING){power=0;chargePullPx=0;chargePullWorld=0;}}
-    void updateWorldCharge(float pullPx,int h){
-      if(state!=CHARGING)return;chargePullPx=pullPx;
+    void cancelEnglish(){
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){net.send("CMD|CANCEL");cancelEnglishDirect();return;}
+      cancelEnglishDirect();
+    }
+
+    void beginWorldChargeDirect(){
+      if(state==CHARGING){power=0;chargePullPx=0;chargePullWorld=0;}
+    }
+
+    void beginWorldCharge(){
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){net.send("CMD|BEGIN");beginWorldChargeDirect();return;}
+      beginWorldChargeDirect();
+    }
+
+    void updateWorldChargeDirect(float pullPx,int h){
+      if(state!=CHARGING)return;
+      chargePullPx=pullPx;
       chargePullWorld=pullPx/Math.max(10f,h*.030f);
       power=Math.min(100f,pullPx/Math.max(85f,h*.18f)*100f);
     }
-    void releaseWorldCharge(){
+
+    void updateWorldCharge(float pullPx,int h){
+      if(!localCanControl())return;
+      updateWorldChargeDirect(pullPx,h);
+      if(net!=null&&net.isFollower())net.send("CMD|POWER|"+pullPx+"|"+h);
+    }
+
+    void releaseWorldChargeDirect(){
       if(state!=CHARGING)return;
       if(power>=5){
         if(sfx!=null)sfx.clash();
@@ -1593,6 +1697,83 @@ public class MainActivity extends Activity {
         power=0;chargePullPx=0;chargePullWorld=0;state=AIMING;
         if(sfx!=null)sfx.deactivate();
       }
+    }
+
+    void releaseWorldCharge(){
+      if(!localCanControl())return;
+      if(net!=null&&net.isFollower()){net.send("CMD|RELEASE");return;}
+      releaseWorldChargeDirect();
+    }
+
+    String buildNetworkState(){
+      String rule="";
+      try{rule=android.util.Base64.encodeToString((ruleMessage==null?"":ruleMessage).getBytes("UTF-8"),android.util.Base64.NO_WRAP);}catch(Exception ignored){}
+      StringBuilder sb=new StringBuilder(1400);
+      sb.append("STATE|").append(state).append('|').append(currentTeam).append('|').append(activeShooter)
+        .append('|').append(hiltIndex).append('|').append(bladeIndex)
+        .append('|').append(teamSuit[0]).append('|').append(teamSuit[1])
+        .append('|').append(tableOpen?1:0).append('|').append(gameOver?1:0).append('|').append(winnerTeam)
+        .append('|').append(aimX).append('|').append(aimZ).append('|').append(desiredAimX).append('|').append(desiredAimZ)
+        .append('|').append(power).append('|').append(chargePullPx).append('|').append(chargePullWorld)
+        .append('|').append(englishX).append('|').append(englishY).append('|').append(rule).append('|');
+      for(Ball b:balls){
+        sb.append(b.index).append(',').append(b.active?1:0).append(',').append(b.sinking?1:0)
+          .append(',').append(b.x).append(',').append(b.z).append(',').append(b.vx).append(',').append(b.vz)
+          .append(',').append(b.qx).append(',').append(b.qy).append(',').append(b.qz).append(',').append(b.qw)
+          .append(',').append(b.sinkT).append(',').append(b.spin).append(';');
+      }
+      return sb.toString();
+    }
+
+    void applyNetworkState(String line){
+      if(net==null||!net.isFollower())return;
+      try{
+        String[] q=line.split("\\|",-1);
+        if(q.length<23)return;
+        state=Integer.parseInt(q[1]);currentTeam=Integer.parseInt(q[2]);activeShooter=Integer.parseInt(q[3]);
+        hiltIndex=Integer.parseInt(q[4]);bladeIndex=Integer.parseInt(q[5]);
+        teamSuit[0]=Integer.parseInt(q[6]);teamSuit[1]=Integer.parseInt(q[7]);
+        tableOpen="1".equals(q[8]);gameOver="1".equals(q[9]);winnerTeam=Integer.parseInt(q[10]);
+        aimX=Float.parseFloat(q[11]);aimZ=Float.parseFloat(q[12]);desiredAimX=Float.parseFloat(q[13]);desiredAimZ=Float.parseFloat(q[14]);
+        power=Float.parseFloat(q[15]);chargePullPx=Float.parseFloat(q[16]);chargePullWorld=Float.parseFloat(q[17]);
+        englishX=Float.parseFloat(q[18]);englishY=Float.parseFloat(q[19]);
+        try{ruleMessage=new String(android.util.Base64.decode(q[20],android.util.Base64.DEFAULT),"UTF-8");}catch(Exception ignored){}
+        String[] bs=q[21].split(";");
+        for(String row:bs){
+          if(row.isEmpty())continue;
+          String[] a=row.split(",");
+          if(a.length<13)continue;
+          int idx=Integer.parseInt(a[0]);Ball b=null;
+          for(Ball z:balls)if(z.index==idx){b=z;break;}
+          if(b==null)continue;
+          b.active="1".equals(a[1]);b.sinking="1".equals(a[2]);
+          b.x=Float.parseFloat(a[3]);b.z=Float.parseFloat(a[4]);b.vx=Float.parseFloat(a[5]);b.vz=Float.parseFloat(a[6]);
+          b.qx=Float.parseFloat(a[7]);b.qy=Float.parseFloat(a[8]);b.qz=Float.parseFloat(a[9]);b.qw=Float.parseFloat(a[10]);
+          b.sinkT=Float.parseFloat(a[11]);b.spin=Float.parseFloat(a[12]);
+          if(b.body!=null)b.body.setActive(false);
+        }
+      }catch(Exception ignored){}
+    }
+
+    void applyNetworkCommand(String cmd){
+      if(net==null||!net.hosting)return;
+      try{
+        String[] a=cmd.split("\\|");
+        String op=a[0];
+        if("AIM".equals(op)&&a.length>1){setAimAngleDirect(Float.parseFloat(a[1]));}
+        else if("LOCK".equals(op)){lockAngleDirect();}
+        else if("ENG".equals(op)&&a.length>2){setEnglishDirect(Float.parseFloat(a[1]),Float.parseFloat(a[2]));}
+        else if("CONFIRM".equals(op)){confirmEnglishDirect();}
+        else if("CANCEL".equals(op)){cancelEnglishDirect();}
+        else if("BEGIN".equals(op)){beginWorldChargeDirect();}
+        else if("POWER".equals(op)&&a.length>2){updateWorldChargeDirect(Float.parseFloat(a[1]),Integer.parseInt(a[2]));}
+        else if("RELEASE".equals(op)){releaseWorldChargeDirect();}
+        else if("HILT".equals(op)&&a.length>1){hiltIndex=Math.max(0,Math.min(5,Integer.parseInt(a[1])));}
+        else if("BLADE".equals(op)&&a.length>1){bladeIndex=Math.max(0,Math.min(5,Integer.parseInt(a[1])));}
+        else if("RACK".equals(op)){resetRack();}
+        else if("SHOOTER".equals(op)){activeShooter=activeShooter==1?2:1;ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";}
+        else if("TEAM".equals(op)){currentTeam=currentTeam==1?2:1;ruleMessage="TEAM "+currentTeam+" ACTIVE";}
+      }catch(Exception ignored){}
     }
 
     void executeShot(){
@@ -1677,6 +1858,7 @@ public class MainActivity extends Activity {
     }
 
     void step(float dt){
+      if(net!=null&&net.isFollower())return;
       if(balls.isEmpty()||world==null)return;
       if(state==ROLLING){
         physicsAccum=Math.min(.08f,physicsAccum+dt);
