@@ -901,7 +901,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false;
@@ -955,8 +955,8 @@ public class MainActivity extends Activity {
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
       float ui=Math.max(.90f,Math.min(w/900f,h/640f));
 
-      // Premium command stack lives in the lower-left so the top edge stays clean.
-      float bw=228*ui,bh=62*ui,gap=9*ui,left=22*ui,bottom=h-24*ui;
+      // Premium command stack sits above the dedicated micro-aim controls.
+      float bw=228*ui,bh=62*ui,gap=9*ui,left=22*ui,bottom=h-105*ui;
       saberMenuRect.set(left,bottom-bh,left+bw,bottom);
       rackRect.set(left,bottom-(bh*2+gap),left+bw,bottom-(bh+gap));
       activeShooterRect.set(left,bottom-(bh*3+gap*2),left+bw,bottom-(bh*2+gap*2));
@@ -980,8 +980,9 @@ public class MainActivity extends Activity {
       if(r.state==GameRenderer.AIMING && !r.gameOver){
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
+        if(r.localCanControl())drawMicroAimControls(c,w,h,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText(r.localCanControl()?"DRAG HILT • TAP LOCK":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
+        c.drawText(r.localCanControl()?"DRAG HILT • MICRO AIM • TAP LOCK":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
       } else if(r.gameOver){
         drawWinnerOverlay(c,w,h,ui,r);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
@@ -1039,6 +1040,67 @@ public class MainActivity extends Activity {
       p.setShader(null);
     }
 
+
+    void drawMicroAimControls(Canvas c,int w,int h,float ui){
+      float size=64*ui,gap=12*ui,x=22*ui,y=h-size-18*ui;
+      microLeftRect.set(x,y,x+size,y+size);
+      microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(10.5f*ui);p.setColor(0xA9D7F4FF);
+      c.drawText("MICRO AIM",x+size+gap*.5f,y-7*ui,p);
+
+      drawMicroPolygon(c,microLeftRect,true,ui);
+      drawMicroPolygon(c,microRightRect,false,ui);
+    }
+
+    void drawMicroPolygon(Canvas c,RectF rr,boolean left,float ui){
+      float cx=rr.centerX(),cy=rr.centerY(),w=rr.width(),h=rr.height();
+      Path poly=new Path();
+      poly.moveTo(cx-w*.36f,rr.top);
+      poly.lineTo(cx+w*.36f,rr.top);
+      poly.lineTo(rr.right,cy);
+      poly.lineTo(cx+w*.36f,rr.bottom);
+      poly.lineTo(cx-w*.36f,rr.bottom);
+      poly.lineTo(rr.left,cy);
+      poly.close();
+
+      p.setStyle(Paint.Style.FILL);
+      p.setShadowLayer(15*ui,0,0,0xCC38BDF8);
+      p.setColor(0x5A071827);
+      c.drawPath(poly,p);
+      p.clearShadowLayer();
+
+      stroke.setStyle(Paint.Style.STROKE);
+      stroke.setStrokeWidth(2.3f*ui);
+      stroke.setColor(0xD659D6FF);
+      c.drawPath(poly,stroke);
+      stroke.setStrokeWidth(.9f*ui);
+      stroke.setColor(0xA6FFFFFF);
+      Path inner=new Path();
+      float inset=6*ui;
+      RectF ir=new RectF(rr.left+inset,rr.top+inset,rr.right-inset,rr.bottom-inset);
+      float icx=ir.centerX(),icy=ir.centerY(),iw=ir.width();
+      inner.moveTo(icx-iw*.34f,ir.top);
+      inner.lineTo(icx+iw*.34f,ir.top);
+      inner.lineTo(ir.right,icy);
+      inner.lineTo(icx+iw*.34f,ir.bottom);
+      inner.lineTo(icx-iw*.34f,ir.bottom);
+      inner.lineTo(ir.left,icy);
+      inner.close();
+      c.drawPath(inner,stroke);
+
+      float dir=left?-1f:1f;
+      Path arrow=new Path();
+      arrow.moveTo(cx+dir*15*ui,cy-15*ui);
+      arrow.lineTo(cx-dir*11*ui,cy);
+      arrow.lineTo(cx+dir*15*ui,cy+15*ui);
+      arrow.close();
+      p.setShadowLayer(12*ui,0,0,0xEE5DE6FF);
+      p.setColor(0xE6DDF8FF);
+      c.drawPath(arrow,p);
+      p.clearShadowLayer();
+    }
 
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       float pw=Math.min(w*.82f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
@@ -1283,6 +1345,17 @@ public class MainActivity extends Activity {
       }
 
       if(a==MotionEvent.ACTION_DOWN){
+        if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()){
+          if(microLeftRect.contains(x,y)){
+            game.queueEvent(()->r.microAimScreen(true,w,h));
+            return true;
+          }
+          if(microRightRect.contains(x,y)){
+            game.queueEvent(()->r.microAimScreen(false,w,h));
+            return true;
+          }
+        }
+
         // Saber loadout behaves like a real modal: any tap outside dismisses it.
         if(menuOpen){
           if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
@@ -1986,6 +2059,27 @@ public class MainActivity extends Activity {
       if(pinch>.01f)camDist=Math.max(70f,Math.min(340f,camDist/pinch));
     }
 
+    void autoFrameCue(){
+      if(balls.isEmpty())return;
+      Ball cue=balls.get(0);
+      if(cue==null)return;
+
+      // Center the useful shooting area rather than the fixed middle of the table.
+      // A small look-ahead keeps the cue ball low in frame and leaves room for
+      // the target/predictive line in front of it.
+      float lookAhead=8.5f;
+      camTargetX=cue.x+aimX*lookAhead;
+      camTargetZ=cue.z+aimZ*lookAhead;
+
+      float edge=Math.max(Math.abs(cue.x)/Math.max(1f,MAXX),Math.abs(cue.z)/Math.max(1f,MAXZ));
+      camDist=Math.max(142f,Math.min(205f,158f+edge*30f));
+      camPitch=43f;
+
+      // Put the camera generally behind the current shot line. This happens only
+      // when a rack/turn is framed; manual two-finger orbit remains untouched afterward.
+      camYaw=(float)Math.toDegrees(Math.atan2(-aimX,-aimZ));
+    }
+
     float[] worldToScreen(float x,float y,float z,int w,int h){
       float[] v={x,y,z,1},clip=new float[4];android.opengl.Matrix.multiplyMV(clip,0,pvCache,0,v,0);
       if(clip[3]<=.001f)return null;
@@ -2178,6 +2272,7 @@ public class MainActivity extends Activity {
       }
       buildPhysicsWorld();
       state=AIMING;activeShooter=1;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
+      autoFrameCue();
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
@@ -2198,6 +2293,25 @@ public class MainActivity extends Activity {
     void setAimAngleDirect(float angle){
       float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
+    }
+
+    void microAimScreen(boolean left,int w,int h){
+      if(!localCanControl()||state!=AIMING||gameOver||balls.isEmpty())return;
+      Ball cue=balls.get(0);
+      float base=(float)Math.atan2(aimZ,aimX);
+      float step=(float)Math.toRadians(.35);
+      float a1=base-step,a2=base+step;
+
+      float[] p0=worldToScreen(cue.x+aimX*12f,2.22f,cue.z+aimZ*12f,w,h);
+      float[] p1=worldToScreen(cue.x+(float)Math.cos(a1)*12f,2.22f,cue.z+(float)Math.sin(a1)*12f,w,h);
+      float[] p2=worldToScreen(cue.x+(float)Math.cos(a2)*12f,2.22f,cue.z+(float)Math.sin(a2)*12f,w,h);
+
+      float chosen=left?a1:a2;
+      if(p0!=null&&p1!=null&&p2!=null){
+        if(left)chosen=(p1[0]<p2[0])?a1:a2;
+        else chosen=(p1[0]>p2[0])?a1:a2;
+      }
+      previewAimAngle(chosen);
     }
 
     void previewAimAngle(float angle){
@@ -2325,6 +2439,7 @@ public class MainActivity extends Activity {
     void applyNetworkState(String line){
       if(net==null||!net.isFollower())return;
       try{
+        int previousState=state;
         String[] q=line.split("\\|",-1);
         if(q.length<22)return;
         state=Integer.parseInt(q[1]);currentTeam=Integer.parseInt(q[2]);activeShooter=Integer.parseInt(q[3]);
@@ -2349,6 +2464,7 @@ public class MainActivity extends Activity {
           b.sinkT=Float.parseFloat(a[11]);b.spin=Float.parseFloat(a[12]);
           if(b.body!=null)b.body.setActive(false);
         }
+        if(previousState==ROLLING&&state==AIMING)autoFrameCue();
       }catch(Exception ignored){}
     }
 
@@ -2555,6 +2671,7 @@ public class MainActivity extends Activity {
         if(allStopped()){
           resolveShotRules();
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
+          autoFrameCue();
           if(aiEnabled&&!gameOver&&currentTeam==2){
             aiThinking=true;
             aiReadyAt=System.currentTimeMillis()+1100;
