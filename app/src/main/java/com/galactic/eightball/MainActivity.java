@@ -399,7 +399,8 @@ public class MainActivity extends Activity {
   }
 
   static class Ball{
-    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true; int tex;
+    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true,sinking=false; int tex;
+    float sinkT=0,sinkStartX=0,sinkStartZ=0,sinkX=0,sinkZ=0; int index=0;
     Ball(float X,float Z,int T){x=X;z=Z;tex=T;}
     float speed2(){return vx*vx+vz*vz;}
   }
@@ -408,6 +409,27 @@ public class MainActivity extends Activity {
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
     Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh[] ringMeshes=new Mesh[7*3];
+    final float[][][] ringRadii={
+      {{1.72f,.20f},{1.53f,.10f},{0,0}},
+      {{1.76f,.22f},{1.56f,.13f},{1.38f,.07f}},
+      {{1.70f,.20f},{1.40f,.10f},{0,0}},
+      {{1.74f,.17f},{1.55f,.10f},{1.38f,.06f}},
+      {{1.78f,.21f},{1.51f,.09f},{0,0}},
+      {{1.74f,.20f},{1.55f,.10f},{1.38f,.06f}},
+      {{1.80f,.23f},{1.57f,.13f},{1.38f,.07f}}
+    };
+    final float[][][] ringColors={
+      {{.38f,.72f,1f},{.82f,.94f,1f},{0,0,0}},
+      {{.93f,.68f,.35f},{.56f,.31f,.15f},{1f,.84f,.56f}},
+      {{.72f,.28f,.12f},{.95f,.52f,.18f},{0,0,0}},
+      {{.72f,.84f,.94f},{.42f,.58f,.72f},{.90f,.95f,1f}},
+      {{.78f,.58f,.34f},{.45f,.30f,.18f},{0,0,0}},
+      {{.72f,.28f,1f},{.22f,.90f,.92f},{.92f,.52f,1f}},
+      {{.72f,.10f,.08f},{.25f,.03f,.04f},{1f,.30f,.12f}}
+    };
+    final float[][] ringTilt={{17,24},{24,32},{29,-22},{14,38},{31,16},{20,-38},{34,27}};
+    final float[] ringDepth={.18f,.22f,.20f,.18f,.22f,.18f,.24f};
     int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
@@ -471,7 +493,12 @@ public class MainActivity extends Activity {
       }
       for(Part p:table)drawMesh(p.mesh,pvCache,identity(),p.texKey==null?0:tex.getOrDefault(p.texKey,0),p.color);
       if(state!=ROLLING)drawPredictor(pvCache);
-      for(Ball b:balls)if(b.active){float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,2.22f,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,R,R,R);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});}
+      for(Ball b:balls)if(b.active){
+        float sinkEase=b.sinking?(1f-(1f-b.sinkT)*(1f-b.sinkT)):0f;
+        float by=2.22f-2.8f*sinkEase,bs=R*(1f-.18f*sinkEase);
+        float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,by,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,bs,bs,bs);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
+        drawPlanetRing(pvCache,b);
+      }
     }
 
     void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
@@ -504,7 +531,49 @@ public class MainActivity extends Activity {
           saberMeshes[i]=null;
           try{saberTextures[i]=loadSaberTexture("sabers/"+saberFolders[i]+"/blade.png");}catch(Exception e){saberTextures[i]=0;}
         }
+        for(int st=0;st<7;st++)for(int band=0;band<3;band++){
+          float rr=ringRadii[st][band][0],th=ringRadii[st][band][1];
+          ringMeshes[st*3+band]=rr>0?makeRingMesh(rr,th*.88f,48):null;
+        }
       }catch(Exception e){e.printStackTrace();}
+    }
+
+    Mesh makeRingMesh(float radius,float thickness,int seg){
+      float inner=Math.max(.02f,radius-thickness*.5f),outer=radius+thickness*.5f;
+      float[] p=new float[seg*6*3],uv=new float[seg*6*2];int pi=0,ui=0;
+      for(int i=0;i<seg;i++){
+        float a0=(float)(Math.PI*2*i/seg),a1=(float)(Math.PI*2*(i+1)/seg);
+        float c0=(float)Math.cos(a0),s0=(float)Math.sin(a0),c1=(float)Math.cos(a1),s1=(float)Math.sin(a1);
+        float[][] v={{inner, c0,s0},{outer,c0,s0},{outer,c1,s1},{inner,c0,s0},{outer,c1,s1},{inner,c1,s1}};
+        for(int k=0;k<6;k++){
+          float rad=v[k][0],c=v[k][1],sn=v[k][2];
+          p[pi++]=rad*c;p[pi++]=0;p[pi++]=rad*sn;
+          uv[ui++]=(k==1||k==2||k==4)?1:0;uv[ui++]=(i+(k>=2?1:0))/(float)seg;
+        }
+      }
+      return new Mesh(p,uv);
+    }
+
+    void drawPlanetRing(float[] pv,Ball b){
+      if(b.index<9||b.index>15||b.sinking)return;
+      int st=b.index-9;
+      GLES20.glDepthMask(false);
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+      for(int layer=0;layer<7;layer++){
+        float t=layer/6f,yy=(t-.5f)*ringDepth[st]*.78f;
+        float center=1f-Math.abs(t-.5f)*2f,fade=.62f+.38f*center;
+        for(int band=0;band<3;band++){
+          Mesh rm=ringMeshes[st*3+band];if(rm==null)continue;
+          float[] M=identity();
+          android.opengl.Matrix.translateM(M,0,b.x,2.22f+yy,b.z);
+          android.opengl.Matrix.rotateM(M,0,ringTilt[st][0],1,0,0);
+          android.opengl.Matrix.rotateM(M,0,ringTilt[st][1],0,0,1);
+          float[] c=ringColors[st][band];
+          drawMesh(rm,pv,M,0,new float[]{c[0]*fade,c[1]*fade,c[2]*fade,.36f+.34f*center});
+        }
+      }
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
+      GLES20.glDepthMask(true);
     }
 
     void addTable(String file,String key,float r,float g,float b)throws Exception{table.add(new Part(loadObj("extracted/"+file),key,r,g,b));}
@@ -579,7 +648,7 @@ public class MainActivity extends Activity {
 
     void resetRack(){
       balls.clear();physicsAccum=0;breakSpreadPending=true;
-      balls.add(new Ball(-20f,0f,tex.getOrDefault("ball0",0)));
+      Ball cueBall=new Ball(-20f,0f,tex.getOrDefault("ball0",0));cueBall.index=0;balls.add(cueBall);
 
       // Tight triangle with a small non-overlap gap and microscopic deterministic
       // asymmetry so a dead-center break does not become an artificial Newton cradle.
@@ -588,7 +657,7 @@ public class MainActivity extends Activity {
         {20f+2*DX,-S-.003f},{20f+2*DX,.003f},{20f+2*DX,S+.001f},
         {20f+3*DX,-3*HX-.002f},{20f+3*DX,-HX+.002f},{20f+3*DX,HX-.001f},{20f+3*DX,3*HX+.003f},
         {20f+4*DX,-2*S-.002f},{20f+4*DX,-S+.003f},{20f+4*DX,-.002f},{20f+4*DX,S+.001f},{20f+4*DX,2*S+.003f}};
-      for(int i=0;i<15;i++)balls.add(new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0)));
+      for(int i=0;i<15;i++){Ball nb=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);}
       state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
 
@@ -638,6 +707,18 @@ public class MainActivity extends Activity {
 
     void advanceBalls(float dt){
       for(Ball b:balls)if(b.active){
+        if(b.sinking){
+          b.sinkT=Math.min(1f,b.sinkT+dt*3.2f);
+          float e=1f-(1f-b.sinkT)*(1f-b.sinkT);
+          b.x=b.sinkStartX+(b.sinkX-b.sinkStartX)*e;
+          b.z=b.sinkStartZ+(b.sinkZ-b.sinkStartZ)*e;
+          if(b.sinkT>=1f){
+            b.sinking=false;b.sinkT=0;
+            if(b.index==0){b.x=-20f;b.z=0f;b.active=true;}
+            else b.active=false;
+          }
+          continue;
+        }
         float ox=b.x,oz=b.z;
         b.x+=b.vx*dt;b.z+=b.vz*dt;
         b.rotX+=(b.z-oz)/R*57.29578f;b.rotZ-=(b.x-ox)/R*57.29578f;
@@ -656,7 +737,7 @@ public class MainActivity extends Activity {
     }
 
     float ballCollisionTime(Ball a,Ball b,float maxT){
-      if(!a.active||!b.active)return Float.POSITIVE_INFINITY;
+      if(!a.active||!b.active||a.sinking||b.sinking)return Float.POSITIVE_INFINITY;
       float rx=b.x-a.x,rz=b.z-a.z,rvx=b.vx-a.vx,rvz=b.vz-a.vz;
       float target=2*R+CONTACT_EPS;
       float A=rvx*rvx+rvz*rvz;
@@ -720,12 +801,15 @@ public class MainActivity extends Activity {
       }
     }
 
+    boolean endRailPocketOpening(float z){return Math.abs(z)>MAXZ-3.55f;}
+    boolean sideRailPocketOpening(float x){return Math.abs(x)<2.75f||Math.abs(x)>MAXX-3.55f;}
+
     void bounceRails(Ball b){
-      if(!b.active)return;
-      if(b.x-R<MINX){b.x=MINX+R;b.vx=Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz+=b.spin*Math.abs(b.vx)*.05f;}
-      if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz-=b.spin*Math.abs(b.vx)*.05f;}
-      if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx-=b.spin*Math.abs(b.vz)*.05f;}
-      if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx+=b.spin*Math.abs(b.vz)*.05f;}
+      if(!b.active||b.sinking)return;
+      if(b.x-R<MINX&&!endRailPocketOpening(b.z)){b.x=MINX+R;b.vx=Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz+=b.spin*Math.abs(b.vx)*.05f;}
+      if(b.x+R>MAXX&&!endRailPocketOpening(b.z)){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz-=b.spin*Math.abs(b.vx)*.05f;}
+      if(b.z-R<MINZ&&!sideRailPocketOpening(b.x)){b.z=MINZ+R;b.vz=Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx-=b.spin*Math.abs(b.vz)*.05f;}
+      if(b.z+R>MAXZ&&!sideRailPocketOpening(b.x)){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx+=b.spin*Math.abs(b.vz)*.05f;}
     }
 
     void applyBreakSpread(Ball cue,Ball apex){
@@ -798,22 +882,41 @@ public class MainActivity extends Activity {
       }
     }
 
+    void startPocketSink(int index,Ball b,float px,float pz){
+      if(b.sinking)return;
+      b.sinking=true;b.sinkT=0;b.sinkStartX=b.x;b.sinkStartZ=b.z;b.sinkX=px;b.sinkZ=pz;
+      b.vx=b.vz=b.spin=0;
+    }
+
     void checkPocket(int index,Ball b){
-      if(!b.active)return;
-      float[][] p={{MINX,MINZ},{0,MINZ},{MAXX,MINZ},{MINX,MAXZ},{0,MAXZ},{MAXX,MAXZ}};
-      for(float[] q:p){
-        float dx=b.x-q[0],dz=b.z-q[1];
-        if(dx*dx+dz*dz<8.4f){
-          b.vx=b.vz=b.spin=0;
-          if(index==0){b.x=-20;b.z=0;b.active=true;}
-          else b.active=false;
-          return;
+      if(!b.active||b.sinking)return;
+      float ax=Math.abs(b.x),az=Math.abs(b.z);
+
+      // Side pockets: the center must actually cross through the cushion opening.
+      if(az>MAXZ+.18f && Math.abs(b.x)<2.35f){
+        startPocketSink(index,b,0,b.z>0?MAXZ:MINZ);return;
+      }
+
+      // Corner pockets: require the ball to enter the throat instead of vanishing
+      // as soon as it merely approaches the corner.
+      if(ax>MAXX-.55f && az>MAXZ-.55f){
+        float px=b.x>0?MAXX:MINX,pz=b.z>0?MAXZ:MINZ;
+        float dx=b.x-px,dz=b.z-pz;
+        if(dx*dx+dz*dz<2.35f*2.35f && (ax>MAXX+.08f||az>MAXZ+.08f)){
+          startPocketSink(index,b,px,pz);return;
         }
+      }
+
+      // Failsafe only after the ball has clearly gone through a pocket opening.
+      if(ax>MAXX+4f||az>MAXZ+4f){
+        float px=Math.abs(b.x)<8f?0:(b.x>0?MAXX:MINX);
+        float pz=b.z>0?MAXZ:MINZ;
+        startPocketSink(index,b,px,pz);
       }
     }
 
     boolean allStopped(){
-      for(Ball b:balls)if(b.active&&b.speed2()>STOP_SPEED*STOP_SPEED)return false;
+      for(Ball b:balls)if(b.active&&(b.sinking||b.speed2()>STOP_SPEED*STOP_SPEED))return false;
       return true;
     }
 
