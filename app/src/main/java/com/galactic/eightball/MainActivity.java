@@ -1729,7 +1729,7 @@ public class MainActivity extends Activity {
       if(net==null||!net.isFollower())return;
       try{
         String[] q=line.split("\\|",-1);
-        if(q.length<23)return;
+        if(q.length<22)return;
         state=Integer.parseInt(q[1]);currentTeam=Integer.parseInt(q[2]);activeShooter=Integer.parseInt(q[3]);
         hiltIndex=Integer.parseInt(q[4]);bladeIndex=Integer.parseInt(q[5]);
         teamSuit[0]=Integer.parseInt(q[6]);teamSuit[1]=Integer.parseInt(q[7]);
