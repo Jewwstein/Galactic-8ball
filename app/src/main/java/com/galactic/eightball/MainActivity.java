@@ -734,7 +734,7 @@ public class MainActivity extends Activity {
         hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
         for(int i=0;i<6;i++){
-          try{realHiltMeshes[i]=loadGzipMesh("real_hilts/hilt_"+i+".meshbin.gz");}catch(Exception e){realHiltMeshes[i]=null;}
+          try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
           try{hiltTextures[i]=loadTexture("hilt_materials/hilt_"+i+".png");}catch(Exception e){hiltTextures[i]=0;}
         }
@@ -989,6 +989,21 @@ public class MainActivity extends Activity {
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE);
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE);
       GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bmp,0);bmp.recycle();return id[0];
+    }
+
+    Mesh loadMeshBin(String path)throws Exception{
+      try(DataInputStream in=new DataInputStream(new BufferedInputStream(ctx.getAssets().open(path),262144))){
+        byte[] magic=new byte[4];in.readFully(magic);
+        if(magic[0]!='G'||magic[1]!='M'||magic[2]!='H'||magic[3]!='1')throw new IOException("Bad mesh "+path);
+        int n=in.readInt();
+        if(n<=0||n>500000)throw new IOException("Bad vertex count "+n+" in "+path);
+        float[] p=new float[n*3],t=new float[n*2];
+        for(int i=0;i<n;i++){
+          p[i*3]=in.readFloat();p[i*3+1]=in.readFloat();p[i*3+2]=in.readFloat();
+          t[i*2]=in.readFloat();t[i*2+1]=in.readFloat();
+        }
+        return new Mesh(p,t);
+      }
     }
 
     Mesh loadGzipMesh(String path)throws Exception{
