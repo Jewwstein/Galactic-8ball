@@ -447,7 +447,7 @@ public class MainActivity extends Activity {
     static final float STOP_SPEED=.10f;
     // Visual radius is the TTS predictor radius. Collision radius is derived from
     // the exact TTS rack spacing sqrt(2.09^2+1.21^2)/2 so the rack is actually in contact.
-    final float R=1.192f, PHYS_R=1.207087f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
+    final float R=1.192f, PHYS_R=1.1900001f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
     final String[] objectFolders={"00_DeathStar","01_Tatooine","02_Kamino","03_Mustafar","04_Coruscant","05_Geonosis","06_Endor","07_Korriban","08_Exegol","09_Yavin","10_Bespin","11_Malastare","12_Kessel","13_Jakku","14_Felucia","15_Dathomir"};
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
     final String[] saberFolders={"white","gold","purple","green","red","blue"};
@@ -661,14 +661,27 @@ public class MainActivity extends Activity {
       world.setContinuousPhysics(true);world.setWarmStarting(true);
       BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
 
-      // TTS table cushion planes are x=±42, z=±21. Split them at the six pocket mouths.
-      final float CX=42f,CZ=21f,CORNER=3.65f,SIDE=2.95f;
-      createRailEdge(-CX,-CZ+CORNER,-CX,CZ-CORNER);
-      createRailEdge( CX,-CZ+CORNER, CX,CZ-CORNER);
-      createRailEdge(-CX+CORNER,-CZ,-SIDE,-CZ);
-      createRailEdge(SIDE,-CZ,CX-CORNER,-CZ);
-      createRailEdge(-CX+CORNER, CZ,-SIDE, CZ);
-      createRailEdge(SIDE, CZ,CX-CORNER, CZ);
+      boolean loadedTableCollider=false;
+      try(BufferedReader br=new BufferedReader(new InputStreamReader(ctx.getAssets().open("extracted/table_collider_2d.txt")))){
+        String line;
+        while((line=br.readLine())!=null){
+          line=line.trim();if(line.isEmpty()||line.startsWith("#"))continue;
+          String[] q=line.split("\\s+");if(q.length<4)continue;
+          createRailEdge(Float.parseFloat(q[0]),Float.parseFloat(q[1]),Float.parseFloat(q[2]),Float.parseFloat(q[3]));
+          loadedTableCollider=true;
+        }
+      }catch(Exception e){e.printStackTrace();}
+
+      // Fallback only if the extracted Unity MeshCollider could not be loaded.
+      if(!loadedTableCollider){
+        final float CX=42f,CZ=21f,CORNER=3.65f,SIDE=2.95f;
+        createRailEdge(-CX,-CZ+CORNER,-CX,CZ-CORNER);
+        createRailEdge( CX,-CZ+CORNER, CX,CZ-CORNER);
+        createRailEdge(-CX+CORNER,-CZ,-SIDE,-CZ);
+        createRailEdge(SIDE,-CZ,CX-CORNER,-CZ);
+        createRailEdge(-CX+CORNER, CZ,-SIDE, CZ);
+        createRailEdge(SIDE, CZ,CX-CORNER, CZ);
+      }
 
       float density=(float)(TTS_MASS/(Math.PI*PHYS_R*PHYS_R));
       for(Ball b:balls){
