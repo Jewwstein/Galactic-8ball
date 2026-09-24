@@ -591,7 +591,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere,hiltCylinder,hiltBox; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
       {{1.72f,.20f},{1.53f,.10f},{0,0}},
@@ -714,8 +714,11 @@ public class MainActivity extends Activity {
           }
         }catch(Exception ignored){}
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
-        hiltCylinder=makeCylinderMesh(28);
+        hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
+        for(int i=0;i<6;i++){
+          try{hiltTextures[i]=loadTexture("hilt_materials/hilt_"+i+".png");}catch(Exception e){hiltTextures[i]=0;}
+        }
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
         for(int i=0;i<6;i++){
           saberMeshes[i]=null;
@@ -733,13 +736,24 @@ public class MainActivity extends Activity {
       for(int i=0;i<seg;i++){
         float a0=(float)(Math.PI*2*i/seg),a1=(float)(Math.PI*2*(i+1)/seg);
         float y0=(float)Math.cos(a0),z0=(float)Math.sin(a0),y1=(float)Math.cos(a1),z1=(float)Math.sin(a1);
-        float[][] v={
-          {-.5f,y0,z0},{ .5f,y0,z0},{ .5f,y1,z1},
-          {-.5f,y0,z0},{ .5f,y1,z1},{-.5f,y1,z1},
-          {-.5f,0,0},{-.5f,y1,z1},{-.5f,y0,z0},
-          { .5f,0,0},{ .5f,y0,z0},{ .5f,y1,z1}
+        float v0=i/(float)seg,v1=(i+1)/(float)seg;
+
+        float[][] side={
+          {-.5f,y0,z0,0f,v0},{ .5f,y0,z0,1f,v0},{ .5f,y1,z1,1f,v1},
+          {-.5f,y0,z0,0f,v0},{ .5f,y1,z1,1f,v1},{-.5f,y1,z1,0f,v1}
         };
-        for(float[] q:v){p.add(q[0]);p.add(q[1]);p.add(q[2]);u.add(0f);u.add(0f);}
+        for(float[] q:side){
+          p.add(q[0]);p.add(q[1]);p.add(q[2]);u.add(q[3]);u.add(q[4]);
+        }
+
+        // End caps use a neutral sample from the material.
+        float[][] caps={
+          {-.5f,0,0,.5f,.5f},{-.5f,y1,z1,.5f,.5f},{-.5f,y0,z0,.5f,.5f},
+          { .5f,0,0,.5f,.5f},{ .5f,y0,z0,.5f,.5f},{ .5f,y1,z1,.5f,.5f}
+        };
+        for(float[] q:caps){
+          p.add(q[0]);p.add(q[1]);p.add(q[2]);u.add(q[3]);u.add(q[4]);
+        }
       }
       float[] pp=new float[p.size()],uv=new float[u.size()];
       for(int i=0;i<pp.length;i++)pp[i]=p.get(i);for(int i=0;i<uv.length;i++)uv[i]=u.get(i);
@@ -762,6 +776,17 @@ public class MainActivity extends Activity {
     float hiltWorldLength(){return hiltIndex==3?13.6f:10.4f;}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
     float hiltBackWorld(){return 14.2f+chargePullWorld;}
+
+    void drawTexturedHiltCore(float[] pv,float len,float radius,float y,float angle,int texture){
+      float[] M=identity();
+      Ball cue=balls.get(0);
+      float cx=cue.x-aimX*hiltBackWorld();
+      float cz=cue.z-aimZ*hiltBackWorld();
+      android.opengl.Matrix.translateM(M,0,cx,y,cz);
+      android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
+      android.opengl.Matrix.scaleM(M,0,len,radius,radius);
+      drawMesh(hiltCylinder,pv,M,texture,new float[]{1f,1f,1f,1f});
+    }
 
     void drawHiltPart(float[] pv,float center,float len,float radius,float y,float z,float angle,float[] color){
       float[] M=identity();
@@ -807,27 +832,30 @@ public class MainActivity extends Activity {
       else if(hiltIndex==5){body=bronze;grip=black;accent=gunmetal;}
 
       float L=hiltWorldLength();
+      float coreRadius=hiltIndex==3?.63f:.72f;
+      drawTexturedHiltCore(pv,L,coreRadius,y,angle,hiltTextures[Math.max(0,Math.min(5,hiltIndex))]);
+
       if(hiltIndex==3){
         // Double-ended hilt.
-        drawHiltPart(pv,0,7.2f,.62f,y,0,angle,grip);
-        drawHiltPart(pv,-4.35f,1.55f,.78f,y,0,angle,body);
-        drawHiltPart(pv, 4.35f,1.55f,.78f,y,0,angle,body);
+        // Textured core supplies the detailed body/grip finish.
+        drawHiltPart(pv,-4.35f,.48f,.82f,y,0,angle,body);
+        drawHiltPart(pv, 4.35f,.48f,.82f,y,0,angle,body);
         drawHiltPart(pv,-5.45f,.42f,1.02f,y,0,angle,accent);
         drawHiltPart(pv, 5.45f,.42f,1.02f,y,0,angle,accent);
-        for(int i=-2;i<=2;i++)drawHiltPart(pv,i*1.0f,.22f,.72f,y,0,angle,body);
+        for(int i=-2;i<=2;i++)drawHiltPart(pv,i*1.0f,.12f,.74f,y,0,angle,new float[]{.62f,.66f,.72f,.72f});
         drawHiltBox(pv,0,.78f,.36f,.72f,y+.66f,0,angle,new float[]{.65f,.08f,.05f,1});
       }else{
-        // Main grip, emitter neck and pommel.
-        drawHiltPart(pv,-.7f,5.7f,.68f,y,0,angle,grip);
-        drawHiltPart(pv, 3.05f,2.15f,.78f,y,0,angle,body);
+        // The HD TTS-derived material supplies the main grip/body. These pieces
+        // only add physical depth at the emitter and pommel.
+        drawHiltPart(pv, 3.55f,.95f,.80f,y,0,angle,body);
         drawHiltPart(pv, 4.45f,.46f,1.02f,y,0,angle,accent);
         drawHiltPart(pv,-4.10f,.72f,.84f,y,0,angle,body);
         drawHiltPart(pv,-4.62f,.34f,.94f,y,0,angle,accent);
 
         // Grip bands.
-        for(int i=0;i<5;i++){
-          float x=-2.9f+i*.92f;
-          drawHiltPart(pv,x,.16f,.76f,y,0,angle,(i%2==0)?body:gunmetal);
+        for(int i=0;i<3;i++){
+          float x=-2.65f+i*1.45f;
+          drawHiltPart(pv,x,.10f,.76f,y,0,angle,new float[]{.70f,.73f,.78f,.58f});
         }
 
         // Style-specific details.
