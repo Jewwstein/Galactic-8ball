@@ -313,10 +313,14 @@ public class MainActivity extends Activity {
           RectF hit=new RectF(worldHiltRect);
           hit.inset(-34*ui,-34*ui);
           if(hit.contains(x,y)){
-            aimingHilt=true;
-            aimStartFingerAngle=(float)Math.atan2(y-worldCueY,x-worldCueX);
-            aimStartWorldAngle=(float)Math.atan2(r.aimZ,r.aimX);
-            return true;
+            float[] q=r.screenToTable(x,y,w,h);
+            if(q!=null){
+              Ball cue=r.balls.get(0);
+              aimingHilt=true;
+              aimStartFingerAngle=(float)Math.atan2(q[1]-cue.z,q[0]-cue.x);
+              aimStartWorldAngle=(float)Math.atan2(r.aimZ,r.aimX);
+              return true;
+            }
           }
         }
 
@@ -328,20 +332,28 @@ public class MainActivity extends Activity {
       }
 
       if(aimingHilt){
-        float fingerAngle=(float)Math.atan2(y-worldCueY,x-worldCueX);
-        float delta=fingerAngle-aimStartFingerAngle;
-        while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
-        while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
-        final float target=aimStartWorldAngle+delta*.34f;
-        if(a==MotionEvent.ACTION_MOVE){
-          game.queueEvent(()->r.setAimAngle(target));
-          return true;
+        float[] q=r.screenToTable(x,y,w,h);
+        if(q!=null){
+          Ball cue=r.balls.get(0);
+          float fingerAngle=(float)Math.atan2(q[1]-cue.z,q[0]-cue.x);
+          float delta=fingerAngle-aimStartFingerAngle;
+          while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
+          while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
+
+          // Precision gear: one degree of finger orbit turns the shot about 0.42 degrees.
+          final float target=aimStartWorldAngle+delta*.42f;
+
+          if(a==MotionEvent.ACTION_MOVE){
+            game.queueEvent(()->r.previewAimAngle(target));
+            return true;
+          }
+          if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
+            aimingHilt=false;
+            game.queueEvent(()->{r.commitAimAngle(target);r.lockAngle();});
+            return true;
+          }
         }
-        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
-          aimingHilt=false;
-          game.queueEvent(()->{r.setAimAngle(target);r.lockAngle();});
-          return true;
-        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL)aimingHilt=false;
         return true;
       }
 
@@ -439,7 +451,7 @@ public class MainActivity extends Activity {
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
-    static final float TTS_DRAG=.45f;
+    static final float TTS_DRAG=.68f;
     static final float TTS_ANGULAR_DRAG=.45f;
     static final float TTS_STATIC_FRICTION=.40f;
     static final float TTS_DYNAMIC_FRICTION=.20f;
@@ -475,7 +487,7 @@ public class MainActivity extends Activity {
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
       if(state==AIMING){
-        float k=.045f;
+        float k=.12f;
         aimX=aimX*(1f-k)+desiredAimX*k;aimZ=aimZ*(1f-k)+desiredAimZ*k;
         float an=(float)Math.sqrt(aimX*aimX+aimZ*aimZ);if(an>.0001f){aimX/=an;aimZ/=an;}
       }
@@ -652,7 +664,7 @@ public class MainActivity extends Activity {
 
     void createRailEdge(float x1,float z1,float x2,float z2){
       EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
-      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.82f;
+      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.78f;
       railBody.createFixture(fd);
     }
 
@@ -690,7 +702,7 @@ public class MainActivity extends Activity {
         bd.bullet=(b.index==0);bd.allowSleep=true;
         b.body=world.createBody(bd);
         CircleShape cs=new CircleShape();cs.m_radius=PHYS_R;
-        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=TTS_BOUNCINESS;
+        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.94f;
         b.body.createFixture(fd);
         b.body.setUserData(b);
       }
@@ -728,7 +740,11 @@ public class MainActivity extends Activity {
       return new float[]{wa[0]+(wb[0]-wa[0])*t,wa[2]+(wb[2]-wa[2])*t};
     }
 
-    void setAimAngle(float angle){
+    void previewAimAngle(float angle){
+      desiredAimX=(float)Math.cos(angle);
+      desiredAimZ=(float)Math.sin(angle);
+    }
+    void commitAimAngle(float angle){
       float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
@@ -751,7 +767,7 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
       // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
-      float speed=power*1.65f*1.25f;
+      float speed=power*1.65f*1.25f*.40f;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
       if(cue.body!=null){
