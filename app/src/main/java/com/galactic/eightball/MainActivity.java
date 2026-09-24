@@ -12,6 +12,8 @@ import android.widget.*;
 import java.io.*;
 import java.nio.*;
 import java.util.*;
+import java.net.*;
+import android.text.InputType;
 import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import org.jbox2d.collision.shapes.CircleShape;
@@ -26,12 +28,16 @@ import org.jbox2d.dynamics.World;
 public class MainActivity extends Activity {
   GameView game;
   HudView hud;
+  MultiplayerManager multiplayer;
 
   public void onCreate(Bundle b){
     super.onCreate(b);
     getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
     game=new GameView(this);
     hud=new HudView(this,game);
+    multiplayer=new MultiplayerManager(this,game,hud);
+    game.r.net=multiplayer;
+    hud.net=multiplayer;
     FrameLayout root=new FrameLayout(this);
     ImageView space=new ImageView(this);
     space.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -43,8 +49,171 @@ public class MainActivity extends Activity {
   }
 
   protected void onDestroy(){
+    if(multiplayer!=null)multiplayer.disconnect();
     if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.shutdown();
     super.onDestroy();
+  }
+
+  void showMultiplayerDialog(){
+    String status=multiplayer==null?"OFFLINE":multiplayer.statusText();
+    new AlertDialog.Builder(this)
+      .setTitle("LAN MULTIPLAYER BETA")
+      .setMessage(status+"\n\nUse the same Wi-Fi network. Host on one device, then join from the other.")
+      .setItems(new String[]{"HOST GAME","JOIN GAME","DISCONNECT","CANCEL"},(d,which)->{
+        if(which==0){
+          multiplayer.startHost();
+          Toast.makeText(this,"Hosting on "+multiplayer.localAddress()+":"+MultiplayerManager.PORT,Toast.LENGTH_LONG).show();
+        }else if(which==1){
+          showJoinDialog();
+        }else if(which==2){
+          multiplayer.disconnect();
+          Toast.makeText(this,"Multiplayer disconnected",Toast.LENGTH_SHORT).show();
+        }
+      }).show();
+  }
+
+  void showJoinDialog(){
+    final EditText input=new EditText(this);
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_PHONE|InputType.TYPE_NUMBER_FLAG_DECIMAL);
+    input.setHint("Host IP, e.g. 192.168.1.25");
+    input.setPadding(36,18,36,18);
+    new AlertDialog.Builder(this)
+      .setTitle("JOIN LAN GAME")
+      .setMessage("Enter the host device's IP address.")
+      .setView(input)
+      .setPositiveButton("JOIN",(d,w)->{
+        String ip=input.getText().toString().trim();
+        if(!ip.isEmpty())multiplayer.joinHost(ip);
+      })
+      .setNegativeButton("CANCEL",null)
+      .show();
+  }
+
+  static class MultiplayerManager {
+    static final int PORT=27861;
+    final MainActivity activity; final GameView game; final HudView hud;
+    final Handler main=new Handler(Looper.getMainLooper());
+    volatile boolean hosting=false,connected=false;
+    volatile int localPlayer=0;
+    volatile String status="OFFLINE";
+    volatile long lastSyncMs=0;
+    ServerSocket server; Socket socket; BufferedReader reader; PrintWriter writer;
+
+    MultiplayerManager(MainActivity a,GameView g,HudView h){activity=a;game=g;hud=h;}
+
+    boolean isConnected(){return connected;}
+    boolean isFollower(){return connected&&!hosting;}
+    boolean canLocalControl(int activeShooter){return !connected||localPlayer==activeShooter;}
+
+    String statusText(){
+      if(connected)return hosting?"CONNECTED • HOST / PLAYER 1":"CONNECTED • GUEST / PLAYER 2";
+      if(hosting)return "HOSTING • "+localAddress()+":"+PORT;
+      return status;
+    }
+
+    String localAddress(){
+      try{
+        Enumeration<NetworkInterface> ifs=NetworkInterface.getNetworkInterfaces();
+        while(ifs.hasMoreElements()){
+          NetworkInterface ni=ifs.nextElement();
+          Enumeration<InetAddress> as=ni.getInetAddresses();
+          while(as.hasMoreElements()){
+            InetAddress a=as.nextElement();
+            if(!a.isLoopbackAddress()&&a instanceof Inet4Address)return a.getHostAddress();
+          }
+        }
+      }catch(Exception ignored){}
+      return "0.0.0.0";
+    }
+
+    void toast(String t){main.post(()->Toast.makeText(activity,t,Toast.LENGTH_LONG).show());}
+
+    synchronized void closeSockets(){
+      try{if(reader!=null)reader.close();}catch(Exception ignored){}
+      try{if(writer!=null)writer.close();}catch(Exception ignored){}
+      try{if(socket!=null)socket.close();}catch(Exception ignored){}
+      try{if(server!=null)server.close();}catch(Exception ignored){}
+      reader=null;writer=null;socket=null;server=null;
+    }
+
+    void disconnect(){
+      connected=false;hosting=false;localPlayer=0;status="OFFLINE";closeSockets();
+      if(hud!=null)main.post(hud::invalidate);
+    }
+
+    void startHost(){
+      disconnect();hosting=true;localPlayer=1;status="HOSTING • "+localAddress()+":"+PORT;
+      if(hud!=null)hud.invalidate();
+      new Thread(()->{
+        try{
+          server=new ServerSocket(PORT);
+          Socket s=server.accept();
+          attachSocket(s,true);
+        }catch(Exception e){
+          if(hosting){status="HOST ERROR";toast("Host failed: "+e.getMessage());}
+        }
+      },"GalacticHost").start();
+    }
+
+    void joinHost(String ip){
+      disconnect();hosting=false;localPlayer=2;status="CONNECTING • "+ip;
+      if(hud!=null)hud.invalidate();
+      new Thread(()->{
+        try{
+          Socket s=new Socket();
+          s.connect(new InetSocketAddress(ip,PORT),5000);
+          attachSocket(s,false);
+        }catch(Exception e){
+          status="JOIN FAILED";toast("Could not join host: "+e.getMessage());
+          if(hud!=null)main.post(hud::invalidate);
+        }
+      },"GalacticJoin").start();
+    }
+
+    void attachSocket(Socket s,boolean asHost)throws Exception{
+      socket=s;socket.setTcpNoDelay(true);socket.setKeepAlive(true);
+      reader=new BufferedReader(new InputStreamReader(socket.getInputStream()));
+      writer=new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())),true);
+      connected=true;hosting=asHost;localPlayer=asHost?1:2;
+      status=asHost?"CONNECTED • HOST / PLAYER 1":"CONNECTED • GUEST / PLAYER 2";
+      toast(asHost?"Player 2 connected":"Connected to host");
+      if(hud!=null)main.post(hud::invalidate);
+      if(asHost)send("HELLO|1");
+      readLoop();
+    }
+
+    synchronized void send(String line){
+      if(!connected||writer==null)return;
+      try{writer.println(line);writer.flush();}catch(Exception ignored){}
+    }
+
+    void readLoop(){
+      try{
+        String line;
+        while(connected&&(line=reader.readLine())!=null){
+          final String msg=line;
+          if(hosting){
+            if(msg.startsWith("CMD|"))game.queueEvent(()->game.r.applyNetworkCommand(msg.substring(4)));
+          }else if(msg.startsWith("STATE|")){
+            game.queueEvent(()->game.r.applyNetworkState(msg));
+          }
+        }
+      }catch(Exception ignored){}
+      if(connected){
+        connected=false;status="CONNECTION LOST";
+        toast("Multiplayer connection lost");
+        if(hud!=null)main.post(hud::invalidate);
+      }
+    }
+
+    void onFrame(GameRenderer r){
+      if(!connected||!hosting)return;
+      long now=System.currentTimeMillis();
+      if(now-lastSyncMs<66)return;
+      lastSyncMs=now;
+      send(r.buildNetworkState());
+    }
   }
 
   static class SfxManager {
