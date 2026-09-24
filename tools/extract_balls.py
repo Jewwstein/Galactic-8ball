@@ -5,7 +5,7 @@ outroot=Path("app/src/main/assets/objects");outroot.mkdir(parents=True,exist_ok=
 def clean(x):return re.sub(r'[^A-Za-z0-9_.-]+','_',str(x))
 for src in sorted(root.glob("*.unity3d")):
  out=outroot/src.stem;out.mkdir(parents=True,exist_ok=True)
- env=UnityPy.load(str(src));inv=[]
+ env=UnityPy.load(str(src));inv=[];physics=[]
  for obj in env.objects:
   try:data=obj.read()
   except:continue
@@ -18,5 +18,11 @@ for src in sorted(root.glob("*.unity3d")):
    try:
     with open(out/f"{obj.path_id}_{clean(name)}.obj","wt",newline="") as q:q.write(data.export())
    except Exception as e:print("MESHERR",src.name,obj.path_id,repr(e))
+  if obj.type.name in ("SphereCollider","MeshCollider","BoxCollider","CapsuleCollider","Rigidbody","PhysicMaterial","PhysicsMaterial2D","GameObject","Transform"):
+   try:
+    tree=obj.read_typetree()
+    physics.append({"type":obj.type.name,"path_id":obj.path_id,"name":str(name),"tree":tree})
+   except Exception as e:print("PHYERR",src.name,obj.type.name,obj.path_id,repr(e))
  (out/"inventory.json").write_text(json.dumps(inv,indent=2))
+ (out/"physics.json").write_text(json.dumps(physics,indent=2,default=str))
  print(src.name,"meshes",len(list(out.glob("*.obj"))),"textures",len(list(out.glob("*.png"))))
