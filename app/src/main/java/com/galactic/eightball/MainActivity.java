@@ -393,9 +393,9 @@ public class MainActivity extends Activity {
     static final float FIXED_DT=1f/360f;
     static final float BALL_E=.925f;
     static final float RAIL_E=.74f;
-    static final float ROLL_DECEL=5.7f;
-    static final float STOP_SPEED=.16f;
-    static final float CONTACT_EPS=.006f;
+    static final float ROLL_DECEL=2.25f;
+    static final float STOP_SPEED=.35f;
+    static final float CONTACT_EPS=.0010f;
     final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
     final String[] objectFolders={"00_DeathStar","01_Tatooine","02_Kamino","03_Mustafar","04_Coruscant","05_Geonosis","06_Endor","07_Korriban","08_Exegol","09_Yavin","10_Bespin","11_Malastare","12_Kessel","13_Jakku","14_Felucia","15_Dathomir"};
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
@@ -529,7 +529,7 @@ public class MainActivity extends Activity {
 
       // Tight triangle with a small non-overlap gap and microscopic deterministic
       // asymmetry so a dead-center break does not become an artificial Newton cradle.
-      float S=2*R+.018f,HX=S*.5f,DX=S*.8660254f;
+      float S=2*R+.0018f,HX=S*.5f,DX=S*.8660254f;
       float[][] p={{20f,0f},{20f+DX,-HX-.002f},{20f+DX,HX+.002f},
         {20f+2*DX,-S-.003f},{20f+2*DX,.003f},{20f+2*DX,S+.001f},
         {20f+3*DX,-3*HX-.002f},{20f+3*DX,-HX+.002f},{20f+3*DX,HX-.001f},{20f+3*DX,3*HX+.003f},
@@ -571,7 +571,7 @@ public class MainActivity extends Activity {
     void executeShot(){
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
-      float speed=power*.47f;
+      float speed=power*1.60f;
       cue.vx=aimX*speed;cue.vz=aimZ*speed;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
@@ -588,7 +588,7 @@ public class MainActivity extends Activity {
         if(sp>0){
           // Constant rolling resistance, scaled up slightly at high speed to remove
           // the air-hockey glide without killing the break.
-          float dec=ROLL_DECEL*(1f+.018f*sp);
+          float dec=ROLL_DECEL*(1f+.0035f*sp);
           float ns=Math.max(0f,sp-dec*dt);
           if(ns<STOP_SPEED){b.vx=b.vz=0;}
           else{float q=ns/sp;b.vx*=q;b.vz*=q;}
@@ -604,7 +604,7 @@ public class MainActivity extends Activity {
       float A=rvx*rvx+rvz*rvz;
       float B=2*(rx*rvx+rz*rvz);
       float C=rx*rx+rz*rz-target*target;
-      if(C<=0)return 0f;
+      if(C<=0)return B<-.00001f?0f:Float.POSITIVE_INFINITY;
       if(A<1e-8f||B>=0)return Float.POSITIVE_INFINITY;
       float D=B*B-4*A*C;if(D<0)return Float.POSITIVE_INFINITY;
       float t=(-B-(float)Math.sqrt(D))/(2*A);
@@ -642,7 +642,7 @@ public class MainActivity extends Activity {
     }
 
     void resolveTouchingCluster(){
-      for(int pass=0;pass<8;pass++){
+      for(int pass=0;pass<18;pass++){
         boolean any=false;
         for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
           Ball a=balls.get(i),b=balls.get(j);if(!a.active||!b.active)continue;
@@ -667,7 +667,7 @@ public class MainActivity extends Activity {
 
     void physicsSlice(float dt){
       float remain=dt;int events=0;
-      while(remain>1e-6f&&events<24){
+      while(remain>1e-6f&&events<64){
         float best=remain;Ball ca=null,cb=null;
         for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
           float t=ballCollisionTime(balls.get(i),balls.get(j),best);
@@ -744,7 +744,7 @@ public class MainActivity extends Activity {
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
       int texture=saberTextures[idx];
-      float width=1.10f;
+      float width=3.90f;
 
       GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 
