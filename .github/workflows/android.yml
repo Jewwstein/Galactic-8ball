@@ -100,8 +100,9 @@ jobs:
           unzip -q -o /tmp/real_hilts_256.zip -d app/src/main/assets/real_hilts
           cat model_assets/maul_hilt_slot3.b64.part* | base64 -d > /tmp/maul_hilt_slot3.zip
           unzip -q -o /tmp/maul_hilt_slot3.zip -d app/src/main/assets/real_hilts
-          test -f app/src/main/assets/real_hilts/hilt_0.meshbin.gz
+          test -f app/src/main/assets/real_hilts/hilt_0.meshbin
           test -f app/src/main/assets/real_hilts/hilt_5.webp
+          python tools/render_hilt_thumbnails.py
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
           python -c 'from PIL import Image; p="app/src/main/assets/environment/sky.jpg"; im=Image.open(p).convert("RGB"); im.thumbnail((2048,2048),Image.Resampling.LANCZOS); im.save(p,quality=91,optimize=True)'
