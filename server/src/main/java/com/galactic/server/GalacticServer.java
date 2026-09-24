@@ -11,10 +11,16 @@ import org.jbox2d.collision.shapes.CircleShape;
 import org.jbox2d.collision.shapes.EdgeShape;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 import java.io.*;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
@@ -271,10 +277,18 @@ public class GalacticServer {
   static class UserStore{
     final HashMap<String,User> users=new HashMap<>();
     final Path file;
+    final String supabaseUrl;
+    final String supabaseKey;
+    final boolean useSupabase;
+    final HttpClient http=HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(8)).build();
+    final ObjectMapper json=new ObjectMapper();
 
     UserStore(){
       String dir=System.getenv().getOrDefault("DATA_DIR","data");
       file=Paths.get(dir,"users.db");
+      supabaseUrl=trimSlash(System.getenv().getOrDefault("SUPABASE_URL",""));
+      supabaseKey=System.getenv().getOrDefault("SUPABASE_SERVICE_ROLE_KEY","");
+      useSupabase=!supabaseUrl.isEmpty()&&!supabaseKey.isEmpty();
       load();
     }
 
@@ -294,9 +308,11 @@ public class GalacticServer {
         byte[] hash=pbkdf(password.toCharArray(),salt);
         String token=randomToken();
         User u=new User(username,b64(salt),b64(hash),token);
-        users.put(key,u);save();
+        users.put(key,u);saveUser(u);
         return new AuthResult(true,"OK",u);
       }catch(Exception e){
+        users.remove(key);
+        System.err.println("Account create failed: "+e.getMessage());
         return new AuthResult(false,"Could not create account",null);
       }
     }
@@ -310,7 +326,7 @@ public class GalacticServer {
         byte[] got=pbkdf(password.toCharArray(),Base64.getUrlDecoder().decode(u.salt));
         byte[] expected=Base64.getUrlDecoder().decode(u.hash);
         if(!MessageDigest.isEqual(got,expected))return new AuthResult(false,"Invalid username or password",null);
-        u.token=randomToken();save();
+        u.token=randomToken();saveUser(u);
         return new AuthResult(true,"OK",u);
       }catch(Exception e){
         return new AuthResult(false,"Invalid username or password",null);
@@ -323,10 +339,10 @@ public class GalacticServer {
       return null;
     }
 
-    String normalizeUsername(String s){
-      if(s==null)return null;
-      s=s.trim();
-      return s.matches("[A-Za-z0-9_]{3,18}")?s:null;
+    String normalizeUsername(String v){
+      if(v==null)return null;
+      v=v.trim();
+      return v.matches("[A-Za-z0-9_]{3,18}")?v:null;
     }
 
     byte[] pbkdf(char[] password,byte[] salt)throws Exception{
@@ -342,22 +358,76 @@ public class GalacticServer {
     String b64(byte[] b){return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
 
     synchronized void load(){
+      if(useSupabase){
+        try{
+          loadSupabase();
+          System.out.println("Loaded "+users.size()+" Galactic accounts from Supabase");
+          return;
+        }catch(Exception e){
+          System.err.println("Supabase account load failed: "+e.getMessage());
+        }
+      }
+      loadLocal();
+    }
+
+    void loadSupabase()throws Exception{
+      HttpRequest req=baseRequest(supabaseUrl+"/rest/v1/galactic_users?select=username,salt,hash,token")
+        .GET().build();
+      HttpResponse<String> res=http.send(req,HttpResponse.BodyHandlers.ofString());
+      if(res.statusCode()<200||res.statusCode()>=300)throw new IOException("HTTP "+res.statusCode()+" "+res.body());
+      JsonNode root=json.readTree(res.body());
+      if(!root.isArray())return;
+      for(JsonNode n:root){
+        String username=n.path("username").asText("");
+        if(username.isEmpty())continue;
+        users.put(username.toLowerCase(Locale.US),new User(username,n.path("salt").asText(),n.path("hash").asText(),n.path("token").asText()));
+      }
+    }
+
+    void loadLocal(){
       try{
         if(!Files.exists(file))return;
         for(String line:Files.readAllLines(file,StandardCharsets.UTF_8)){
-          String[] p=line.split("\\t",-1);
+          String[] p=line.split("\t",-1);
           if(p.length<4)continue;
           String username=decode(p[0]);
           if(username.isEmpty())continue;
           users.put(username.toLowerCase(Locale.US),new User(username,p[1],p[2],p[3]));
         }
-        System.out.println("Loaded "+users.size()+" Galactic accounts from "+file);
+        System.out.println("Loaded "+users.size()+" Galactic accounts from local fallback "+file);
       }catch(Exception e){
-        System.err.println("User database load failed: "+e.getMessage());
+        System.err.println("Local user database load failed: "+e.getMessage());
       }
     }
 
-    synchronized void save()throws IOException{
+    synchronized void saveUser(User u)throws Exception{
+      if(useSupabase){
+        String body=json.createObjectNode()
+          .put("username",u.username)
+          .put("salt",u.salt)
+          .put("hash",u.hash)
+          .put("token",u.token)
+          .toString();
+        HttpRequest req=baseRequest(supabaseUrl+"/rest/v1/galactic_users?on_conflict=username")
+          .header("Content-Type","application/json")
+          .header("Prefer","resolution=merge-duplicates,return=minimal")
+          .POST(HttpRequest.BodyPublishers.ofString(body))
+          .build();
+        HttpResponse<String> res=http.send(req,HttpResponse.BodyHandlers.ofString());
+        if(res.statusCode()<200||res.statusCode()>=300)throw new IOException("HTTP "+res.statusCode()+" "+res.body());
+      }else{
+        saveLocal();
+      }
+    }
+
+    HttpRequest.Builder baseRequest(String url){
+      return HttpRequest.newBuilder(URI.create(url))
+        .timeout(java.time.Duration.ofSeconds(10))
+        .header("apikey",supabaseKey)
+        .header("Authorization","Bearer "+supabaseKey);
+    }
+
+    synchronized void saveLocal()throws IOException{
       Files.createDirectories(file.getParent());
       Path tmp=file.resolveSibling(file.getFileName()+".tmp");
       ArrayList<String> lines=new ArrayList<>();
@@ -366,6 +436,13 @@ public class GalacticServer {
       Files.write(tmp,lines,StandardCharsets.UTF_8,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING);
       try{Files.move(tmp,file,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}
       catch(AtomicMoveNotSupportedException e){Files.move(tmp,file,StandardCopyOption.REPLACE_EXISTING);}
+    }
+
+    String trimSlash(String v){
+      if(v==null)return "";
+      v=v.trim();
+      while(v.endsWith("/"))v=v.substring(0,v.length()-1);
+      return v;
     }
   }
 
