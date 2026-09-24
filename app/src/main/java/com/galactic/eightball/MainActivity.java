@@ -3,6 +3,7 @@ package com.galactic.eightball;
 import android.app.*;
 import android.os.*;
 import android.opengl.*;
+import android.media.*;
 import android.content.*;
 import android.graphics.*;
 import android.graphics.drawable.*;
@@ -39,6 +40,86 @@ public class MainActivity extends Activity {
     root.addView(game,new FrameLayout.LayoutParams(-1,-1));
     root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
     setContentView(root);
+  }
+
+  protected void onDestroy(){
+    if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.shutdown();
+    super.onDestroy();
+  }
+
+  static class SfxManager {
+    final Context ctx; final Handler main=new Handler(Looper.getMainLooper());
+    MediaPlayer humPlayer=null,victoryPlayer=null; int humGeneration=0;
+
+    SfxManager(Context c){ctx=c;}
+
+    int rawId(String name){return ctx.getResources().getIdentifier(name,"raw",ctx.getPackageName());}
+
+    MediaPlayer make(String name){
+      int id=rawId(name);if(id==0)return null;
+      try{return MediaPlayer.create(ctx,id);}catch(Exception e){return null;}
+    }
+
+    void oneShot(String name,float vol){
+      main.post(()->{
+        MediaPlayer mp=make(name);if(mp==null)return;
+        mp.setVolume(vol,vol);
+        mp.setOnCompletionListener(p->{try{p.release();}catch(Exception ignored){}});
+        try{mp.start();}catch(Exception e){try{mp.release();}catch(Exception ignored){}}
+      });
+    }
+
+    void stopHum(){
+      humGeneration++;
+      main.post(()->{
+        if(humPlayer!=null){try{humPlayer.stop();}catch(Exception ignored){}try{humPlayer.release();}catch(Exception ignored){}humPlayer=null;}
+      });
+    }
+
+    void startHum(){
+      final int my=humGeneration;
+      main.post(()->{
+        if(my!=humGeneration)return;
+        if(humPlayer!=null){try{humPlayer.release();}catch(Exception ignored){}}
+        humPlayer=make("sfx_hum");
+        if(humPlayer!=null){
+          humPlayer.setLooping(true);humPlayer.setVolume(.34f,.34f);
+          try{humPlayer.start();}catch(Exception ignored){}
+        }
+      });
+    }
+
+    void ignite(boolean jedi){
+      stopHum();
+      final int my=humGeneration;
+      oneShot(jedi?"sfx_ignite_jedi":"sfx_ignite_sith",.82f);
+      main.postDelayed(()->{if(my==humGeneration)startHum();},1750);
+    }
+
+    void clash(){stopHum();main.postDelayed(()->oneShot("sfx_clash",.88f),250);}
+    void deactivate(){stopHum();main.postDelayed(()->oneShot("sfx_deactivate",.78f),250);}
+    void pocket(){oneShot("sfx_pocket",.82f);}
+    void scratch(){oneShot("sfx_scratch",.86f);}
+
+    void stopVictory(){
+      main.post(()->{
+        if(victoryPlayer!=null){try{victoryPlayer.stop();}catch(Exception ignored){}try{victoryPlayer.release();}catch(Exception ignored){}victoryPlayer=null;}
+      });
+    }
+
+    void victory(boolean jedi){
+      stopHum();stopVictory();
+      main.post(()->{
+        victoryPlayer=make(jedi?"sfx_victory_jedi":"sfx_victory_sith");
+        if(victoryPlayer!=null){
+          victoryPlayer.setVolume(.78f,.78f);
+          victoryPlayer.setOnCompletionListener(p->{try{p.release();}catch(Exception ignored){}if(victoryPlayer==p)victoryPlayer=null;});
+          try{victoryPlayer.start();}catch(Exception ignored){}
+        }
+      });
+    }
+
+    void shutdown(){stopHum();stopVictory();main.removeCallbacksAndMessages(null);}
   }
 
   static class GameView extends GLSurfaceView{
@@ -500,7 +581,7 @@ public class MainActivity extends Activity {
 
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
-    Context ctx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
+    Context ctx; SfxManager sfx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
     Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
@@ -550,7 +631,7 @@ public class MainActivity extends Activity {
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
     final String[] saberFolders={"white","gold","purple","green","red","blue"};
 
-    GameRenderer(Context c){ctx=c;}
+    GameRenderer(Context c){ctx=c;sfx=new SfxManager(c.getApplicationContext());}
 
     public void onSurfaceCreated(GL10 gl,EGLConfig cfg){
       GLES20.glClearColor(0f,0f,0f,0f);
@@ -807,6 +888,7 @@ public class MainActivity extends Activity {
     }
 
     void resetRules(){
+      if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
       currentTeam=1;winnerTeam=0;teamSuit[0]=teamSuit[1]=0;
       tableOpen=true;gameOver=false;ballsSunkThisShot.clear();
       ruleMessage="BREAK • TEAM 1";
@@ -903,8 +985,18 @@ public class MainActivity extends Activity {
       }
     }
     void setEnglish(float x,float y){englishX=Math.max(-1,Math.min(1,x));englishY=Math.max(-1,Math.min(1,y));}
-    void confirmEnglish(){if(state==SELECTING_ENGLISH){state=CHARGING;power=0;chargePullPx=0;chargeStartY=-1;}}
-    void cancelEnglish(){if(state==SELECTING_ENGLISH){state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;}}
+    void confirmEnglish(){
+      if(state==SELECTING_ENGLISH){
+        state=CHARGING;power=0;chargePullPx=0;chargeStartY=-1;
+        if(sfx!=null)sfx.ignite(false); // TTS default faction is Sith unless a player overrides it.
+      }
+    }
+    void cancelEnglish(){
+      if(state==SELECTING_ENGLISH){
+        state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;
+        if(sfx!=null)sfx.deactivate();
+      }
+    }
 
     void beginWorldCharge(){if(state==CHARGING){power=0;chargePullPx=0;}}
     void updateWorldCharge(float pullPx,int h){
@@ -913,7 +1005,13 @@ public class MainActivity extends Activity {
     }
     void releaseWorldCharge(){
       if(state!=CHARGING)return;
-      if(power>=5)executeShot();else{power=0;chargePullPx=0;}
+      if(power>=5){
+        if(sfx!=null)sfx.clash();
+        executeShot();
+      }else{
+        power=0;chargePullPx=0;state=AIMING;
+        if(sfx!=null)sfx.deactivate();
+      }
     }
 
     void executeShot(){
@@ -989,6 +1087,11 @@ public class MainActivity extends Activity {
 
     void startPocketSink(int index,Ball b,float px,float pz){
       if(b.sinking)return;
+      if(sfx!=null){
+        if(index==0)sfx.scratch();
+        else if(index==8)sfx.victory(false);
+        else sfx.pocket();
+      }
       recordPocket(index);
       b.sinking=true;b.sinkT=0;b.sinkStartX=b.x;b.sinkStartZ=b.z;b.sinkX=px;b.sinkZ=pz;
       b.vx=b.vz=b.spin=0;
