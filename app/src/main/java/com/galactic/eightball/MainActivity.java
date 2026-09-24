@@ -362,7 +362,7 @@ public class MainActivity extends Activity {
     }
 
     RectF worldHiltRect=new RectF();
-    float worldHiltAngle=0,worldCueX=0,worldCueY=0,worldDirX=1,worldDirY=0,worldEmitterX=0,worldEmitterY=0;
+    float worldHiltAngle=0,worldCueX=0,worldCueY=0,worldDirX=1,worldDirY=0,worldEmitterX=0,worldEmitterY=0,worldRearEmitterX=0,worldRearEmitterY=0;
 
     void updateWorldHiltGeometry(int w,int h,GameRenderer r,float pullPx){
       if(r.balls.isEmpty()){worldHiltRect.setEmpty();return;}
@@ -383,7 +383,7 @@ public class MainActivity extends Activity {
       if(hp==null||ep==null||bp==null){worldHiltRect.setEmpty();return;}
 
       worldCueX=cue[0];worldCueY=cue[1];
-      worldEmitterX=ep[0];worldEmitterY=ep[1];
+      worldEmitterX=ep[0];worldEmitterY=ep[1];worldRearEmitterX=bp[0];worldRearEmitterY=bp[1];
 
       float dx=ep[0]-bp[0],dy=ep[1]-bp[1],len=(float)Math.sqrt(dx*dx+dy*dy);
       if(len<1){dx=1;dy=0;len=1;}
@@ -415,6 +415,17 @@ public class MainActivity extends Activity {
         c.save();c.rotate(ang,ex,ey);
         if(blade!=null)c.drawBitmap(blade,null,bladeDst,p);
         c.restore();
+
+        if(r.hiltIndex==3){
+          float rex=worldRearEmitterX,rey=worldRearEmitterY;
+          float rendX=rex-worldDirX*len,rendY=rey-worldDirY*len;
+          float rang=(float)Math.toDegrees(Math.atan2(rendY-rey,rendX-rex));
+          RectF rearDst=new RectF(rex,rey-thick*.5f,rex+Math.max(2,len),rey+thick*.5f);
+          c.save();c.rotate(rang,rex,rey);
+          if(blade!=null)c.drawBitmap(blade,null,rearDst,p);
+          c.restore();
+        }
+
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(20f,h*.026f));p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);
         c.drawText(Math.round(r.power)+"%",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.80f,p);
       }
@@ -849,11 +860,41 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.scaleM(M,0,L,L,L);
         drawMesh(authored,pv,M,realHiltTextures[hi],new float[]{1f,1f,1f,1f});
 
-        // Keep the selected saber-color emitter glow, but no blocky geometry overlays.
         float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
-        GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-        drawHiltPart(pv,L*.49f,.12f,.98f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.42f});
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+
+        if(hi==3){
+          // The source Maul blend is slightly asymmetric at the emitter caps.
+          // Add matching physical collars to BOTH ends so the double hilt reads
+          // correctly from every camera angle without changing gameplay physics.
+          float e=L*.493f;
+          float[] silver={.74f,.77f,.82f,1f};
+          float[] gunmetal={.16f,.17f,.19f,1f};
+          drawHiltPart(pv, e,.34f,1.00f,y,0,angle,silver);
+          drawHiltPart(pv,-e,.34f,1.00f,y,0,angle,silver);
+          drawHiltPart(pv, e+.18f,.16f,.72f,y,0,angle,gunmetal);
+          drawHiltPart(pv,-e-.18f,.16f,.72f,y,0,angle,gunmetal);
+
+          GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+          drawHiltPart(pv, e+.22f,.10f,.84f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.40f});
+          drawHiltPart(pv,-e-.22f,.10f,.84f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.40f});
+          GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+
+          // In aiming mode the cue-facing blade joins the predictor at the cue ball,
+          // while the rear emitter projects an equal cosmetic blade in the opposite
+          // direction. These are render-only and have no collider.
+          if(state==AIMING){
+            float frontX=cx+aimX*(e+.30f),frontZ=cz+aimZ*(e+.30f);
+            float rearX=cx-aimX*(e+.30f),rearZ=cz-aimZ*(e+.30f);
+            float gap=(float)Math.sqrt((cue.x-frontX)*(cue.x-frontX)+(cue.z-frontZ)*(cue.z-frontZ));
+            drawSaberSegment(pv,frontX,frontZ,cue.x,cue.z,rgb[0],rgb[1],rgb[2]);
+            drawSaberSegment(pv,rearX,rearZ,rearX-aimX*gap,rearZ-aimZ*gap,rgb[0],rgb[1],rgb[2]);
+          }
+        }else{
+          // Single-ended hilts keep one subtle emitter glow.
+          GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+          drawHiltPart(pv,L*.49f,.12f,.98f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.42f});
+          GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+        }
         return;
       }
       float[] silver={.72f,.76f,.82f,1};
