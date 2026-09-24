@@ -12,6 +12,7 @@ import android.widget.*;
 import java.io.*;
 import java.nio.*;
 import java.util.*;
+import java.util.concurrent.*;
 import java.net.*;
 import android.text.InputType;
 import javax.microedition.khronos.opengles.GL10;
@@ -135,7 +136,7 @@ public class MainActivity extends Activity {
     boolean canLocalControl(int activeShooter){return !connected||localPlayer==activeShooter;}
 
     String savedServerUrl(){
-      return activity.getSharedPreferences("galactic_online",MODE_PRIVATE).getString("server_url","");
+      return activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).getString("server_url","");
     }
 
     void setServerUrl(String url){
