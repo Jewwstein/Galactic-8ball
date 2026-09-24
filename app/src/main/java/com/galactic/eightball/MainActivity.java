@@ -148,9 +148,9 @@ public class MainActivity extends Activity {
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     long lastAimTapMs=0;
 
-    final String[] hiltFiles={"hilt_default.png","hilt_2.png","hilt_crystal.png","hilt_double.png","hilt_classic.png","hilt_weathered.png"};
+    final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
-    final String[] hiltNames={"DEFAULT","ALT","CRYSTAL","DOUBLE","CLASSIC","WEATHERED"};
+    final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
 
     HudView(Context c,GameView g){
