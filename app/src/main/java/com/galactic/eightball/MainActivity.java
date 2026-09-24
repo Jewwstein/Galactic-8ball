@@ -677,13 +677,14 @@ public class MainActivity extends Activity {
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
-    static final float TTS_DRAG=.52f;
+    static final float TTS_DRAG=.50f;
     static final float TTS_ANGULAR_DRAG=.45f;
     static final float TTS_STATIC_FRICTION=.40f;
     static final float TTS_DYNAMIC_FRICTION=.20f;
     static final float TTS_BOUNCINESS=1.0f;
     static final float STOP_SPEED=.20f;
-    static final float ROLL_DECEL_FAST=1.60f;\n    static final float ROLL_DECEL_SLOW=5.25f;
+    static final float ROLL_DECEL_FAST=1.60f;
+    static final float ROLL_DECEL_SLOW=5.25f;
     // Visual radius is the TTS predictor radius. Collision radius is derived from
     // the exact TTS rack spacing sqrt(2.09^2+1.21^2)/2 so the rack is actually in contact.
     final float R=1.192f, PHYS_R=1.1900001f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
