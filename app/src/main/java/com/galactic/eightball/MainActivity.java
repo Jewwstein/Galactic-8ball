@@ -33,8 +33,8 @@ public class MainActivity extends Activity {
   HudView hud;
   MultiplayerManager multiplayer;
   FrameLayout appRoot, gameRoot;
-  View homeScreen;
-  TextView homeStatus;
+  View homeScreen, lobbyScreen;
+  TextView homeStatus, lobbyStatus;
   Button continueButton;
   boolean showingTable=false;
 
@@ -66,6 +66,9 @@ public class MainActivity extends Activity {
 
     homeScreen=buildHomeScreen();
     appRoot.addView(homeScreen,new FrameLayout.LayoutParams(-1,-1));
+
+    lobbyScreen=buildLobbyScreen();
+    appRoot.addView(lobbyScreen,new FrameLayout.LayoutParams(-1,-1));
 
     setContentView(appRoot);
     showHomeScreen();
@@ -191,7 +194,7 @@ public class MainActivity extends Activity {
     card.addView(server);
 
     TextView foot=new TextView(this);
-    foot.setText("Sign in first. The pool table opens after authentication.");
+    foot.setText("Sign in first. Authentication takes you to the Galactic lobby.");
     foot.setTextColor(Color.rgb(120,137,164));
     foot.setTextSize(12);
     foot.setGravity(Gravity.CENTER);
@@ -224,7 +227,7 @@ public class MainActivity extends Activity {
     }else if(hasToken){
       homeStatus.setText("SERVER: "+server+"\nSaved account: "+(user.isEmpty()?"Galactic player":user));
     }else{
-      homeStatus.setText("SERVER: "+server+"\nLog in or create an account to enter the table.");
+      homeStatus.setText("SERVER: "+server+"\nLog in or create an account to enter the Galactic lobby.");
     }
 
     if(continueButton!=null){
@@ -233,16 +236,145 @@ public class MainActivity extends Activity {
     }
   }
 
+  View buildLobbyScreen(){
+    FrameLayout lobby=new FrameLayout(this);
+    lobby.setBackgroundColor(Color.rgb(1,4,12));
+
+    ImageView bg=new ImageView(this);
+    bg.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    try(InputStream in=getAssets().open("environment/sky.jpg")){
+      bg.setImageBitmap(BitmapFactory.decodeStream(in));
+    }catch(Exception ignored){
+      bg.setBackgroundColor(Color.rgb(1,4,12));
+    }
+    lobby.addView(bg,new FrameLayout.LayoutParams(-1,-1));
+
+    View shade=new View(this);
+    shade.setBackgroundColor(Color.argb(184,0,3,13));
+    lobby.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+
+    ScrollView scroll=new ScrollView(this);
+    scroll.setFillViewport(true);
+    lobby.addView(scroll,new FrameLayout.LayoutParams(-1,-1));
+
+    LinearLayout outer=new LinearLayout(this);
+    outer.setOrientation(LinearLayout.VERTICAL);
+    outer.setGravity(Gravity.CENTER);
+    outer.setPadding(dp(22),dp(22),dp(22),dp(22));
+    scroll.addView(outer,new ScrollView.LayoutParams(-1,-1));
+
+    LinearLayout card=new LinearLayout(this);
+    card.setOrientation(LinearLayout.VERTICAL);
+    card.setGravity(Gravity.CENTER_HORIZONTAL);
+    card.setPadding(dp(24),dp(22),dp(24),dp(24));
+    card.setBackground(homePanel(Color.argb(192,2,7,20),Color.argb(160,41,162,255),22));
+    LinearLayout.LayoutParams cardLp=new LinearLayout.LayoutParams(-1,-2);
+    cardLp.width=Math.min(dp(620),Math.max(dp(300),getResources().getDisplayMetrics().widthPixels-dp(44)));
+    outer.addView(card,cardLp);
+
+    ImageView logo=new ImageView(this);
+    logo.setAdjustViewBounds(true);
+    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+      logo.setImageBitmap(BitmapFactory.decodeStream(in));
+    }catch(Exception ignored){}
+    LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,dp(150));
+    logoLp.bottomMargin=dp(2);
+    card.addView(logo,logoLp);
+
+    TextView title=new TextView(this);
+    title.setText("GALACTIC LOBBY");
+    title.setTextColor(Color.rgb(194,226,255));
+    title.setTextSize(20);
+    title.setGravity(Gravity.CENTER);
+    title.setLetterSpacing(.12f);
+    LinearLayout.LayoutParams titleLp=new LinearLayout.LayoutParams(-1,-2);
+    titleLp.bottomMargin=dp(8);
+    card.addView(title,titleLp);
+
+    lobbyStatus=new TextView(this);
+    lobbyStatus.setTextColor(Color.rgb(190,200,219));
+    lobbyStatus.setTextSize(14);
+    lobbyStatus.setGravity(Gravity.CENTER);
+    lobbyStatus.setLineSpacing(0,1.15f);
+    LinearLayout.LayoutParams statusLp=new LinearLayout.LayoutParams(-1,-2);
+    statusLp.bottomMargin=dp(12);
+    card.addView(lobbyStatus,statusLp);
+
+    Button browse=homeButton("Browse public rooms");
+    browse.setOnClickListener(v->multiplayer.requestLobby());
+    card.addView(browse);
+
+    Button create=homeButton("Create a room");
+    create.setOnClickListener(v->showCreateRoomDialog());
+    card.addView(create);
+
+    Button ai=homeButton("Single player vs AI");
+    ai.setOnClickListener(v->startSinglePlayer());
+    card.addView(ai);
+
+    Button server=homeButton("Server settings");
+    server.setOnClickListener(v->showServerDialog());
+    card.addView(server);
+
+    Button logout=homeButton("Log out");
+    logout.setOnClickListener(v->multiplayer.logout());
+    card.addView(logout);
+
+    TextView foot=new TextView(this);
+    foot.setText("Join or create an online room, or start a local match against the Galactic AI.");
+    foot.setTextColor(Color.rgb(120,137,164));
+    foot.setTextSize(12);
+    foot.setGravity(Gravity.CENTER);
+    LinearLayout.LayoutParams footLp=new LinearLayout.LayoutParams(-1,-2);
+    footLp.topMargin=dp(12);
+    card.addView(foot,footLp);
+
+    return lobby;
+  }
+
+  void refreshLobbyScreen(){
+    if(multiplayer==null||lobbyStatus==null)return;
+    String user=multiplayer.username==null||multiplayer.username.isEmpty()?"Galactic player":multiplayer.username;
+    lobbyStatus.setText("SIGNED IN AS "+user+"\nSERVER: "+multiplayer.serverDisplay());
+  }
+
   void showHomeScreen(){
     showingTable=false;
     if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
+    if(lobbyScreen!=null)lobbyScreen.setVisibility(View.GONE);
     if(homeScreen!=null)homeScreen.setVisibility(View.VISIBLE);
     refreshHomeScreen();
+  }
+
+  void showLobbyScreen(){
+    showingTable=false;
+    if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
+    if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
+    if(lobbyScreen!=null)lobbyScreen.setVisibility(View.VISIBLE);
+    if(game!=null)game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;});
+    refreshLobbyScreen();
+  }
+
+  void startSinglePlayer(){
+    if(multiplayer!=null&&multiplayer.inRoom){
+      Toast.makeText(this,"Leave the online room before starting single player.",Toast.LENGTH_LONG).show();
+      return;
+    }
+    game.queueEvent(()->{
+      game.r.aiEnabled=true;
+      game.r.aiThinking=false;
+      game.r.resetRack();
+      game.r.ruleMessage="SINGLE PLAYER • YOU BREAK";
+    });
+    showGameScreen();
+    Toast.makeText(this,"Single player started. You are Team 1; Galactic AI is Team 2.",Toast.LENGTH_LONG).show();
   }
 
   void showGameScreen(){
     showingTable=true;
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
+    if(lobbyScreen!=null)lobbyScreen.setVisibility(View.GONE);
     if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
     if(hud!=null)hud.invalidate();
   }
@@ -255,25 +387,16 @@ public class MainActivity extends Activity {
 
   void showMultiplayerDialog(){
     if(multiplayer==null)return;
-    String server=multiplayer.serverDisplay();
 
-    if(multiplayer.savedServerUrl().isEmpty()){
+    if(game!=null&&game.r!=null&&game.r.aiEnabled){
       new AlertDialog.Builder(this)
-        .setTitle("ONLINE MULTIPLAYER")
-        .setMessage("The online game server has not been connected yet.")
-        .setItems(new String[]{"SET SERVER","CANCEL"},(d,which)->{if(which==0)showServerDialog();})
-        .show();
-      return;
-    }
-
-    if(!multiplayer.authenticated){
-      new AlertDialog.Builder(this)
-        .setTitle("GALACTIC ONLINE")
-        .setMessage(multiplayer.statusText()+"\nSERVER: "+server+"\n\nLog in once and the app will remember this device.")
-        .setItems(new String[]{"LOG IN","CREATE ACCOUNT","SET SERVER","CANCEL"},(d,which)->{
-          if(which==0)showAuthDialog(false);
-          else if(which==1)showAuthDialog(true);
-          else if(which==2)showServerDialog();
+        .setTitle("SINGLE PLAYER")
+        .setMessage("You are playing against the Galactic AI.")
+        .setItems(new String[]{"RETURN TO LOBBY","CANCEL"},(d,which)->{
+          if(which==0){
+            game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;game.r.resetRack();});
+            showLobbyScreen();
+          }
         }).show();
       return;
     }
@@ -281,23 +404,14 @@ public class MainActivity extends Activity {
     if(multiplayer.inRoom){
       new AlertDialog.Builder(this)
         .setTitle(multiplayer.roomName)
-        .setMessage("Signed in as "+multiplayer.username+"\n"+multiplayer.statusText()+"\n\nThe cloud server is running the match physics for both players.")
-        .setItems(new String[]{"LEAVE ROOM","LOG OUT","CANCEL"},(d,which)->{
+        .setMessage("Signed in as "+multiplayer.username+"\n"+multiplayer.statusText())
+        .setItems(new String[]{"LEAVE MATCH","CANCEL"},(d,which)->{
           if(which==0)multiplayer.leaveRoom();
-          else if(which==1)multiplayer.logout();
         }).show();
       return;
     }
 
-    new AlertDialog.Builder(this)
-      .setTitle("ONLINE LOBBY")
-      .setMessage("Signed in as "+multiplayer.username+"\nSERVER: "+server)
-      .setItems(new String[]{"BROWSE ROOMS","CREATE ROOM","LOG OUT","SET SERVER","CANCEL"},(d,which)->{
-        if(which==0)multiplayer.requestLobby();
-        else if(which==1)showCreateRoomDialog();
-        else if(which==2)multiplayer.logout();
-        else if(which==3)showServerDialog();
-      }).show();
+    showLobbyScreen();
   }
 
   void showAuthDialog(boolean register){
@@ -403,7 +517,7 @@ public class MainActivity extends Activity {
       .build();
 
     volatile boolean socketConnected=false,connecting=false,authenticated=false,inRoom=false;
-    volatile boolean hosting=false;
+    volatile boolean hosting=false,lobbyRequested=false;
     volatile int localPlayer=0;
     volatile String username="",roomId="",roomName="",status="OFFLINE";
     WebSocket socket;
@@ -515,6 +629,7 @@ public class MainActivity extends Activity {
 
     void requestLobby(){
       if(!authenticated){toast("Log in first.");return;}
+      lobbyRequested=true;
       send("LOBBY");
     }
 
@@ -568,7 +683,7 @@ public class MainActivity extends Activity {
               saveLogin(user,token);
               authenticated=true;status="ONLINE";
               if(hud!=null)main.post(hud::invalidate);
-              main.post(activity::showGameScreen);
+              main.post(activity::showLobbyScreen);
             }
           }else if(msg.startsWith("AUTH_FAIL|")){
             authenticated=false;
@@ -585,18 +700,22 @@ public class MainActivity extends Activity {
               roomId=p[1];roomName=unb64(p[2]);
               try{localPlayer=Integer.parseInt(p[3]);}catch(Exception ignored){}
               inRoom=true;status="IN ROOM";
+              game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;});
               toast("Joined "+roomName+" as Player "+localPlayer);
               if(hud!=null)main.post(hud::invalidate);
+              main.post(activity::showGameScreen);
             }
           }else if(msg.startsWith("ROOM_LEFT")){
             inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
             game.queueEvent(()->game.r.resetRack());
             if(hud!=null)main.post(hud::invalidate);
+            main.post(activity::showLobbyScreen);
           }else if(msg.startsWith("ROOM_CLOSED")){
             inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
             toast("The room was closed.");
             game.queueEvent(()->game.r.resetRack());
             if(hud!=null)main.post(hud::invalidate);
+            main.post(activity::showLobbyScreen);
           }else if(msg.startsWith("STATE|")){
             if(inRoom)game.queueEvent(()->game.r.applyNetworkState(msg));
           }else if(msg.startsWith("PLAYER_JOINED|")){
@@ -607,6 +726,7 @@ public class MainActivity extends Activity {
           }else if(msg.startsWith("LOGGED_OUT")){
             authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";
             if(hud!=null)main.post(hud::invalidate);
+            main.post(activity::showHomeScreen);
           }else if(msg.startsWith("ERROR|")){
             String[] p=msg.split("\\|",-1);
             toast("Server: "+(p.length>1?unb64(p[1]):"Request failed"));
@@ -635,6 +755,11 @@ public class MainActivity extends Activity {
     }
 
     void parseLobby(String msg){
+      if(!lobbyRequested){
+        main.post(activity::refreshLobbyScreen);
+        return;
+      }
+      lobbyRequested=false;
       String payload=msg.length()>6?msg.substring(6):"";
       if(payload.isEmpty()){
         main.post(()->activity.showLobbyDialog(new String[0],new String[0],new boolean[0]));
@@ -846,7 +971,9 @@ public class MainActivity extends Activity {
       drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
       String mp=(net==null)?"OFFLINE":net.statusText();
       if(mp.length()>22)mp=mp.substring(0,22);
-      drawPremiumButton(c,multiplayerRect,"MULTIPLAYER",mp,ui,(net!=null&&net.isConnected())?0xFF65E4A5:0xFF9CA3AF,net!=null&&net.isConnected());
+      String matchTitle=r.aiEnabled?"SINGLE PLAYER":"MATCH MENU";
+      String matchSub=r.aiEnabled?"VS GALACTIC AI":mp;
+      drawPremiumButton(c,multiplayerRect,matchTitle,matchSub,ui,(r.aiEnabled||(net!=null&&net.isConnected()))?0xFF65E4A5:0xFF9CA3AF,r.aiEnabled||(net!=null&&net.isConnected()));
 
       drawMatchHud(c,w,h,ui,r);
 
@@ -954,7 +1081,8 @@ public class MainActivity extends Activity {
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       p.setTextSize(15*ui);p.setColor(0xFFF4C542);
-      String center=r.gameOver?("TEAM "+r.winnerTeam+" WINS"):("TEAM "+r.currentTeam+" TURN");
+      String center=r.gameOver?(r.aiEnabled?(r.winnerTeam==1?"YOU WIN":"AI WINS"):("TEAM "+r.winnerTeam+" WINS")):
+        (r.aiEnabled?(r.currentTeam==1?"YOUR TURN":"AI TURN"):("TEAM "+r.currentTeam+" TURN"));
       c.drawText(center,w*.5f,top+16*ui,p);
 
       p.setTextSize(11*ui);p.setColor(0xFFD1D5DB);
@@ -976,7 +1104,8 @@ public class MainActivity extends Activity {
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
       p.setTextSize(14*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
-      c.drawText("TEAM "+team,rr.left+10*ui,rr.top+18*ui,p);
+      String teamLabel=r.aiEnabled?(team==1?"YOU":"GALACTIC AI"):("TEAM "+team);
+      c.drawText(teamLabel,rr.left+10*ui,rr.top+18*ui,p);
 
       int suit=r.teamSuit[team-1];
       String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN TABLE";
@@ -1367,6 +1496,8 @@ public class MainActivity extends Activity {
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
     volatile boolean tableOpen=true,gameOver=false;
+    volatile boolean aiEnabled=false,aiThinking=false;
+    volatile long aiReadyAt=0;
     volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0,chargePullWorld=0; boolean breakAssistArmed=true;
@@ -1977,6 +2108,7 @@ public class MainActivity extends Activity {
     }
 
     boolean localCanControl(){
+      if(aiEnabled)return !gameOver&&currentTeam==1&&activeShooter==1;
       return net==null||net.canLocalControl(activeShooter);
     }
 
@@ -2024,7 +2156,7 @@ public class MainActivity extends Activity {
     }
 
     void resetRack(){
-      balls.clear();physicsAccum=0;resetRules();
+      balls.clear();physicsAccum=0;aiThinking=false;aiReadyAt=0;resetRules();
       Ball cueBall=new Ball(-20f,0f,tex.getOrDefault("ball0",0));cueBall.index=0;balls.add(cueBall);
 
       // Exact positions from Star Wars Galactic 8-Ball v428 / TTS.
@@ -2241,6 +2373,91 @@ public class MainActivity extends Activity {
       }catch(Exception ignored){}
     }
 
+    boolean aiPathClear(float sx,float sz,float ex,float ez,int ignoreA,int ignoreB){
+      float dx=ex-sx,dz=ez-sz,len2=dx*dx+dz*dz;
+      if(len2<.01f)return true;
+      for(Ball b:balls){
+        if(!b.active||b.sinking||b.index==ignoreA||b.index==ignoreB)continue;
+        float t=((b.x-sx)*dx+(b.z-sz)*dz)/len2;
+        if(t<=.05f||t>=.95f)continue;
+        float px=sx+dx*t,pz=sz+dz*t,ox=b.x-px,oz=b.z-pz;
+        float clearance=PHYS_R*2.08f;
+        if(ox*ox+oz*oz<clearance*clearance)return false;
+      }
+      return true;
+    }
+
+    ArrayList<Ball> aiTargets(){
+      ArrayList<Ball> out=new ArrayList<>();
+      int suit=teamSuit[1];
+      boolean eightReady=suit!=0&&remainingForSuit(suit)==0;
+      for(Ball b:balls){
+        if(!b.active||b.sinking||b.index==0)continue;
+        if(eightReady){
+          if(b.index==8)out.add(b);
+        }else if(b.index!=8&&(suit==0||suitForBall(b.index)==suit)){
+          out.add(b);
+        }
+      }
+      return out;
+    }
+
+    void performAiShot(){
+      if(!aiEnabled||gameOver||currentTeam!=2||state!=AIMING||!allStopped())return;
+      Ball cue=balls.get(0);
+      if(cue==null||!cue.active)return;
+      ArrayList<Ball> targets=aiTargets();
+      if(targets.isEmpty())return;
+
+      float[][] pockets={
+        {MINX-1.0f,MINZ-1.0f},{0,MINZ-1.15f},{MAXX+1.0f,MINZ-1.0f},
+        {MINX-1.0f,MAXZ+1.0f},{0,MAXZ+1.15f},{MAXX+1.0f,MAXZ+1.0f}
+      };
+
+      Ball best=null;float bestAimX=1,bestAimZ=0,bestScore=Float.MAX_VALUE,bestDist=0;
+      for(Ball t:targets){
+        for(float[] pocket:pockets){
+          float pdx=pocket[0]-t.x,pdz=pocket[1]-t.z;
+          float pd=(float)Math.sqrt(pdx*pdx+pdz*pdz);if(pd<.01f)continue;
+          float ux=pdx/pd,uz=pdz/pd;
+          float gx=t.x-ux*(PHYS_R*2.02f),gz=t.z-uz*(PHYS_R*2.02f);
+          if(gx<MINX+R||gx>MAXX-R||gz<MINZ+R||gz>MAXZ-R)continue;
+          float cdx=gx-cue.x,cdz=gz-cue.z,cd=(float)Math.sqrt(cdx*cdx+cdz*cdz);if(cd<.01f)continue;
+          if(!aiPathClear(cue.x,cue.z,gx,gz,0,t.index))continue;
+          if(!aiPathClear(t.x,t.z,pocket[0],pocket[1],t.index,0))continue;
+          float ax=cdx/cd,az=cdz/cd;
+          float cut=Math.max(-1f,Math.min(1f,ax*ux+az*uz));
+          float cutPenalty=(1f-cut)*22f;
+          float score=cd+pd*.72f+cutPenalty;
+          if(score<bestScore){
+            bestScore=score;best=t;bestAimX=ax;bestAimZ=az;bestDist=cd+pd;
+          }
+        }
+      }
+
+      if(best==null){
+        for(Ball t:targets){
+          float dx=t.x-cue.x,dz=t.z-cue.z,d=(float)Math.sqrt(dx*dx+dz*dz);
+          if(d<bestScore&&d>.01f){
+            bestScore=d;best=t;bestAimX=dx/d;bestAimZ=dz/d;bestDist=d;
+          }
+        }
+      }
+      if(best==null)return;
+
+      float angle=(float)Math.atan2(bestAimZ,bestAimX);
+      // Small human-like aim variation keeps the generic AI competitive without being perfect.
+      float error=(float)Math.sin((System.nanoTime()&0xFFFF)*.0017f)*.012f;
+      angle+=error;
+      aimX=desiredAimX=(float)Math.cos(angle);
+      aimZ=desiredAimZ=(float)Math.sin(angle);
+      englishX=englishY=sideSpin=topSpin=0;
+      power=Math.max(42f,Math.min(82f,44f+bestDist*.42f));
+      activeShooter=2;currentTeam=2;
+      ruleMessage="GALACTIC AI SHOOTS";
+      executeShot();
+    }
+
     void executeShot(){
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
@@ -2338,9 +2555,28 @@ public class MainActivity extends Activity {
         if(allStopped()){
           resolveShotRules();
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
+          if(aiEnabled&&!gameOver&&currentTeam==2){
+            aiThinking=true;
+            aiReadyAt=System.currentTimeMillis()+1100;
+            activeShooter=2;
+            ruleMessage="GALACTIC AI THINKING";
+          }else{
+            aiThinking=false;
+          }
         }
       }else{
         advanceSinks(dt);
+        if(aiEnabled&&!gameOver&&currentTeam==2&&state==AIMING&&allStopped()){
+          if(!aiThinking){
+            aiThinking=true;
+            aiReadyAt=System.currentTimeMillis()+1100;
+            activeShooter=2;
+            ruleMessage="GALACTIC AI THINKING";
+          }else if(System.currentTimeMillis()>=aiReadyAt){
+            aiThinking=false;
+            performAiShot();
+          }
+        }
       }
     }
 
