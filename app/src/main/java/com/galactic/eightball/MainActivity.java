@@ -855,7 +855,7 @@ public class MainActivity extends Activity {
 
     float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
-    float hiltBackWorld(){return 14.2f+chargePullWorld;}
+    float hiltBackWorld(){return hiltWorldLength()*.5f+R+.18f+chargePullWorld;}
 
     void drawTexturedHiltCore(float[] pv,float len,float radius,float y,float angle,int texture){
       float[] M=identity();
@@ -1506,34 +1506,90 @@ public class MainActivity extends Activity {
       return true;
     }
 
+    int predictorAltBlade(int ordinal){
+      // TTS-style multicolor continuation palette. Never deliberately reuse the
+      // player's chosen blade color for auxiliary predictor paths.
+      int[] order={2,3,1,5,4,0}; // purple, green, gold, blue, red, white
+      int selected=Math.max(0,Math.min(5,bladeIndex));
+      for(int k=0;k<order.length;k++){
+        int idx=order[(ordinal+k)%order.length];
+        if(idx!=selected)return idx;
+      }
+      return (selected+1)%6;
+    }
+
+    float predictorRailDistance(float x,float z,float dx,float dz){
+      float t=9999f;
+      if(dx>1e-5f)t=Math.min(t,(MAXX-R-x)/dx);
+      if(dx<-1e-5f)t=Math.min(t,(MINX+R-x)/dx);
+      if(dz>1e-5f)t=Math.min(t,(MAXZ-R-z)/dz);
+      if(dz<-1e-5f)t=Math.min(t,(MINZ+R-z)/dz);
+      return Math.max(0f,t);
+    }
+
     void drawPredictor(float[] pv){
-      if(balls.isEmpty()||!balls.get(0).active)return;Ball cue=balls.get(0);float x=cue.x,z=cue.z,dx=aimX,dz=aimZ;
-      float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
-      for(int bank=0;bank<4;bank++){
-        float railT=9999;int railAxis=0;
-        if(dx>1e-5){float t=(MAXX-R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
-        if(dx<-1e-5){float t=(MINX+R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
-        if(dz>1e-5){float t=(MAXZ-R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
-        if(dz<-1e-5){float t=(MINZ+R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
+      if(balls.isEmpty()||!balls.get(0).active)return;
+      Ball cue=balls.get(0);
+      float x=cue.x,z=cue.z,dx=aimX,dz=aimZ;
+      int selected=Math.max(0,Math.min(5,bladeIndex));
+
+      // Show more table travel than before. The first segment always uses the
+      // shooter's selected blade color; later bank segments deliberately rotate
+      // through other saber colors to match the multicolor TTS presentation.
+      for(int bank=0;bank<6;bank++){
+        float railT=9999f;int railAxis=0;
+        if(dx>1e-5f){float t=(MAXX-R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
+        if(dx<-1e-5f){float t=(MINX+R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
+        if(dz>1e-5f){float t=(MAXZ-R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
+        if(dz<-1e-5f){float t=(MINZ+R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
+
         float hitT=railT;Ball hit=null;
-        for(int i=1;i<balls.size();i++){Ball b=balls.get(i);if(!b.active)continue;float ox=b.x-x,oz=b.z-z,proj=ox*dx+oz*dz;if(proj<=0)continue;float perp=ox*ox+oz*oz-proj*proj,rr=4*R*R;if(perp>rr)continue;float t=proj-(float)Math.sqrt(Math.max(0,rr-perp));if(t>.03f&&t<hitT){hitT=t;hit=b;}}
-        float ex=x+dx*hitT,ez=z+dz*hitT;drawSaberSegment(pv,x,z,ex,ez,rgb[0],rgb[1],rgb[2]);
+        for(int i=1;i<balls.size();i++){
+          Ball b=balls.get(i);if(!b.active)continue;
+          float ox=b.x-x,oz=b.z-z,proj=ox*dx+oz*dz;if(proj<=0)continue;
+          float perp=ox*ox+oz*oz-proj*proj,rr=4*R*R;if(perp>rr)continue;
+          float t=proj-(float)Math.sqrt(Math.max(0,rr-perp));
+          if(t>.03f&&t<hitT){hitT=t;hit=b;}
+        }
+
+        float ex=x+dx*hitT,ez=z+dz*hitT;
+        int pathBlade=(bank==0)?selected:predictorAltBlade(bank-1);
+        drawSaberSegment(pv,x,z,ex,ez,pathBlade);
+
         if(hit!=null){
-          float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);if(nd>.001){nx/=nd;nz/=nd;}
-          float objLen=18f;drawSaberSegment(pv,hit.x,hit.z,hit.x+nx*objLen,hit.z+nz*objLen,1f,.50f,.08f);
-          float dot=dx*nx+dz*nz,cx=dx-dot*nx,cz=dz-dot*nz,cd=(float)Math.sqrt(cx*cx+cz*cz);
-          if(cd>.08f){cx/=cd;cz/=cd;drawSaberSegment(pv,ex,ez,ex+cx*12f,ez+cz*12f,.2f,.85f,1f);}
+          // Object-ball path: extend all the way to the next cushion so the player
+          // can actually judge pocket entry instead of getting a short stub.
+          float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);
+          if(nd>.001f){nx/=nd;nz/=nd;}
+          float objRail=predictorRailDistance(hit.x,hit.z,nx,nz);
+          float objLen=Math.max(18f,Math.min(72f,objRail));
+          int objectBlade=predictorAltBlade(2);
+          drawSaberSegment(pv,hit.x,hit.z,hit.x+nx*objLen,hit.z+nz*objLen,objectBlade);
+
+          // Cue-ball deflection path: also carry it to the cushion.
+          float dot=dx*nx+dz*nz,cx=dx-dot*nx,cz=dz-dot*nz;
+          float cd=(float)Math.sqrt(cx*cx+cz*cz);
+          if(cd>.08f){
+            cx/=cd;cz/=cd;
+            float cueRail=predictorRailDistance(ex,ez,cx,cz);
+            float cueLen=Math.max(16f,Math.min(64f,cueRail));
+            int cueBlade=predictorAltBlade(4);
+            drawSaberSegment(pv,ex,ez,ex+cx*cueLen,ez+cz*cueLen,cueBlade);
+          }
           break;
         }
+
         x=ex;z=ez;
         if(railAxis==1){dx=-dx;dz*=2.80f;}else{dz=-dz;dx*=2.80f;}
-        float a=englishX*.13f,cs=(float)Math.cos(a),sn=(float)Math.sin(a),rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;
-        float n=(float)Math.sqrt(rx*rx+rz*rz);dx=rx/n;dz=rz/n;x+=dx*.04f;z+=dz*.04f;
+        float a=englishX*.13f,cs=(float)Math.cos(a),sn=(float)Math.sin(a);
+        float rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;
+        float n=(float)Math.sqrt(rx*rx+rz*rz);dx=rx/n;dz=rz/n;
+        x+=dx*.04f;z+=dz*.04f;
       }
     }
 
-    void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
-      int idx=Math.max(0,Math.min(5,bladeIndex));
+    void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,int bladeTextureIndex){
+      int idx=Math.max(0,Math.min(5,bladeTextureIndex));
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
       int texture=saberTextures[idx];
@@ -1550,6 +1606,12 @@ public class MainActivity extends Activity {
       drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.0f,2.52f);
 
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(true);
+    }
+
+    // Convenience wrapper for hilt-to-cue blades that should always use the
+    // player's currently selected blade.
+    void drawSaberSegment(float[] pv,float x1,float z1,float x2,float z2,float r,float g,float b){
+      drawSaberSegment(pv,x1,z1,x2,z2,Math.max(0,Math.min(5,bladeIndex)));
     }
 
     void drawTexturedBlade(int texture,float[] pv,float x,float z,float len,float angle,float width,float alpha,float y){
