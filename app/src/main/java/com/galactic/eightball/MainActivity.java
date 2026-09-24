@@ -379,6 +379,63 @@ public class MainActivity extends Activity {
     if(hud!=null)hud.invalidate();
   }
 
+  boolean tutorialSeen(String user){
+    if(user==null||user.trim().isEmpty())return false;
+    return getSharedPreferences("galactic_ui",MODE_PRIVATE)
+      .getBoolean("tutorial_seen_"+user.trim().toLowerCase(java.util.Locale.US),false);
+  }
+
+  void markTutorialSeen(String user){
+    if(user==null||user.trim().isEmpty())return;
+    getSharedPreferences("galactic_ui",MODE_PRIVATE).edit()
+      .putBoolean("tutorial_seen_"+user.trim().toLowerCase(java.util.Locale.US),true).apply();
+  }
+
+  void showFirstAccountTutorial(String user){
+    if(tutorialSeen(user))return;
+    final String[] titles={
+      "1 / 5  AIM YOUR SHOT",
+      "2 / 5  MICRO AIM",
+      "3 / 5  LOCK + ENGLISH",
+      "4 / 5  POWER + CAMERA",
+      "5 / 5  MATCH HUD"
+    };
+    final String[] messages={
+      "Drag the lightsaber hilt around the cue ball to rotate your shot. The glowing predictor shows the cue-ball path and the projected object-ball path.",
+      "Use the large glowing LEFT and RIGHT controls for precision. Tap for a tiny adjustment or hold either button for continuous rotation.",
+      "When your line is ready, tap LOCK. Then choose where the cue tip strikes the cue ball for English and lock that selection.",
+      "Pull the hilt backward to set power, then release to shoot. Use two fingers to orbit the camera and pinch to zoom. The camera will also smoothly reframe between turns.",
+      "The top HUD shows each team's remaining balls. Glowing rings on the table identify team balls. Open the side menu for your saber loadout, new rack, team controls, or to return to the Galactic Lobby."
+    };
+    showTutorialPage(user,titles,messages,0);
+  }
+
+  void showTutorialPage(String user,String[] titles,String[] messages,int step){
+    AlertDialog dialog=new AlertDialog.Builder(this)
+      .setTitle(titles[step])
+      .setMessage(messages[step])
+      .setPositiveButton(step==titles.length-1?"START PLAYING":"NEXT",null)
+      .setNegativeButton("SKIP TUTORIAL",null)
+      .create();
+    dialog.setCanceledOnTouchOutside(false);
+    dialog.setCancelable(false);
+    dialog.setOnShowListener(d->{
+      dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+        dialog.dismiss();
+        if(step==titles.length-1){
+          markTutorialSeen(user);
+        }else{
+          showTutorialPage(user,titles,messages,step+1);
+        }
+      });
+      dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v->{
+        markTutorialSeen(user);
+        dialog.dismiss();
+      });
+    });
+    dialog.show();
+  }
+
   protected void onDestroy(){
     if(multiplayer!=null)multiplayer.disconnect();
     if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.shutdown();
@@ -510,7 +567,7 @@ public class MainActivity extends Activity {
       .build();
 
     volatile boolean socketConnected=false,connecting=false,authenticated=false,inRoom=false;
-    volatile boolean hosting=false,lobbyRequested=false;
+    volatile boolean hosting=false,lobbyRequested=false,pendingRegistration=false;
     volatile int localPlayer=0;
     volatile String username="",roomId="",roomName="",status="OFFLINE";
     WebSocket socket;
@@ -594,6 +651,7 @@ public class MainActivity extends Activity {
     void autoConnect(){
       String token=savedToken();
       if(savedServerUrl().isEmpty()||token.isEmpty())return;
+      pendingRegistration=false;
       connectThen("AUTH|"+token);
     }
 
@@ -601,6 +659,7 @@ public class MainActivity extends Activity {
       if(user==null||user.trim().isEmpty()||pass==null||pass.length()<6){
         toast("Enter a username and a password with at least 6 characters.");return;
       }
+      pendingRegistration=true;
       connectThen("REGISTER|"+b64(user.trim())+"|"+b64(pass));
     }
 
@@ -608,6 +667,7 @@ public class MainActivity extends Activity {
       if(user==null||user.trim().isEmpty()||pass==null||pass.isEmpty()){
         toast("Enter your username and password.");return;
       }
+      pendingRegistration=false;
       connectThen("LOGIN|"+b64(user.trim())+"|"+b64(pass));
     }
 
@@ -675,10 +735,16 @@ public class MainActivity extends Activity {
               String token=p[2];
               saveLogin(user,token);
               authenticated=true;status="ONLINE";
+              final boolean firstCreated=pendingRegistration;
+              pendingRegistration=false;
               if(hud!=null)main.post(hud::invalidate);
-              main.post(activity::showLobbyScreen);
+              main.post(()->{
+                activity.showLobbyScreen();
+                if(firstCreated)activity.showFirstAccountTutorial(user);
+              });
             }
           }else if(msg.startsWith("AUTH_FAIL|")){
+            pendingRegistration=false;
             authenticated=false;
             String[] p=msg.split("\\|",-1);
             String why=p.length>1?unb64(p[1]):"Login failed";
@@ -989,8 +1055,10 @@ public class MainActivity extends Activity {
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
         if(r.localCanControl())drawMicroAimControls(c,w,h,ui);
-        p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText(r.localCanControl()?"DRAG HILT • MICRO AIM • TAP LOCK":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
+        if(!r.localCanControl()){
+          p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
+          c.drawText(r.aiEnabled?"GALACTIC AI THINKING":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
+        }
       } else if(r.gameOver){
         drawWinnerOverlay(c,w,h,ui,r);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
@@ -1001,8 +1069,6 @@ public class MainActivity extends Activity {
         p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
         c.drawText("BALLS ROLLING",w*.5f,42*ui,p);
       }
-      p.setTextSize(13*ui);p.setColor(0xBBD1D5DB);p.setTextAlign(Paint.Align.CENTER);
-      c.drawText("2 FINGERS: ORBIT CAMERA   •   PINCH: ZOOM",w*.5f,h-12*ui,p);
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
     }
@@ -1357,13 +1423,8 @@ public class MainActivity extends Activity {
         c.drawText(Math.round(r.power)+"%",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.80f,p);
       }
 
-      if(r.state==GameRenderer.AIMING){
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("DRAG HILT TO FINE AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
-      } else if(r.state==GameRenderer.CHARGING){
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEFFFFFF);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("PULL BACK • RELEASE TO STRIKE",worldHiltRect.centerX(),worldHiltRect.centerY()+worldHiltRect.height()*1.15f,p);
-      }
+      // Gameplay instructions live in the first-account tutorial instead of
+      // permanently covering the hilt and predictor during every shot.
     }
 
     public boolean onTouchEvent(MotionEvent e){
@@ -1395,13 +1456,29 @@ public class MainActivity extends Activity {
       }
 
       if(a==MotionEvent.ACTION_DOWN){
+        // Saber loadout is a true modal. Tapping anywhere outside closes it.
+        if(menuOpen){
+          if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
+          for(int i=0;i<6;i++){
+            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectHilt(k));return true;}
+            if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectBlade(k));return true;}
+          }
+          return true;
+        }
+
         if(sideMenuTabRect.contains(x,y)){
           sideMenuOpen=!sideMenuOpen;
           invalidate();
           return true;
         }
 
-        if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()){
+        // Tapping off the side menu closes it and consumes the tap so the player
+        // never accidentally changes aim while dismissing the menu.
+        if(sideMenuOpen&&!sideMenuPanelRect.contains(x,y)){
+          sideMenuOpen=false;invalidate();return true;
+        }
+
+        if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()&&!sideMenuOpen){
           if(microLeftRect.contains(x,y)){
             beginMicroHold(-1,w,h);
             return true;
@@ -1412,20 +1489,10 @@ public class MainActivity extends Activity {
           }
         }
 
-        // Saber loadout behaves like a real modal: any tap outside dismisses it.
-        if(menuOpen){
-          if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
-          for(int i=0;i<6;i++){
-            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectHilt(k));return true;}
-            if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectBlade(k));return true;}
-          }
-          return true;
-        }
-
         if(sideMenuOpen&&saberMenuRect.contains(x,y)){menuOpen=true;sideMenuOpen=false;invalidate();return true;}
-        if(sideMenuOpen&&rackRect.contains(x,y)){pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
-        if(sideMenuOpen&&activeShooterRect.contains(x,y)){game.queueEvent(()->r.userToggleActiveShooter());return true;}
-        if(sideMenuOpen&&teamSwitchRect.contains(x,y)){game.queueEvent(()->r.userSwitchTeam());return true;}
+        if(sideMenuOpen&&rackRect.contains(x,y)){sideMenuOpen=false;invalidate();pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
+        if(sideMenuOpen&&activeShooterRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userToggleActiveShooter());return true;}
+        if(sideMenuOpen&&teamSwitchRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userSwitchTeam());return true;}
         if(sideMenuOpen&&multiplayerRect.contains(x,y)){
           sideMenuOpen=false;invalidate();
           Context cc=getContext();
@@ -1618,6 +1685,7 @@ public class MainActivity extends Activity {
     Context ctx; SfxManager sfx; MultiplayerManager net; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
     Mesh sphere,hiltCylinder,hiltBox,teamAidRing; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
+    final ArrayList<float[]> predictorRails=new ArrayList<>();
     final float[][][] ringRadii={
       {{1.72f,.20f},{1.53f,.10f},{0,0}},
       {{1.76f,.22f},{1.56f,.13f},{1.38f,.07f}},
@@ -2230,6 +2298,7 @@ public class MainActivity extends Activity {
 
     void buildPhysicsWorld(){
       world=new World(new Vec2(0,0));
+      predictorRails.clear();
       world.setContinuousPhysics(true);world.setWarmStarting(true);
       BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
 
@@ -2239,7 +2308,9 @@ public class MainActivity extends Activity {
         while((line=br.readLine())!=null){
           line=line.trim();if(line.isEmpty()||line.startsWith("#"))continue;
           String[] q=line.split("\\s+");if(q.length<4)continue;
-          createRailEdge(Float.parseFloat(q[0]),Float.parseFloat(q[1]),Float.parseFloat(q[2]),Float.parseFloat(q[3]));
+          float x1=Float.parseFloat(q[0]),z1=Float.parseFloat(q[1]),x2=Float.parseFloat(q[2]),z2=Float.parseFloat(q[3]);
+          createRailEdge(x1,z1,x2,z2);
+          predictorRails.add(new float[]{x1,z1,x2,z2});
           loadedTableCollider=true;
         }
       }catch(Exception e){e.printStackTrace();}
@@ -2247,12 +2318,15 @@ public class MainActivity extends Activity {
       // Fallback only if the extracted Unity MeshCollider could not be loaded.
       if(!loadedTableCollider){
         final float CX=42f,CZ=21f,CORNER=3.65f,SIDE=2.95f;
-        createRailEdge(-CX,-CZ+CORNER,-CX,CZ-CORNER);
-        createRailEdge( CX,-CZ+CORNER, CX,CZ-CORNER);
-        createRailEdge(-CX+CORNER,-CZ,-SIDE,-CZ);
-        createRailEdge(SIDE,-CZ,CX-CORNER,-CZ);
-        createRailEdge(-CX+CORNER, CZ,-SIDE, CZ);
-        createRailEdge(SIDE, CZ,CX-CORNER, CZ);
+        float[][] fallback={
+          {-CX,-CZ+CORNER,-CX,CZ-CORNER},{CX,-CZ+CORNER,CX,CZ-CORNER},
+          {-CX+CORNER,-CZ,-SIDE,-CZ},{SIDE,-CZ,CX-CORNER,-CZ},
+          {-CX+CORNER,CZ,-SIDE,CZ},{SIDE,CZ,CX-CORNER,CZ}
+        };
+        for(float[] e:fallback){
+          createRailEdge(e[0],e[1],e[2],e[3]);
+          predictorRails.add(e);
+        }
       }
 
       float density=(float)(TTS_MASS/(Math.PI*PHYS_R*PHYS_R));
@@ -2892,74 +2966,197 @@ public class MainActivity extends Activity {
       return (selected+1)%6;
     }
 
-    float predictorRailDistance(float x,float z,float dx,float dz){
-      float t=9999f;
-      float px=MAXX+1.35f,nx=MINX-1.35f,pz=MAXZ+1.35f,nz=MINZ-1.35f;
-      if(dx>1e-5f)t=Math.min(t,(px-x)/dx);
-      if(dx<-1e-5f)t=Math.min(t,(nx-x)/dx);
-      if(dz>1e-5f)t=Math.min(t,(pz-z)/dz);
-      if(dz<-1e-5f)t=Math.min(t,(nz-z)/dz);
-      return Math.max(0f,t);
+    static class PredictorRailHit{
+      float t,nx,nz;
+      PredictorRailHit(float T,float X,float Z){t=T;nx=X;nz=Z;}
+    }
+
+    float predictorRayCircleT(float x,float z,float dx,float dz,float cx,float cz,float radius){
+      float ox=x-cx,oz=z-cz;
+      float b=ox*dx+oz*dz;
+      float c=ox*ox+oz*oz-radius*radius;
+      float disc=b*b-c;
+      if(disc<0)return Float.POSITIVE_INFINITY;
+      float root=(float)Math.sqrt(disc);
+      float t=-b-root;
+      if(t>.045f)return t;
+      t=-b+root;
+      return t>.045f?t:Float.POSITIVE_INFINITY;
+    }
+
+    PredictorRailHit predictorCapsuleHit(float x,float z,float dx,float dz,float[] e,float radius){
+      float ax=e[0],az=e[1],bx=e[2],bz=e[3];
+      float sx=bx-ax,sz=bz-az,len=(float)Math.sqrt(sx*sx+sz*sz);
+      if(len<.0001f)return null;
+      float tx=sx/len,tz=sz/len,nx=-tz,nz=tx;
+      float d0=(x-ax)*nx+(z-az)*nz;
+      float dv=dx*nx+dz*nz;
+      float best=Float.POSITIVE_INFINITY,bnx=0,bnz=0;
+
+      if(Math.abs(dv)>.00001f){
+        for(int side=-1;side<=1;side+=2){
+          float t=(side*radius-d0)/dv;
+          if(t>.045f&&t<best){
+            float px=x+dx*t,pz=z+dz*t;
+            float along=(px-ax)*tx+(pz-az)*tz;
+            if(along>=0&&along<=len){
+              best=t;bnx=nx*side;bnz=nz*side;
+            }
+          }
+        }
+      }
+
+      float ta=predictorRayCircleT(x,z,dx,dz,ax,az,radius);
+      if(ta<best){
+        float px=x+dx*ta,pz=z+dz*ta;
+        float qx=px-ax,qz=pz-az,qd=(float)Math.sqrt(qx*qx+qz*qz);
+        if(qd>.0001f){best=ta;bnx=qx/qd;bnz=qz/qd;}
+      }
+      float tb=predictorRayCircleT(x,z,dx,dz,bx,bz,radius);
+      if(tb<best){
+        float px=x+dx*tb,pz=z+dz*tb;
+        float qx=px-bx,qz=pz-bz,qd=(float)Math.sqrt(qx*qx+qz*qz);
+        if(qd>.0001f){best=tb;bnx=qx/qd;bnz=qz/qd;}
+      }
+      return Float.isInfinite(best)?null:new PredictorRailHit(best,bnx,bnz);
+    }
+
+    PredictorRailHit predictorRailHit(float x,float z,float dx,float dz){
+      PredictorRailHit best=null;
+      float radius=PHYS_R*1.002f;
+      for(float[] e:predictorRails){
+        PredictorRailHit h=predictorCapsuleHit(x,z,dx,dz,e,radius);
+        if(h!=null&&(best==null||h.t<best.t))best=h;
+      }
+      return best;
+    }
+
+    boolean predictorPocketAt(float x,float z){
+      float ax=Math.abs(x),az=Math.abs(z);
+      if(az>MAXZ+.18f&&Math.abs(x)<2.35f)return true;
+      if(ax>MAXX-.55f&&az>MAXZ-.55f){
+        float px=x>0?MAXX:MINX,pz=z>0?MAXZ:MINZ;
+        float qx=x-px,qz=z-pz;
+        if(qx*qx+qz*qz<2.35f*2.35f&&(ax>MAXX+.08f||az>MAXZ+.08f))return true;
+      }
+      return ax>MAXX+4f||az>MAXZ+4f;
+    }
+
+    float predictorPocketT(float x,float z,float dx,float dz){
+      // Match the game's real pocket acceptance test rather than treating the
+      // table as a rectangle. Fine stepping is only used through the pocket/jaw
+      // zone and keeps the visual line consistent with checkPocket().
+      for(float t=.12f;t<=95f;t+=.12f){
+        if(predictorPocketAt(x+dx*t,z+dz*t))return t;
+      }
+      return Float.POSITIVE_INFINITY;
+    }
+
+    float predictorObjectBallT(float x,float z,float dx,float dz,Ball skip){
+      float best=Float.POSITIVE_INFINITY;
+      float rr=PHYS_R*2.0f;
+      for(int i=1;i<balls.size();i++){
+        Ball b=balls.get(i);
+        if(!b.active||b.sinking||b==skip)continue;
+        float t=predictorRayCircleT(x,z,dx,dz,b.x,b.z,rr);
+        if(t<best)best=t;
+      }
+      return best;
+    }
+
+    void drawPredictorFreePath(float[] pv,float x,float z,float dx,float dz,int blade,int maxBanks){
+      float n=(float)Math.sqrt(dx*dx+dz*dz);if(n<.0001f)return;dx/=n;dz/=n;
+      for(int bank=0;bank<=maxBanks;bank++){
+        PredictorRailHit rail=predictorRailHit(x,z,dx,dz);
+        float pocketT=predictorPocketT(x,z,dx,dz);
+        float railT=rail==null?Float.POSITIVE_INFINITY:rail.t;
+
+        if(pocketT<railT){
+          drawSaberSegment(pv,x,z,x+dx*pocketT,z+dz*pocketT,blade);
+          return;
+        }
+        if(rail==null){
+          float len=70f;
+          drawSaberSegment(pv,x,z,x+dx*len,z+dz*len,blade);
+          return;
+        }
+
+        float ex=x+dx*rail.t,ez=z+dz*rail.t;
+        drawSaberSegment(pv,x,z,ex,ez,blade);
+        float dot=dx*rail.nx+dz*rail.nz;
+        dx=dx-2f*dot*rail.nx;
+        dz=dz-2f*dot*rail.nz;
+        float dl=(float)Math.sqrt(dx*dx+dz*dz);if(dl<.0001f)return;dx/=dl;dz/=dl;
+        x=ex+dx*.08f;z=ez+dz*.08f;
+        blade=predictorAltBlade(bank+3);
+      }
     }
 
     void drawPredictor(float[] pv){
       if(balls.isEmpty()||!balls.get(0).active)return;
       Ball cue=balls.get(0);
       float x=cue.x,z=cue.z,dx=aimX,dz=aimZ;
+      float dn=(float)Math.sqrt(dx*dx+dz*dz);if(dn<.0001f)return;dx/=dn;dz/=dn;
       int selected=Math.max(0,Math.min(5,bladeIndex));
 
-      // Show more table travel than before. The first segment always uses the
-      // shooter's selected blade color; later bank segments deliberately rotate
-      // through other saber colors to match the multicolor TTS presentation.
       for(int bank=0;bank<6;bank++){
-        float railT=9999f;int railAxis=0;
-        if(dx>1e-5f){float t=(MAXX-R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
-        if(dx<-1e-5f){float t=(MINX+R-x)/dx;if(t>0&&t<railT){railT=t;railAxis=1;}}
-        if(dz>1e-5f){float t=(MAXZ-R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
-        if(dz<-1e-5f){float t=(MINZ+R-z)/dz;if(t>0&&t<railT){railT=t;railAxis=2;}}
+        PredictorRailHit rail=predictorRailHit(x,z,dx,dz);
+        float pocketT=predictorPocketT(x,z,dx,dz);
+        float railT=rail==null?Float.POSITIVE_INFINITY:rail.t;
+        float limit=Math.min(railT,pocketT);
 
-        float hitT=railT;Ball hit=null;
+        Ball hit=null;float ballT=Float.POSITIVE_INFINITY;
+        float rr=PHYS_R*2.0f;
         for(int i=1;i<balls.size();i++){
-          Ball b=balls.get(i);if(!b.active)continue;
-          float ox=b.x-x,oz=b.z-z,proj=ox*dx+oz*dz;if(proj<=0)continue;
-          float perp=ox*ox+oz*oz-proj*proj,rr=4*R*R;if(perp>rr)continue;
-          float t=proj-(float)Math.sqrt(Math.max(0,rr-perp));
-          if(t>.03f&&t<hitT){hitT=t;hit=b;}
+          Ball b=balls.get(i);if(!b.active||b.sinking)continue;
+          float t=predictorRayCircleT(x,z,dx,dz,b.x,b.z,rr);
+          if(t<ballT&&t<limit){ballT=t;hit=b;}
         }
 
-        float ex=x+dx*hitT,ez=z+dz*hitT;
         int pathBlade=(bank==0)?selected:predictorAltBlade(bank-1);
-        drawSaberSegment(pv,x,z,ex,ez,pathBlade);
-
         if(hit!=null){
-          // Object-ball path: extend all the way to the next cushion so the player
-          // can actually judge pocket entry instead of getting a short stub.
-          float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);
-          if(nd>.001f){nx/=nd;nz/=nd;}
-          float objRail=predictorRailDistance(hit.x,hit.z,nx,nz);
-          float objLen=Math.max(18f,Math.min(72f,objRail));
-          int objectBlade=predictorAltBlade(2);
-          drawSaberSegment(pv,hit.x,hit.z,hit.x+nx*objLen,hit.z+nz*objLen,objectBlade);
+          float ex=x+dx*ballT,ez=z+dz*ballT;
+          drawSaberSegment(pv,x,z,ex,ez,pathBlade);
 
-          // Cue-ball deflection path: also carry it to the cushion.
+          // Exact equal-ball collision normal. The object-ball predictor then
+          // traces against the same extracted Unity cushion/jaw geometry used
+          // by physics, so a jaw hit is shown as a jaw hit rather than a pocket.
+          float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);
+          if(nd>.0001f){nx/=nd;nz/=nd;}
+          drawPredictorFreePath(pv,hit.x,hit.z,nx,nz,predictorAltBlade(2),2);
+
+          // Cue-ball tangent after the collision, also traced against exact rails.
           float dot=dx*nx+dz*nz,cx=dx-dot*nx,cz=dz-dot*nz;
           float cd=(float)Math.sqrt(cx*cx+cz*cz);
-          if(cd>.08f){
+          if(cd>.06f){
             cx/=cd;cz/=cd;
-            float cueRail=predictorRailDistance(ex,ez,cx,cz);
-            float cueLen=Math.max(16f,Math.min(64f,cueRail));
-            int cueBlade=predictorAltBlade(4);
-            drawSaberSegment(pv,ex,ez,ex+cx*cueLen,ez+cz*cueLen,cueBlade);
+            drawPredictorFreePath(pv,ex+cx*.08f,ez+cz*.08f,cx,cz,predictorAltBlade(4),1);
           }
-          break;
+          return;
         }
 
-        x=ex;z=ez;
-        if(railAxis==1){dx=-dx;dz*=2.80f;}else{dz=-dz;dx*=2.80f;}
-        float a=englishX*.13f,cs=(float)Math.cos(a),sn=(float)Math.sin(a);
-        float rx=dx*cs-dz*sn,rz=dx*sn+dz*cs;
-        float n=(float)Math.sqrt(rx*rx+rz*rz);dx=rx/n;dz=rz/n;
-        x+=dx*.04f;z+=dz*.04f;
+        if(pocketT<railT){
+          drawSaberSegment(pv,x,z,x+dx*pocketT,z+dz*pocketT,pathBlade);
+          return;
+        }
+
+        if(rail==null){
+          float len=70f;
+          drawSaberSegment(pv,x,z,x+dx*len,z+dz*len,pathBlade);
+          return;
+        }
+
+        float ex=x+dx*rail.t,ez=z+dz*rail.t;
+        drawSaberSegment(pv,x,z,ex,ez,pathBlade);
+
+        // Mirror from the real cushion/jaw surface normal. The previous predictor
+        // artificially multiplied the tangent by 2.8 and added English to banks,
+        // even though the actual physics did neither, causing large pocket errors.
+        float dot=dx*rail.nx+dz*rail.nz;
+        dx=dx-2f*dot*rail.nx;
+        dz=dz-2f*dot*rail.nz;
+        float dl=(float)Math.sqrt(dx*dx+dz*dz);if(dl<.0001f)return;dx/=dl;dz/=dl;
+        x=ex+dx*.08f;z=ez+dz*.08f;
       }
     }
 
