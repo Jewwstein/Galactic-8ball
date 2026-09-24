@@ -22,7 +22,7 @@ for obj in env.objects:
   try:
    with open(out/f"{obj.path_id}_{clean(name)}.obj","wt",newline="") as q:q.write(data.export())
   except Exception as e:print("MESHERR",obj.path_id,repr(e))
- if obj.type.name in ("GameObject","Transform","MeshFilter","MeshRenderer","Material"):
+ if obj.type.name in ("GameObject","Transform","MeshFilter","MeshRenderer","Material","MeshCollider","SphereCollider","BoxCollider","CapsuleCollider","Rigidbody","PhysicMaterial","PhysicsMaterial2D"):
   try:trees.append({"type":obj.type.name,"path_id":obj.path_id,"tree":safe(obj.read_typetree())})
   except Exception as e:print("TREEERR",obj.type.name,obj.path_id,repr(e))
 (out/"inventory.json").write_text(json.dumps(inv,indent=2))
