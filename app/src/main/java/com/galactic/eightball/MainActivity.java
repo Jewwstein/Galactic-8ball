@@ -373,9 +373,10 @@ public class MainActivity extends Activity {
 
       float backWorld=r.hiltBackWorld();
       float hLen=r.hiltWorldLength();
+      float frontOff=r.hiltFrontEmitterOffset(),rearOff=r.hiltRearEndOffset();
       float cxw=cueBall.x-r.aimX*backWorld,czw=cueBall.z-r.aimZ*backWorld;
-      float exw=cxw+r.aimX*(hLen*.5f),ezw=czw+r.aimZ*(hLen*.5f);
-      float bxw=cxw-r.aimX*(hLen*.5f),bzw=czw-r.aimZ*(hLen*.5f);
+      float exw=cxw+r.aimX*frontOff,ezw=czw+r.aimZ*frontOff;
+      float bxw=cxw-r.aimX*rearOff,bzw=czw-r.aimZ*rearOff;
 
       float[] hp=r.worldToScreen(cxw,hiltY,czw,w,h);
       float[] ep=r.worldToScreen(exw,hiltY,ezw,w,h);
@@ -406,9 +407,9 @@ public class MainActivity extends Activity {
         float ex=worldEmitterX;
         float ey=worldEmitterY;
         float full=(float)Math.sqrt((worldCueX-ex)*(worldCueX-ex)+(worldCueY-ey)*(worldCueY-ey));
-        float endX=ex+(worldCueX-ex)*(r.power/100f),endY=ey+(worldCueY-ey)*(r.power/100f);
+        float endX=worldCueX,endY=worldCueY;
         float ang=(float)Math.toDegrees(Math.atan2(endY-ey,endX-ex));
-        float len=(float)Math.sqrt((endX-ex)*(endX-ex)+(endY-ey)*(endY-ey));
+        float len=full;
         float aspect=(blade!=null&&blade.getHeight()>0)?((float)blade.getWidth()/blade.getHeight()):7f;
         float thick=Math.max(48f,Math.min(h*.085f,len*.34f));
         RectF bladeDst=new RectF(ex,ey-thick*.5f,ex+Math.max(2,len),ey+thick*.5f);
@@ -855,7 +856,15 @@ public class MainActivity extends Activity {
 
     float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
-    float hiltBackWorld(){return hiltWorldLength()*.5f+R+.18f+chargePullWorld;}
+    float hiltFrontEmitterOffset(){
+      float L=hiltWorldLength();
+      return hiltIndex==3?(L*.515f+.58f):(L*.50f);
+    }
+    float hiltRearEndOffset(){
+      float L=hiltWorldLength();
+      return hiltIndex==3?(L*.515f+.58f):(L*.50f);
+    }
+    float hiltBackWorld(){return hiltFrontEmitterOffset()+.95f+chargePullWorld;}
 
     void drawTexturedHiltCore(float[] pv,float len,float radius,float y,float angle,int texture){
       float[] M=identity();
@@ -936,11 +945,11 @@ public class MainActivity extends Activity {
           // while the rear emitter projects an equal cosmetic blade in the opposite
           // direction. These are render-only and have no collider.
           if(state==AIMING){
-            float frontX=cx+aimX*(e+.30f),frontZ=cz+aimZ*(e+.30f);
-            float rearX=cx-aimX*(e+.30f),rearZ=cz-aimZ*(e+.30f);
-            float gap=(float)Math.sqrt((cue.x-frontX)*(cue.x-frontX)+(cue.z-frontZ)*(cue.z-frontZ));
+            float frontX=cx+aimX*(e+.58f),frontZ=cz+aimZ*(e+.58f);
+            float rearX=cx-aimX*(e+.58f),rearZ=cz-aimZ*(e+.58f);
             drawSaberSegment(pv,frontX,frontZ,cue.x,cue.z,rgb[0],rgb[1],rgb[2]);
-            drawSaberSegment(pv,rearX,rearZ,rearX-aimX*gap,rearZ-aimZ*gap,rgb[0],rgb[1],rgb[2]);
+            float rearBladeLen=12.5f;
+            drawSaberSegment(pv,rearX,rearZ,rearX-aimX*rearBladeLen,rearZ-aimZ*rearBladeLen,rgb[0],rgb[1],rgb[2]);
           }
         }else{
           // Single-ended hilts keep one subtle emitter glow.
@@ -1520,10 +1529,11 @@ public class MainActivity extends Activity {
 
     float predictorRailDistance(float x,float z,float dx,float dz){
       float t=9999f;
-      if(dx>1e-5f)t=Math.min(t,(MAXX-R-x)/dx);
-      if(dx<-1e-5f)t=Math.min(t,(MINX+R-x)/dx);
-      if(dz>1e-5f)t=Math.min(t,(MAXZ-R-z)/dz);
-      if(dz<-1e-5f)t=Math.min(t,(MINZ+R-z)/dz);
+      float px=MAXX+1.35f,nx=MINX-1.35f,pz=MAXZ+1.35f,nz=MINZ-1.35f;
+      if(dx>1e-5f)t=Math.min(t,(px-x)/dx);
+      if(dx<-1e-5f)t=Math.min(t,(nx-x)/dx);
+      if(dz>1e-5f)t=Math.min(t,(pz-z)/dz);
+      if(dz<-1e-5f)t=Math.min(t,(nz-z)/dz);
       return Math.max(0f,t);
     }
 
