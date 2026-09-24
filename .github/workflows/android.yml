@@ -26,6 +26,10 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
           mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio
