@@ -362,40 +362,49 @@ public class MainActivity extends Activity {
     }
 
     RectF worldHiltRect=new RectF();
-    float worldHiltAngle=0,worldCueX=0,worldCueY=0,worldDirX=1,worldDirY=0;
+    float worldHiltAngle=0,worldCueX=0,worldCueY=0,worldDirX=1,worldDirY=0,worldEmitterX=0,worldEmitterY=0;
 
     void updateWorldHiltGeometry(int w,int h,GameRenderer r,float pullPx){
-      float[] cue=r.worldToScreen(r.balls.size()>0?r.balls.get(0).x:-20f,2.45f,r.balls.size()>0?r.balls.get(0).z:0f,w,h);
+      if(r.balls.isEmpty()){worldHiltRect.setEmpty();return;}
+      Ball cueBall=r.balls.get(0);
+      float hiltY=2.72f;
+      float[] cue=r.worldToScreen(cueBall.x,2.45f,cueBall.z,w,h);
       if(cue==null){worldHiltRect.setEmpty();return;}
-      float backWorld=14.2f + pullPx/Math.max(10f,h*.030f);
-      float[] hp=r.worldToScreen(r.balls.get(0).x-r.aimX*backWorld,2.45f,r.balls.get(0).z-r.aimZ*backWorld,w,h);
-      if(hp==null){worldHiltRect.setEmpty();return;}
+
+      float backWorld=r.hiltBackWorld();
+      float hLen=r.hiltWorldLength();
+      float cxw=cueBall.x-r.aimX*backWorld,czw=cueBall.z-r.aimZ*backWorld;
+      float exw=cxw+r.aimX*(hLen*.5f),ezw=czw+r.aimZ*(hLen*.5f);
+      float bxw=cxw-r.aimX*(hLen*.5f),bzw=czw-r.aimZ*(hLen*.5f);
+
+      float[] hp=r.worldToScreen(cxw,hiltY,czw,w,h);
+      float[] ep=r.worldToScreen(exw,hiltY,ezw,w,h);
+      float[] bp=r.worldToScreen(bxw,hiltY,bzw,w,h);
+      if(hp==null||ep==null||bp==null){worldHiltRect.setEmpty();return;}
+
       worldCueX=cue[0];worldCueY=cue[1];
-      float dx=cue[0]-hp[0],dy=cue[1]-hp[1],d=(float)Math.sqrt(dx*dx+dy*dy);
-      if(d<1){dx=1;dy=0;d=1;}
-      worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
-      Bitmap hb=hilts[Math.max(0,Math.min(5,r.hiltIndex))];
-      float len=Math.max(150f,h*.1584f);
-      float aspect=(hb!=null&&hb.getHeight()>0)?((float)hb.getWidth()/hb.getHeight()):1.70f;
-      float thick=len/Math.max(1.15f,aspect);
-      float cx=hp[0],cy=hp[1];
-      worldHiltRect.set(cx-len*.5f,cy-thick*.5f,cx+len*.5f,cy+thick*.5f);
+      worldEmitterX=ep[0];worldEmitterY=ep[1];
+
+      float dx=ep[0]-bp[0],dy=ep[1]-bp[1],len=(float)Math.sqrt(dx*dx+dy*dy);
+      if(len<1){dx=1;dy=0;len=1;}
+      worldDirX=dx/len;worldDirY=dy/len;
+      worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
+
+      // Hit target follows the true projected 3D hilt instead of a fixed-size PNG.
+      float thick=Math.max(42f,Math.min(94f,len*.22f));
+      worldHiltRect.set(hp[0]-len*.56f,hp[1]-thick*.65f,hp[0]+len*.56f,hp[1]+thick*.65f);
     }
 
     void drawWorldShotHilt(Canvas c,int w,int h,float ui,GameRenderer r){
       float pull=(r.state==GameRenderer.CHARGING)?r.chargePullPx:0;
       updateWorldHiltGeometry(w,h,r,pull);
       if(worldHiltRect.isEmpty())return;
-      Bitmap hilt=hilts[r.hiltIndex],blade=blades[r.bladeIndex];
-      c.save();
-      c.rotate(worldHiltAngle,worldHiltRect.centerX(),worldHiltRect.centerY());
-      if(hilt!=null)c.drawBitmap(hilt,null,worldHiltRect,p);
-      c.restore();
+      Bitmap blade=blades[r.bladeIndex];
 
       if(r.state==GameRenderer.CHARGING && r.power>0.1f){
-        // Blade grows from the hilt emitter toward the cue ball as the hilt is pulled back.
-        float ex=worldHiltRect.centerX()+worldDirX*worldHiltRect.width()*.48f;
-        float ey=worldHiltRect.centerY()+worldDirY*worldHiltRect.width()*.48f;
+        // Blade grows from the actual projected emitter of the 3D hilt.
+        float ex=worldEmitterX;
+        float ey=worldEmitterY;
         float full=(float)Math.sqrt((worldCueX-ex)*(worldCueX-ex)+(worldCueY-ey)*(worldCueY-ey));
         float endX=ex+(worldCueX-ex)*(r.power/100f),endY=ey+(worldCueY-ey)*(r.power/100f);
         float ang=(float)Math.toDegrees(Math.atan2(endY-ey,endX-ex));
@@ -582,7 +591,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
       {{1.72f,.20f},{1.53f,.10f},{0,0}},
@@ -614,7 +623,7 @@ public class MainActivity extends Activity {
     volatile boolean tableOpen=true,gameOver=false;
     volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
-    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
+    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0,chargePullWorld=0; boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
@@ -677,6 +686,7 @@ public class MainActivity extends Activity {
         float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,by,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,bs,bs,bs);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
         drawPlanetRing(pvCache,b);
       }
+      if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
     }
 
     void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
@@ -704,6 +714,8 @@ public class MainActivity extends Activity {
           }
         }catch(Exception ignored){}
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
+        hiltCylinder=makeCylinderMesh(28);
+        hiltBox=makeBoxMesh();
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
         for(int i=0;i<6;i++){
           saberMeshes[i]=null;
@@ -714,6 +726,134 @@ public class MainActivity extends Activity {
           ringMeshes[st*3+band]=rr>0?makeRingMesh(rr,th*.88f,48):null;
         }
       }catch(Exception e){e.printStackTrace();}
+    }
+
+    Mesh makeCylinderMesh(int seg){
+      ArrayList<Float> p=new ArrayList<>(),u=new ArrayList<>();
+      for(int i=0;i<seg;i++){
+        float a0=(float)(Math.PI*2*i/seg),a1=(float)(Math.PI*2*(i+1)/seg);
+        float y0=(float)Math.cos(a0),z0=(float)Math.sin(a0),y1=(float)Math.cos(a1),z1=(float)Math.sin(a1);
+        float[][] v={
+          {-.5f,y0,z0},{ .5f,y0,z0},{ .5f,y1,z1},
+          {-.5f,y0,z0},{ .5f,y1,z1},{-.5f,y1,z1},
+          {-.5f,0,0},{-.5f,y1,z1},{-.5f,y0,z0},
+          { .5f,0,0},{ .5f,y0,z0},{ .5f,y1,z1}
+        };
+        for(float[] q:v){p.add(q[0]);p.add(q[1]);p.add(q[2]);u.add(0f);u.add(0f);}
+      }
+      float[] pp=new float[p.size()],uv=new float[u.size()];
+      for(int i=0;i<pp.length;i++)pp[i]=p.get(i);for(int i=0;i<uv.length;i++)uv[i]=u.get(i);
+      return new Mesh(pp,uv);
+    }
+
+    Mesh makeBoxMesh(){
+      float[] p={
+        -.5f,-.5f,-.5f, .5f,-.5f,-.5f, .5f,.5f,-.5f,  -.5f,-.5f,-.5f, .5f,.5f,-.5f, -.5f,.5f,-.5f,
+        -.5f,-.5f,.5f,  .5f,.5f,.5f,  .5f,-.5f,.5f,   -.5f,-.5f,.5f, -.5f,.5f,.5f, .5f,.5f,.5f,
+        -.5f,-.5f,-.5f,-.5f,.5f,-.5f,-.5f,.5f,.5f,   -.5f,-.5f,-.5f,-.5f,.5f,.5f,-.5f,-.5f,.5f,
+         .5f,-.5f,-.5f, .5f,-.5f,.5f, .5f,.5f,.5f,    .5f,-.5f,-.5f, .5f,.5f,.5f, .5f,.5f,-.5f,
+        -.5f,.5f,-.5f, .5f,.5f,-.5f, .5f,.5f,.5f,     -.5f,.5f,-.5f, .5f,.5f,.5f,-.5f,.5f,.5f,
+        -.5f,-.5f,-.5f, .5f,-.5f,.5f, .5f,-.5f,-.5f, -.5f,-.5f,-.5f,-.5f,-.5f,.5f,.5f,-.5f,.5f
+      };
+      float[] uv=new float[p.length/3*2];
+      return new Mesh(p,uv);
+    }
+
+    float hiltWorldLength(){return hiltIndex==3?13.6f:10.4f;}
+    float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
+    float hiltBackWorld(){return 14.2f+chargePullWorld;}
+
+    void drawHiltPart(float[] pv,float center,float len,float radius,float y,float z,float angle,float[] color){
+      float[] M=identity();
+      Ball cue=balls.get(0);
+      float cx=cue.x-aimX*hiltBackWorld()+aimX*center;
+      float cz=cue.z-aimZ*hiltBackWorld()+aimZ*center;
+      android.opengl.Matrix.translateM(M,0,cx,y,cz);
+      android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
+      android.opengl.Matrix.scaleM(M,0,len,radius,radius);
+      drawMesh(hiltCylinder,pv,M,0,color);
+    }
+
+    void drawHiltBox(float[] pv,float center,float len,float sy,float sz,float y,float z,float angle,float[] color){
+      float[] M=identity();
+      Ball cue=balls.get(0);
+      float cx=cue.x-aimX*hiltBackWorld()+aimX*center;
+      float cz=cue.z-aimZ*hiltBackWorld()+aimZ*center;
+      android.opengl.Matrix.translateM(M,0,cx,y,cz);
+      android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
+      android.opengl.Matrix.scaleM(M,0,len,sy,sz);
+      drawMesh(hiltBox,pv,M,0,color);
+    }
+
+    void drawWorldHilt3D(float[] pv){
+      if(balls.isEmpty())return;
+      float angle=(float)Math.toDegrees(Math.atan2(-aimZ,aimX));
+      float y=2.72f;
+      float[] silver={.72f,.76f,.82f,1};
+      float[] bright={.90f,.93f,.98f,1};
+      float[] dark={.055f,.065f,.08f,1};
+      float[] black={.018f,.020f,.025f,1};
+      float[] bronze={.34f,.19f,.08f,1};
+      float[] gold={.62f,.43f,.10f,1};
+      float[] gunmetal={.18f,.20f,.23f,1};
+
+      // Variant palettes keep the six loadout choices visually distinct while
+      // remaining true 3D objects. PNGs are now only menu thumbnails.
+      float[] body=silver,grip=dark,accent=bright;
+      if(hiltIndex==1){body=bright;grip=gunmetal;accent=gold;}
+      else if(hiltIndex==2){body=gunmetal;grip=black;accent=new float[]{.30f,.68f,.92f,1};}
+      else if(hiltIndex==3){body=gunmetal;grip=black;accent=bright;}
+      else if(hiltIndex==4){body=bright;grip=black;accent=bronze;}
+      else if(hiltIndex==5){body=bronze;grip=black;accent=gunmetal;}
+
+      float L=hiltWorldLength();
+      if(hiltIndex==3){
+        // Double-ended hilt.
+        drawHiltPart(pv,0,7.2f,.62f,y,0,angle,grip);
+        drawHiltPart(pv,-4.35f,1.55f,.78f,y,0,angle,body);
+        drawHiltPart(pv, 4.35f,1.55f,.78f,y,0,angle,body);
+        drawHiltPart(pv,-5.45f,.42f,1.02f,y,0,angle,accent);
+        drawHiltPart(pv, 5.45f,.42f,1.02f,y,0,angle,accent);
+        for(int i=-2;i<=2;i++)drawHiltPart(pv,i*1.0f,.22f,.72f,y,0,angle,body);
+        drawHiltBox(pv,0,.78f,.36f,.72f,y+.66f,0,angle,new float[]{.65f,.08f,.05f,1});
+      }else{
+        // Main grip, emitter neck and pommel.
+        drawHiltPart(pv,-.7f,5.7f,.68f,y,0,angle,grip);
+        drawHiltPart(pv, 3.05f,2.15f,.78f,y,0,angle,body);
+        drawHiltPart(pv, 4.45f,.46f,1.02f,y,0,angle,accent);
+        drawHiltPart(pv,-4.10f,.72f,.84f,y,0,angle,body);
+        drawHiltPart(pv,-4.62f,.34f,.94f,y,0,angle,accent);
+
+        // Grip bands.
+        for(int i=0;i<5;i++){
+          float x=-2.9f+i*.92f;
+          drawHiltPart(pv,x,.16f,.76f,y,0,angle,(i%2==0)?body:gunmetal);
+        }
+
+        // Style-specific details.
+        if(hiltIndex==2){
+          drawHiltPart(pv,.55f,1.22f,.73f,y,0,angle,accent);
+          GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+          drawHiltPart(pv,.55f,1.05f,.82f,y,0,angle,new float[]{.12f,.62f,1f,.34f});
+          GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+        }else if(hiltIndex==4){
+          drawHiltBox(pv,.35f,1.48f,.40f,.84f,y+.72f,0,angle,bronze);
+        }else if(hiltIndex==5){
+          for(int i=0;i<4;i++)drawHiltPart(pv,-2.55f+i*.78f,.28f,.79f,y,0,angle,bronze);
+        }
+
+        // Activation switch/control box.
+        float[] switchColor=hiltIndex==2?new float[]{.10f,.65f,1f,1}:new float[]{.70f,.06f,.045f,1};
+        drawHiltBox(pv,1.25f,.72f,.30f,.64f,y+.72f,0,angle,switchColor);
+      }
+
+      // Selected blade color softly lights the emitter ring.
+      float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
+      GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+      float emitter=hiltIndex==3?5.72f:4.78f;
+      drawHiltPart(pv,emitter,.18f,hiltIndex==3?1.12f:1.16f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.46f});
+      if(hiltIndex==3)drawHiltPart(pv,-emitter,.18f,1.12f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.34f});
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
     }
 
     Mesh makeRingMesh(float radius,float thickness,int seg){
@@ -951,7 +1091,7 @@ public class MainActivity extends Activity {
       };
       for(int i=0;i<15;i++){Ball nb=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);}
       buildPhysicsWorld();
-      state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
+      state=AIMING;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
@@ -998,9 +1138,10 @@ public class MainActivity extends Activity {
       }
     }
 
-    void beginWorldCharge(){if(state==CHARGING){power=0;chargePullPx=0;}}
+    void beginWorldCharge(){if(state==CHARGING){power=0;chargePullPx=0;chargePullWorld=0;}}
     void updateWorldCharge(float pullPx,int h){
       if(state!=CHARGING)return;chargePullPx=pullPx;
+      chargePullWorld=pullPx/Math.max(10f,h*.030f);
       power=Math.min(100f,pullPx/Math.max(85f,h*.18f)*100f);
     }
     void releaseWorldCharge(){
@@ -1009,7 +1150,7 @@ public class MainActivity extends Activity {
         if(sfx!=null)sfx.clash();
         executeShot();
       }else{
-        power=0;chargePullPx=0;state=AIMING;
+        power=0;chargePullPx=0;chargePullWorld=0;state=AIMING;
         if(sfx!=null)sfx.deactivate();
       }
     }
@@ -1025,7 +1166,7 @@ public class MainActivity extends Activity {
         cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
         cue.body.setAwake(true);
       }
-      state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
+      state=ROLLING;power=0;chargePullPx=0;chargePullWorld=0;chargeStartY=-1;
     }
 
     void syncBodies(){
@@ -1078,7 +1219,7 @@ public class MainActivity extends Activity {
         }
         if(allStopped()){
           resolveShotRules();
-          state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;physicsAccum=0;
+          state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
         }
       }else{
         advanceSinks(dt);
