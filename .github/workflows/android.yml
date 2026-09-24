@@ -98,6 +98,7 @@ jobs:
           mkdir -p app/src/main/assets/real_hilts
           cat model_assets/real_hilts_256.b64.part* | base64 -d > /tmp/real_hilts_256.zip
           unzip -q -o /tmp/real_hilts_256.zip -d app/src/main/assets/real_hilts
+          gunzip -f app/src/main/assets/real_hilts/hilt_*.meshbin.gz
           cat model_assets/maul_hilt_slot3.b64.part* | base64 -d > /tmp/maul_hilt_slot3.zip
           unzip -q -o /tmp/maul_hilt_slot3.zip -d app/src/main/assets/real_hilts
           test -f app/src/main/assets/real_hilts/hilt_0.meshbin
