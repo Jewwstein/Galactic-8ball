@@ -389,15 +389,8 @@ public class MainActivity extends Activity {
     if(multiplayer==null)return;
 
     if(game!=null&&game.r!=null&&game.r.aiEnabled){
-      new AlertDialog.Builder(this)
-        .setTitle("SINGLE PLAYER")
-        .setMessage("You are playing against the Galactic AI.")
-        .setItems(new String[]{"RETURN TO LOBBY","CANCEL"},(d,which)->{
-          if(which==0){
-            game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;game.r.resetRack();});
-            showLobbyScreen();
-          }
-        }).show();
+      game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;game.r.resetRack();});
+      showLobbyScreen();
       return;
     }
 
@@ -901,12 +894,23 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false;
+    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false,microHolding=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     long lastAimTapMs=0;
+    int microHoldDir=0,microHoldW=0,microHoldH=0;
+    final Handler uiHandler=new Handler(Looper.getMainLooper());
+    final Runnable microRepeat=new Runnable(){
+      public void run(){
+        if(!microHolding)return;
+        final boolean left=microHoldDir<0;
+        final int ww=microHoldW,hh=microHoldH;
+        game.queueEvent(()->game.r.microAimScreen(left,ww,hh));
+        uiHandler.postDelayed(this,45);
+      }
+    };
 
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
@@ -955,25 +959,29 @@ public class MainActivity extends Activity {
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
       float ui=Math.max(.90f,Math.min(w/900f,h/640f));
 
-      // Premium command stack sits above the dedicated micro-aim controls.
-      float bw=228*ui,bh=62*ui,gap=9*ui,left=22*ui,bottom=h-105*ui;
-      saberMenuRect.set(left,bottom-bh,left+bw,bottom);
-      rackRect.set(left,bottom-(bh*2+gap),left+bw,bottom-(bh+gap));
-      activeShooterRect.set(left,bottom-(bh*3+gap*2),left+bw,bottom-(bh*2+gap*2));
-      teamSwitchRect.set(left,bottom-(bh*4+gap*3),left+bw,bottom-(bh*3+gap*3));
-      multiplayerRect.set(left,bottom-(bh*5+gap*4),left+bw,bottom-(bh*4+gap*4));
       lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
 
+      // Only a compact side-menu tab stays on screen. Match controls live inside it.
+      float tabW=62*ui,tabH=78*ui;
+      sideMenuTabRect.set(12*ui,h*.43f-tabH*.5f,12*ui+tabW,h*.43f+tabH*.5f);
+      if(sideMenuOpen){
+        float panelW=248*ui,itemH=58*ui,itemGap=8*ui;
+        float panelTop=Math.max(72*ui,h*.5f-(itemH*5+itemGap*4+34*ui)*.5f);
+        sideMenuPanelRect.set(10*ui,panelTop,10*ui+panelW,panelTop+itemH*5+itemGap*4+34*ui);
+        float bx=22*ui,by=panelTop+24*ui,bw=panelW-24*ui;
+        saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+        rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+        activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+        teamSwitchRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+        multiplayerRect.set(bx,by,bx+bw,by+itemH);
+      }else{
+        sideMenuPanelRect.setEmpty();saberMenuRect.setEmpty();rackRect.setEmpty();
+        activeShooterRect.setEmpty();teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
+      }
+
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
-      drawPremiumButton(c,rackRect,"NEW RACK","RESET TABLE",ui,0xFFFF6B55,false);
-      drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
-      drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
-      String mp=(net==null)?"OFFLINE":net.statusText();
-      if(mp.length()>22)mp=mp.substring(0,22);
-      String matchTitle=r.aiEnabled?"SINGLE PLAYER":"MATCH MENU";
-      String matchSub=r.aiEnabled?"VS GALACTIC AI":mp;
-      drawPremiumButton(c,multiplayerRect,matchTitle,matchSub,ui,(r.aiEnabled||(net!=null&&net.isConnected()))?0xFF65E4A5:0xFF9CA3AF,r.aiEnabled||(net!=null&&net.isConnected()));
+      drawSideMenuTab(c,sideMenuTabRect,ui,sideMenuOpen);
+      if(sideMenuOpen)drawSideMenu(c,ui,r);
 
       drawMatchHud(c,w,h,ui,r);
 
@@ -1005,6 +1013,31 @@ public class MainActivity extends Activity {
       p.setColor(Color.WHITE);p.setTextSize(fs);p.setTextAlign(Paint.Align.CENTER);
       c.drawText(text,rr.centerX(),rr.centerY()+fs*.34f,p);
     }
+    void drawSideMenuTab(Canvas c,RectF rr,float ui,boolean open){
+      Path hex=new Path();float cx=rr.centerX(),cy=rr.centerY(),w=rr.width(),h=rr.height();
+      hex.moveTo(cx-w*.34f,rr.top);hex.lineTo(cx+w*.34f,rr.top);hex.lineTo(rr.right,cy);
+      hex.lineTo(cx+w*.34f,rr.bottom);hex.lineTo(cx-w*.34f,rr.bottom);hex.lineTo(rr.left,cy);hex.close();
+      p.setStyle(Paint.Style.FILL);p.setShadowLayer(12*ui,0,0,0xAA38BDF8);p.setColor(0xB30A1220);c.drawPath(hex,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(0xDD5BD6FF);c.drawPath(hex,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(22*ui);p.setColor(0xFFF1FBFF);
+      c.drawText(open?"‹":"☰",cx,cy+7*ui,p);
+    }
+
+    void drawSideMenu(Canvas c,float ui,GameRenderer r){
+      p.setStyle(Paint.Style.FILL);p.setColor(0xD6070D16);p.setShadowLayer(16*ui,4*ui,0,0xBB000000);
+      c.drawRoundRect(sideMenuPanelRect,18*ui,18*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.8f*ui);stroke.setColor(0x995BD6FF);c.drawRoundRect(sideMenuPanelRect,18*ui,18*ui,stroke);
+
+      String mp=(net==null)?"OFFLINE":net.statusText();if(mp.length()>22)mp=mp.substring(0,22);
+      drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
+      drawPremiumButton(c,rackRect,"NEW RACK","RESET TABLE",ui,0xFFFF6B55,false);
+      drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
+      drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
+      String title=r.aiEnabled?"BACK TO LOBBY":(net!=null&&net.inRoom?"LEAVE MATCH":"GALACTIC LOBBY");
+      String sub=r.aiEnabled?"EXIT SINGLE PLAYER":mp;
+      drawPremiumButton(c,multiplayerRect,title,sub,ui,0xFF65E4A5,r.aiEnabled||(net!=null&&net.isConnected()));
+    }
+
     void drawPremiumButton(Canvas c,RectF rr,String title,String sub,float ui,int accent,boolean active){
       float rad=16*ui;
       p.setShader(null);p.setStyle(Paint.Style.FILL);
@@ -1042,7 +1075,7 @@ public class MainActivity extends Activity {
 
 
     void drawMicroAimControls(Canvas c,int w,int h,float ui){
-      float size=64*ui,gap=12*ui,x=22*ui,y=h-size-18*ui;
+      float size=92*ui,gap=14*ui,x=18*ui,y=h-size-16*ui;
       microLeftRect.set(x,y,x+size,y+size);
       microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
 
@@ -1135,27 +1168,43 @@ public class MainActivity extends Activity {
     }
 
     void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
-      float panelW=Math.min(w*.38f,235*ui),panelH=86*ui,top=90*ui;
-      RectF left=new RectF(18*ui,top,18*ui+panelW,top+panelH);
-      RectF right=new RectF(w-18*ui-panelW,top,w-18*ui,top+panelH);
+      float panelH=96*ui,top=76*ui,margin=14*ui,centerW=Math.min(164*ui,w*.18f);
+      float mid=w*.5f,leftRight=mid-centerW*.5f,rightLeft=mid+centerW*.5f;
+      RectF left=new RectF(margin,top,leftRight+2*ui,top+panelH);
+      RectF right=new RectF(rightLeft-2*ui,top,w-margin,top+panelH);
+      RectF center=new RectF(leftRight,top,rightLeft,top+panelH);
       drawTeamCard(c,left,1,ui,r);
       drawTeamCard(c,right,2,ui,r);
 
+      boolean activeReady=false;
+      int activeSuit=r.teamSuit[Math.max(0,Math.min(1,r.currentTeam-1))];
+      if(activeSuit!=0)activeReady=r.remainingForSuit(activeSuit)==0;
+
+      p.setStyle(Paint.Style.FILL);p.setColor(0xE00C1119);c.drawRoundRect(center,12*ui,12*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);
+      stroke.setColor(activeReady?0xFFF4C542:0x996F7B8A);c.drawRoundRect(center,12*ui,12*ui,stroke);
+
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(15*ui);p.setColor(0xFFF4C542);
-      String center=r.gameOver?(r.aiEnabled?(r.winnerTeam==1?"YOU WIN":"AI WINS"):("TEAM "+r.winnerTeam+" WINS")):
+      p.setTextSize(14*ui);p.setColor(0xFFF4C542);
+      String centerText=r.gameOver?(r.aiEnabled?(r.winnerTeam==1?"YOU WIN":"AI WINS"):("TEAM "+r.winnerTeam+" WINS")):
         (r.aiEnabled?(r.currentTeam==1?"YOUR TURN":"AI TURN"):("TEAM "+r.currentTeam+" TURN"));
-      c.drawText(center,w*.5f,top+16*ui,p);
+      c.drawText(centerText,center.centerX(),center.top+19*ui,p);
 
-      p.setTextSize(11*ui);p.setColor(0xFFD1D5DB);
-      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+35*ui,p);
+      float bx=center.centerX(),by=center.top+52*ui,br=18*ui;
+      if(activeReady){
+        p.setShadowLayer(13*ui,0,0,0xFFF4C542);
+        p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);p.clearShadowLayer();
+        stroke.setStrokeWidth(3.5f*ui);stroke.setColor(0xFFF4C542);c.drawCircle(bx,by,br,stroke);
+      }else{
+        p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);
+        stroke.setStrokeWidth(2*ui);stroke.setColor(0xFFE6E6E6);c.drawCircle(bx,by,br,stroke);
+      }
+      p.setColor(Color.WHITE);p.setTextSize(14*ui);c.drawText("8",bx,by+5*ui,p);
+      p.setTextSize(9.5f*ui);p.setColor(activeReady?0xFFF4C542:0xFFB6C0CE);
+      c.drawText(activeReady?"8 BALL READY":"8 BALL",bx,center.bottom-9*ui,p);
 
-      // Persistent 8-ball objective between both team cards.
-      float bx=w*.5f,by=top+61*ui,br=16*ui;
-      p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);
-      stroke.setColor(0xFFE6E6E6);stroke.setStrokeWidth(2*ui);c.drawCircle(bx,by,br,stroke);
-      p.setColor(Color.WHITE);p.setTextSize(13*ui);p.setTextAlign(Paint.Align.CENTER);
-      c.drawText("8",bx,by+4.5f*ui,p);
+      p.setTextSize(11*ui);p.setColor(0xFFE2E8F0);
+      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+panelH+16*ui,p);
     }
 
     void drawTeamCard(Canvas c,RectF rr,int team,float ui,GameRenderer r){
@@ -1179,7 +1228,8 @@ public class MainActivity extends Activity {
         c.drawText("FIRST MADE GROUP CLAIMS",rr.centerX(),rr.top+51*ui,p);
       }else{
         int start=suit==1?1:9,end=suit==1?7:15;
-        float gap=(rr.width()-22*ui)/7f,cx=rr.left+11*ui+gap*.5f,cy=rr.top+49*ui,rad=Math.min(11*ui,gap*.35f);
+        float usable=Math.max(90*ui,rr.width()-28*ui);
+        float gap=usable/7f,cx=rr.left+14*ui+gap*.5f,cy=rr.top+53*ui,rad=Math.min(13*ui,gap*.30f);
         int remaining=0;
         for(int n=start;n<=end;n++){
           boolean onTable=r.isBallOnTable(n);
@@ -1345,13 +1395,19 @@ public class MainActivity extends Activity {
       }
 
       if(a==MotionEvent.ACTION_DOWN){
+        if(sideMenuTabRect.contains(x,y)){
+          sideMenuOpen=!sideMenuOpen;
+          invalidate();
+          return true;
+        }
+
         if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()){
           if(microLeftRect.contains(x,y)){
-            game.queueEvent(()->r.microAimScreen(true,w,h));
+            beginMicroHold(-1,w,h);
             return true;
           }
           if(microRightRect.contains(x,y)){
-            game.queueEvent(()->r.microAimScreen(false,w,h));
+            beginMicroHold(1,w,h);
             return true;
           }
         }
@@ -1366,11 +1422,12 @@ public class MainActivity extends Activity {
           return true;
         }
 
-        if(saberMenuRect.contains(x,y)){menuOpen=true;invalidate();return true;}
-        if(rackRect.contains(x,y)){pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
-        if(activeShooterRect.contains(x,y)){game.queueEvent(()->r.userToggleActiveShooter());return true;}
-        if(teamSwitchRect.contains(x,y)){game.queueEvent(()->r.userSwitchTeam());return true;}
-        if(multiplayerRect.contains(x,y)){
+        if(sideMenuOpen&&saberMenuRect.contains(x,y)){menuOpen=true;sideMenuOpen=false;invalidate();return true;}
+        if(sideMenuOpen&&rackRect.contains(x,y)){pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
+        if(sideMenuOpen&&activeShooterRect.contains(x,y)){game.queueEvent(()->r.userToggleActiveShooter());return true;}
+        if(sideMenuOpen&&teamSwitchRect.contains(x,y)){game.queueEvent(()->r.userSwitchTeam());return true;}
+        if(sideMenuOpen&&multiplayerRect.contains(x,y)){
+          sideMenuOpen=false;invalidate();
           Context cc=getContext();
           if(cc instanceof MainActivity)((MainActivity)cc).showMultiplayerDialog();
           return true;
@@ -1410,6 +1467,13 @@ public class MainActivity extends Activity {
           RectF hit=new RectF(worldHiltRect);hit.inset(-36*ui,-36*ui);
           if(hit.contains(x,y)){pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;game.queueEvent(()->r.beginWorldCharge());return true;}
         }
+      }
+
+      if(microHolding){
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
+          endMicroHold();
+        }
+        return true;
       }
 
       if(aimingHilt){
@@ -1465,6 +1529,19 @@ public class MainActivity extends Activity {
         return true;
       }
       return true;
+    }
+
+    void beginMicroHold(int dir,int w,int h){
+      endMicroHold();
+      microHolding=true;microHoldDir=dir;microHoldW=w;microHoldH=h;
+      final boolean left=dir<0;
+      game.queueEvent(()->game.r.microAimScreen(left,w,h));
+      uiHandler.postDelayed(microRepeat,220);
+    }
+
+    void endMicroHold(){
+      microHolding=false;microHoldDir=0;
+      uiHandler.removeCallbacks(microRepeat);
     }
 
     void setEnglishFromTouch(float x,float y){
@@ -1539,7 +1616,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; MultiplayerManager net; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere,hiltCylinder,hiltBox; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox,teamAidRing; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
       {{1.72f,.20f},{1.53f,.10f},{0,0}},
@@ -1563,7 +1640,8 @@ public class MainActivity extends Activity {
     final float[] ringDepth={.18f,.22f,.20f,.18f,.22f,.18f,.24f};
     int program,aPos,aUv,aNormal,uMvp,uModel,uUseTex,uColor,uTex,uLit;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
-    volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
+    volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
+    volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile int currentTeam=1,winnerTeam=0,activeShooter=1;
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
@@ -1614,6 +1692,7 @@ public class MainActivity extends Activity {
     public void onDrawFrame(GL10 gl){
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
+      smoothCamera(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
       android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
@@ -1633,6 +1712,7 @@ public class MainActivity extends Activity {
       for(Part p:table){int tt=p.texKey==null?0:tex.getOrDefault(p.texKey,0);if("felt".equals(p.texKey))drawMesh(p.mesh,pvCache,identity(),tt,p.color);else drawLitMesh(p.mesh,pvCache,identity(),tt,p.color);}
       if(state!=ROLLING)drawPredictor(pvCache);
       for(Ball b:balls)if(b.active){
+        drawTeamAidRing(pvCache,b);
         float sinkEase=b.sinking?(1f-(1f-b.sinkT)*(1f-b.sinkT)):0f;
         float by=2.22f-2.8f*sinkEase,bs=R*(1f-.18f*sinkEase);
         float[] T=identity();android.opengl.Matrix.translateM(T,0,b.x,by,b.z);
@@ -1695,6 +1775,7 @@ public class MainActivity extends Activity {
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
         hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
+        teamAidRing=makeRingMesh(1.58f,.13f,64);
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
@@ -1945,6 +2026,41 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
+    void drawTeamAidRing(float[] pv,Ball b){
+      if(teamAidRing==null||b.sinking||b.index==0)return;
+      int team=0;
+      int suit=suitForBall(b.index);
+      if(suit!=0){
+        if(teamSuit[0]==suit)team=1;
+        else if(teamSuit[1]==suit)team=2;
+      }
+
+      boolean eightReady=false;
+      if(b.index==8&&currentTeam>=1&&currentTeam<=2){
+        int s=teamSuit[currentTeam-1];
+        eightReady=s!=0&&remainingForSuit(s)==0;
+      }
+      if(team==0&&!eightReady)return;
+
+      float[] color;
+      if(eightReady)color=new float[]{1f,.73f,.12f,.78f};
+      else if(team==1)color=new float[]{.12f,.68f,1f,.72f};
+      else color=new float[]{1f,.18f,.18f,.72f};
+
+      float pulse=1f+.035f*(float)Math.sin(System.nanoTime()/180000000.0);
+      float[] M=identity();
+      android.opengl.Matrix.translateM(M,0,b.x,1.03f,b.z);
+      android.opengl.Matrix.scaleM(M,0,pulse,1f,pulse);
+
+      GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+      for(int layer=0;layer<3;layer++){
+        float sc=1f+layer*.08f;
+        float[] L=M.clone();android.opengl.Matrix.scaleM(L,0,sc,1f,sc);
+        drawMesh(teamAidRing,pv,L,0,new float[]{color[0],color[1],color[2],color[3]/(layer+1)});
+      }
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+    }
+
     void drawPlanetRing(float[] pv,Ball b){
       if(b.index<9||b.index>15||b.sinking)return;
       int st=b.index-9;
@@ -2055,8 +2171,26 @@ public class MainActivity extends Activity {
 
     void cameraGesture(float dragX,float dragY,float pinch){
       camYaw-=dragX*.16f;
-      camPitch=Math.max(18f,Math.min(78f,camPitch+dragY*.12f));
-      if(pinch>.01f)camDist=Math.max(70f,Math.min(340f,camDist/pinch));
+      camPitch=Math.max(20f,Math.min(72f,camPitch+dragY*.12f));
+      if(pinch>.01f)camDist=Math.max(88f,Math.min(220f,camDist/pinch));
+      camGoalYaw=camYaw;camGoalPitch=camPitch;camGoalDist=camDist;
+      camGoalTargetX=camTargetX;camGoalTargetZ=camTargetZ;
+    }
+
+    float angleDelta(float to,float from){
+      float d=to-from;
+      while(d>180f)d-=360f;
+      while(d<-180f)d+=360f;
+      return d;
+    }
+
+    void smoothCamera(float dt){
+      float k=1f-(float)Math.exp(-dt*4.2f);
+      camYaw+=angleDelta(camGoalYaw,camYaw)*k;
+      camPitch+=(camGoalPitch-camPitch)*k;
+      camDist+=(camGoalDist-camDist)*k;
+      camTargetX+=(camGoalTargetX-camTargetX)*k;
+      camTargetZ+=(camGoalTargetZ-camTargetZ)*k;
     }
 
     void autoFrameCue(){
@@ -2064,20 +2198,21 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0);
       if(cue==null)return;
 
-      // Center the useful shooting area rather than the fixed middle of the table.
-      // A small look-ahead keeps the cue ball low in frame and leaves room for
-      // the target/predictive line in front of it.
-      float lookAhead=8.5f;
-      camTargetX=cue.x+aimX*lookAhead;
-      camTargetZ=cue.z+aimZ*lookAhead;
+      // Frame inward from the cue ball toward the useful table area. This keeps
+      // the camera over the table instead of throwing it far into space.
+      float dx=-cue.x,dz=-cue.z,d=(float)Math.sqrt(dx*dx+dz*dz);
+      if(d<5f){dx=aimX;dz=aimZ;d=(float)Math.sqrt(dx*dx+dz*dz);}
+      if(d<.001f){dx=1;dz=0;d=1;}
+      dx/=d;dz/=d;
+
+      float lookAhead=5.0f;
+      camGoalTargetX=Math.max(MINX+10f,Math.min(MAXX-10f,cue.x+dx*lookAhead));
+      camGoalTargetZ=Math.max(MINZ+7f,Math.min(MAXZ-7f,cue.z+dz*lookAhead));
 
       float edge=Math.max(Math.abs(cue.x)/Math.max(1f,MAXX),Math.abs(cue.z)/Math.max(1f,MAXZ));
-      camDist=Math.max(142f,Math.min(205f,158f+edge*30f));
-      camPitch=43f;
-
-      // Put the camera generally behind the current shot line. This happens only
-      // when a rack/turn is framed; manual two-finger orbit remains untouched afterward.
-      camYaw=(float)Math.toDegrees(Math.atan2(-aimX,-aimZ));
+      camGoalDist=Math.max(116f,Math.min(138f,120f+edge*15f));
+      camGoalPitch=42f;
+      camGoalYaw=(float)Math.toDegrees(Math.atan2(-dx,-dz));
     }
 
     float[] worldToScreen(float x,float y,float z,int w,int h){
