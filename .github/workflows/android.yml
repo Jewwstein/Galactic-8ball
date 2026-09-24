@@ -96,8 +96,8 @@ jobs:
           python tools/extract_audio.py
           python tools/generate_hilt_materials.py
           mkdir -p app/src/main/assets/real_hilts
-          cat model_assets/real_hilts_512.b64.part* | base64 -d > /tmp/real_hilts_512.zip
-          unzip -q -o /tmp/real_hilts_512.zip -d app/src/main/assets/real_hilts
+          cat model_assets/real_hilts_256.b64.part* | base64 -d > /tmp/real_hilts_256.zip
+          unzip -q -o /tmp/real_hilts_256.zip -d app/src/main/assets/real_hilts
           test -f app/src/main/assets/real_hilts/hilt_0.meshbin.gz
           test -f app/src/main/assets/real_hilts/hilt_5.webp
           rm -rf app/src/main/assets/sfx_bundle
