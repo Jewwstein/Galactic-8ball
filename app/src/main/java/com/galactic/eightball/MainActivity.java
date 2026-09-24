@@ -399,7 +399,7 @@ public class MainActivity extends Activity {
   }
 
   static class Ball{
-    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true,sinking=false; int tex;
+    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true,sinking=false; int tex; Body body;
     float sinkT=0,sinkStartX=0,sinkStartZ=0,sinkX=0,sinkZ=0; int index=0;
     Ball(float X,float Z,int T){x=X;z=Z;tex=T;}
     float speed2(){return vx*vx+vz*vz;}
@@ -436,14 +436,18 @@ public class MainActivity extends Activity {
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
-    float physicsAccum=0f; boolean breakSpreadPending=true;
-    static final float FIXED_DT=1f/360f;
-    static final float BALL_E=.89f;
-    static final float RAIL_E=.70f;
-    static final float ROLL_DECEL=3.35f;
-    static final float STOP_SPEED=.35f;
-    static final float CONTACT_EPS=.0010f;
-    final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
+    World world; Body railBody; float physicsAccum=0f;
+    static final float FIXED_DT=1f/240f;
+    static final float TTS_MASS=.375f;
+    static final float TTS_DRAG=.45f;
+    static final float TTS_ANGULAR_DRAG=.45f;
+    static final float TTS_STATIC_FRICTION=.40f;
+    static final float TTS_DYNAMIC_FRICTION=.20f;
+    static final float TTS_BOUNCINESS=1.0f;
+    static final float STOP_SPEED=.10f;
+    // Visual radius is the TTS predictor radius. Collision radius is derived from
+    // the exact TTS rack spacing sqrt(2.09^2+1.21^2)/2 so the rack is actually in contact.
+    final float R=1.192f, PHYS_R=1.207087f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
     final String[] objectFolders={"00_DeathStar","01_Tatooine","02_Kamino","03_Mustafar","04_Coruscant","05_Geonosis","06_Endor","07_Korriban","08_Exegol","09_Yavin","10_Bespin","11_Malastare","12_Kessel","13_Jakku","14_Felucia","15_Dathomir"};
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
     final String[] saberFolders={"white","gold","purple","green","red","blue"};
@@ -646,18 +650,53 @@ public class MainActivity extends Activity {
       return new float[]{(nx*.5f+.5f)*w,(.5f-ny*.5f)*h};
     }
 
+    void createRailEdge(float x1,float z1,float x2,float z2){
+      EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
+      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.82f;
+      railBody.createFixture(fd);
+    }
+
+    void buildPhysicsWorld(){
+      world=new World(new Vec2(0,0));
+      world.setContinuousPhysics(true);world.setWarmStarting(true);
+      BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
+
+      // TTS table cushion planes are x=±42, z=±21. Split them at the six pocket mouths.
+      final float CX=42f,CZ=21f,CORNER=3.65f,SIDE=2.95f;
+      createRailEdge(-CX,-CZ+CORNER,-CX,CZ-CORNER);
+      createRailEdge( CX,-CZ+CORNER, CX,CZ-CORNER);
+      createRailEdge(-CX+CORNER,-CZ,-SIDE,-CZ);
+      createRailEdge(SIDE,-CZ,CX-CORNER,-CZ);
+      createRailEdge(-CX+CORNER, CZ,-SIDE, CZ);
+      createRailEdge(SIDE, CZ,CX-CORNER, CZ);
+
+      float density=(float)(TTS_MASS/(Math.PI*PHYS_R*PHYS_R));
+      for(Ball b:balls){
+        BodyDef bd=new BodyDef();bd.type=BodyType.DYNAMIC;bd.position.set(b.x,b.z);
+        bd.linearDamping=TTS_DRAG;bd.angularDamping=TTS_ANGULAR_DRAG;
+        bd.bullet=(b.index==0);bd.allowSleep=true;
+        b.body=world.createBody(bd);
+        CircleShape cs=new CircleShape();cs.m_radius=PHYS_R;
+        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=TTS_BOUNCINESS;
+        b.body.createFixture(fd);
+        b.body.setUserData(b);
+      }
+    }
+
     void resetRack(){
-      balls.clear();physicsAccum=0;breakSpreadPending=true;
+      balls.clear();physicsAccum=0;
       Ball cueBall=new Ball(-20f,0f,tex.getOrDefault("ball0",0));cueBall.index=0;balls.add(cueBall);
 
-      // Tight triangle with a small non-overlap gap and microscopic deterministic
-      // asymmetry so a dead-center break does not become an artificial Newton cradle.
-      float S=2*R+.0018f,HX=S*.5f,DX=S*.8660254f;
-      float[][] p={{20f,0f},{20f+DX,-HX-.002f},{20f+DX,HX+.002f},
-        {20f+2*DX,-S-.003f},{20f+2*DX,.003f},{20f+2*DX,S+.001f},
-        {20f+3*DX,-3*HX-.002f},{20f+3*DX,-HX+.002f},{20f+3*DX,HX-.001f},{20f+3*DX,3*HX+.003f},
-        {20f+4*DX,-2*S-.002f},{20f+4*DX,-S+.003f},{20f+4*DX,-.002f},{20f+4*DX,S+.001f},{20f+4*DX,2*S+.003f}};
+      // Exact positions from Star Wars Galactic 8-Ball v428 / TTS.
+      float[][] p={
+        {20.0f,0.0f},
+        {22.09f,-1.21f},{22.09f,1.21f},
+        {24.18f,-2.42f},{24.18f,0.0f},{24.18f,2.42f},
+        {26.27f,-3.63f},{26.27f,-1.21f},{26.27f,1.21f},{26.27f,3.63f},
+        {28.36f,-4.84f},{28.36f,-2.42f},{28.36f,0.0f},{28.36f,2.42f},{28.36f,4.84f}
+      };
       for(int i=0;i<15;i++){Ball nb=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);}
+      buildPhysicsWorld();
       state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
     }
 
@@ -697,188 +736,69 @@ public class MainActivity extends Activity {
 
     void executeShot(){
       Ball cue=balls.get(0);
-      if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
-      float speed=power*.72f;
-      cue.vx=aimX*speed;cue.vz=aimZ*speed;
+      if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
+      // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
+      float speed=power*1.65f*1.25f;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
+      if(cue.body!=null){
+        cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
+        cue.body.setAwake(true);
+      }
       state=ROLLING;power=0;chargePullPx=0;chargeStartY=-1;
     }
 
-    void advanceBalls(float dt){
-      for(Ball b:balls)if(b.active){
-        if(b.sinking){
-          b.sinkT=Math.min(1f,b.sinkT+dt*3.2f);
-          float e=1f-(1f-b.sinkT)*(1f-b.sinkT);
-          b.x=b.sinkStartX+(b.sinkX-b.sinkStartX)*e;
-          b.z=b.sinkStartZ+(b.sinkZ-b.sinkStartZ)*e;
-          if(b.sinkT>=1f){
-            b.sinking=false;b.sinkT=0;
-            if(b.index==0){b.x=-20f;b.z=0f;b.active=true;}
-            else b.active=false;
-          }
-          continue;
-        }
-        float ox=b.x,oz=b.z;
-        b.x+=b.vx*dt;b.z+=b.vz*dt;
+    void syncBodies(){
+      for(Ball b:balls){
+        if(!b.active||b.sinking||b.body==null)continue;
+        Vec2 p=b.body.getPosition(),v=b.body.getLinearVelocity();
+        float ox=b.x,oz=b.z;b.x=p.x;b.z=p.y;b.vx=v.x;b.vz=v.y;
         b.rotX+=(b.z-oz)/R*57.29578f;b.rotZ-=(b.x-ox)/R*57.29578f;
 
-        float sp=(float)Math.sqrt(b.speed2());
-        if(sp>0){
-          // Constant rolling resistance, scaled up slightly at high speed to remove
-          // the air-hockey glide without killing the break.
-          float dec=ROLL_DECEL*(1f+.0035f*sp);
-          float ns=Math.max(0f,sp-dec*dt);
-          if(ns<STOP_SPEED){b.vx=b.vz=0;}
-          else{float q=ns/sp;b.vx*=q;b.vz*=q;}
+        // TTS's per-ball onFixedUpdate mass self-assignment helps sleeping.
+        // Mirror that behavior with a tiny low-speed sleep threshold.
+        float sp2=v.x*v.x+v.y*v.y;
+        if(sp2<STOP_SPEED*STOP_SPEED){
+          b.body.setLinearVelocity(new Vec2(0,0));
+          b.body.setAngularVelocity(0);
+          b.vx=b.vz=0;
         }
-        b.spin*=Math.pow(.26,dt);
       }
     }
 
-    float ballCollisionTime(Ball a,Ball b,float maxT){
-      if(!a.active||!b.active||a.sinking||b.sinking)return Float.POSITIVE_INFINITY;
-      float rx=b.x-a.x,rz=b.z-a.z,rvx=b.vx-a.vx,rvz=b.vz-a.vz;
-      float target=2*R+CONTACT_EPS;
-      float A=rvx*rvx+rvz*rvz;
-      float B=2*(rx*rvx+rz*rvz);
-      float C=rx*rx+rz*rz-target*target;
-      if(C<=0)return B<-.00001f?0f:Float.POSITIVE_INFINITY;
-      if(A<1e-8f||B>=0)return Float.POSITIVE_INFINITY;
-      float D=B*B-4*A*C;if(D<0)return Float.POSITIVE_INFINITY;
-      float t=(-B-(float)Math.sqrt(D))/(2*A);
-      return (t>=0&&t<=maxT)?t:Float.POSITIVE_INFINITY;
-    }
-
-    void separate(Ball a,Ball b){
-      float dx=b.x-a.x,dz=b.z-a.z,d=(float)Math.sqrt(dx*dx+dz*dz);
-      if(d<1e-6f){dx=1;dz=0;d=1;}
-      float target=2*R+CONTACT_EPS,over=target-d;
-      if(over>0){float nx=dx/d,nz=dz/d;a.x-=nx*over*.5f;a.z-=nz*over*.5f;b.x+=nx*over*.5f;b.z+=nz*over*.5f;}
-    }
-
-    void resolveBallCollision(Ball a,Ball b){
-      separate(a,b);
-      float dx=b.x-a.x,dz=b.z-a.z,d=(float)Math.sqrt(dx*dx+dz*dz);if(d<1e-6f)return;
-      float nx=dx/d,nz=dz/d,tx=-nz,tz=nx;
-      float v1n=a.vx*nx+a.vz*nz,v2n=b.vx*nx+b.vz*nz;
-      float rel=v1n-v2n;if(rel<=0)return;
-
-      // Pooltool/Alciatore-style equal-mass frictional inelastic collision:
-      // normal restitution plus a bounded tangential "throw" impulse.
-      float nv1=.5f*((1-BALL_E)*v1n+(1+BALL_E)*v2n);
-      float nv2=.5f*((1+BALL_E)*v1n+(1-BALL_E)*v2n);
-      float v1t=a.vx*tx+a.vz*tz,v2t=b.vx*tx+b.vz*tz;
-      float tangRel=(v1t-v2t)+R*(a.spin+b.spin);
-      float mu=.009951f+.108f*(float)Math.exp(-1.088f*Math.abs(tangRel));
-      float normalChange=Math.abs(nv2-v2n);
-      float jt=Math.min(mu*normalChange,Math.abs(tangRel)/7f)*Math.signum(tangRel);
-      v1t-=jt;v2t+=jt;
-      a.spin-=jt/R*.35f;b.spin-=jt/R*.35f;
-
-      a.vx=nv1*nx+v1t*tx;a.vz=nv1*nz+v1t*tz;
-      b.vx=nv2*nx+v2t*tx;b.vz=nv2*nz+v2t*tz;
-
-      if(breakSpreadPending && balls.size()>1){
-        Ball cue=balls.get(0),apex=balls.get(1);
-        if((a==cue&&b==apex)||(b==cue&&a==apex)) applyBreakSpread(cue,apex);
-      }
-    }
-
-    void resolveTouchingCluster(){
-      for(int pass=0;pass<18;pass++){
-        boolean any=false;
-        for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
-          Ball a=balls.get(i),b=balls.get(j);if(!a.active||!b.active)continue;
-          float dx=b.x-a.x,dz=b.z-a.z,d2=dx*dx+dz*dz;
-          if(d2<=(2*R+CONTACT_EPS)*(2*R+CONTACT_EPS)){
-            float d=(float)Math.sqrt(Math.max(d2,1e-10f)),nx=dx/d,nz=dz/d;
-            if((a.vx-b.vx)*nx+(a.vz-b.vz)*nz>0){resolveBallCollision(a,b);any=true;}
-            else separate(a,b);
+    void advanceSinks(float dt){
+      for(Ball b:balls)if(b.active&&b.sinking){
+        b.sinkT=Math.min(1f,b.sinkT+dt*3.2f);
+        float e=1f-(1f-b.sinkT)*(1f-b.sinkT);
+        b.x=b.sinkStartX+(b.sinkX-b.sinkStartX)*e;
+        b.z=b.sinkStartZ+(b.sinkZ-b.sinkStartZ)*e;
+        if(b.sinkT>=1f){
+          b.sinking=false;b.sinkT=0;b.vx=b.vz=b.spin=0;
+          if(b.index==0){
+            b.x=-20f;b.z=0f;b.active=true;
+            if(b.body!=null){b.body.setActive(true);b.body.setTransform(new Vec2(-20,0),0);b.body.setLinearVelocity(new Vec2(0,0));b.body.setAngularVelocity(0);}
+          }else{
+            b.active=false;
           }
         }
-        if(!any)break;
       }
-    }
-
-    boolean endRailPocketOpening(float z){return Math.abs(z)>MAXZ-3.55f;}
-    boolean sideRailPocketOpening(float x){return Math.abs(x)<2.75f||Math.abs(x)>MAXX-3.55f;}
-
-    void bounceRails(Ball b){
-      if(!b.active||b.sinking)return;
-      if(b.x-R<MINX&&!endRailPocketOpening(b.z)){b.x=MINX+R;b.vx=Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz+=b.spin*Math.abs(b.vx)*.05f;}
-      if(b.x+R>MAXX&&!endRailPocketOpening(b.z)){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz-=b.spin*Math.abs(b.vx)*.05f;}
-      if(b.z-R<MINZ&&!sideRailPocketOpening(b.x)){b.z=MINZ+R;b.vz=Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx-=b.spin*Math.abs(b.vz)*.05f;}
-      if(b.z+R>MAXZ&&!sideRailPocketOpening(b.x)){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx+=b.spin*Math.abs(b.vz)*.05f;}
-    }
-
-    void applyBreakSpread(Ball cue,Ball apex){
-      if(!breakSpreadPending)return;
-      float cueSpeed=(float)Math.sqrt(cue.speed2());
-      if(cueSpeed<10f)return;
-      breakSpreadPending=false;
-
-      // Preserve forward momentum, but distribute some of the break energy through
-      // the whole triangle so a tight rack opens instead of behaving like a single block.
-      float forwardX=aimX,forwardZ=aimZ;
-      float rackCx=24.15f,rackCz=0f;
-      for(int i=1;i<balls.size();i++){
-        Ball b=balls.get(i);
-        if(!b.active)continue;
-
-        float rx=b.x-rackCx,rz=b.z-rackCz;
-        float n=(float)Math.sqrt(rx*rx+rz*rz);
-        if(n<.001f){rx=((i&1)==0?.18f:-.18f);rz=.12f;n=(float)Math.sqrt(rx*rx+rz*rz);}
-        rx/=n;rz/=n;
-
-        // Front balls retain more forward push; outer/rear balls get more side spread.
-        float row=Math.max(0f,Math.min(4f,(b.x-20f)/2.07f));
-        float side=Math.abs(rz);
-        float forward=cueSpeed*(.060f-.006f*row);
-        float outward=cueSpeed*(.050f+.018f*row+.020f*side);
-
-        // deterministic tiny asymmetry to avoid perfectly mirrored rack motion
-        float j=((i%4)-1.5f)*cueSpeed*.0028f;
-
-        b.vx += forwardX*forward + rx*outward - forwardZ*j;
-        b.vz += forwardZ*forward + rz*outward + forwardX*j;
-
-        // Keep break speeds bounded so no single ball rockets unrealistically.
-        float sp=(float)Math.sqrt(b.speed2());
-        float cap=38f;
-        if(sp>cap){float q=cap/sp;b.vx*=q;b.vz*=q;}
-      }
-
-      // Cue ball loses energy after the rack absorbs the break.
-      cue.vx*=.38f;cue.vz*=.38f;
-    }
-
-    void physicsSlice(float dt){
-      float remain=dt;int events=0;
-      while(remain>1e-6f&&events<64){
-        float best=remain;Ball ca=null,cb=null;
-        for(int i=0;i<balls.size();i++)for(int j=i+1;j<balls.size();j++){
-          float t=ballCollisionTime(balls.get(i),balls.get(j),best);
-          if(t<best){best=t;ca=balls.get(i);cb=balls.get(j);}
-        }
-        advanceBalls(best);
-        for(Ball b:balls)bounceRails(b);
-        if(ca!=null){resolveBallCollision(ca,cb);resolveTouchingCluster();events++;}
-        else break;
-        remain-=best;
-        if(best<1e-6f)remain-=1e-5f;
-      }
-      if(remain>0){advanceBalls(remain);for(Ball b:balls)bounceRails(b);resolveTouchingCluster();}
-      for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
     }
 
     void step(float dt){
-      if(balls.isEmpty())return;
+      if(balls.isEmpty()||world==null)return;
       if(state==ROLLING){
-        physicsAccum=Math.min(.06f,physicsAccum+dt);
+        physicsAccum=Math.min(.08f,physicsAccum+dt);
         int loops=0;
-        while(physicsAccum>=FIXED_DT&&loops<24){physicsSlice(FIXED_DT);physicsAccum-=FIXED_DT;loops++;}
+        while(physicsAccum>=FIXED_DT&&loops<32){
+          world.step(FIXED_DT,30,12);
+          syncBodies();
+          for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
+          advanceSinks(FIXED_DT);
+          physicsAccum-=FIXED_DT;loops++;
+        }
         if(allStopped()){state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;physicsAccum=0;}
+      }else{
+        advanceSinks(dt);
       }
     }
 
@@ -886,19 +806,17 @@ public class MainActivity extends Activity {
       if(b.sinking)return;
       b.sinking=true;b.sinkT=0;b.sinkStartX=b.x;b.sinkStartZ=b.z;b.sinkX=px;b.sinkZ=pz;
       b.vx=b.vz=b.spin=0;
+      if(b.body!=null){b.body.setLinearVelocity(new Vec2(0,0));b.body.setAngularVelocity(0);b.body.setActive(false);}
     }
 
     void checkPocket(int index,Ball b){
       if(!b.active||b.sinking)return;
       float ax=Math.abs(b.x),az=Math.abs(b.z);
 
-      // Side pockets: the center must actually cross through the cushion opening.
       if(az>MAXZ+.18f && Math.abs(b.x)<2.35f){
         startPocketSink(index,b,0,b.z>0?MAXZ:MINZ);return;
       }
 
-      // Corner pockets: require the ball to enter the throat instead of vanishing
-      // as soon as it merely approaches the corner.
       if(ax>MAXX-.55f && az>MAXZ-.55f){
         float px=b.x>0?MAXX:MINX,pz=b.z>0?MAXZ:MINZ;
         float dx=b.x-px,dz=b.z-pz;
@@ -907,7 +825,6 @@ public class MainActivity extends Activity {
         }
       }
 
-      // Failsafe only after the ball has clearly gone through a pocket opening.
       if(ax>MAXX+4f||az>MAXZ+4f){
         float px=Math.abs(b.x)<8f?0:(b.x>0?MAXX:MINX);
         float pz=b.z>0?MAXZ:MINZ;
@@ -916,7 +833,14 @@ public class MainActivity extends Activity {
     }
 
     boolean allStopped(){
-      for(Ball b:balls)if(b.active&&(b.sinking||b.speed2()>STOP_SPEED*STOP_SPEED))return false;
+      for(Ball b:balls){
+        if(!b.active)continue;
+        if(b.sinking)return false;
+        if(b.body!=null&&b.body.isActive()){
+          Vec2 v=b.body.getLinearVelocity();
+          if(v.x*v.x+v.y*v.y>STOP_SPEED*STOP_SPEED)return false;
+        }
+      }
       return true;
     }
 
