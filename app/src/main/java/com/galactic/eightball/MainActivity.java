@@ -592,7 +592,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere,hiltCylinder,hiltBox; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final float[][][] ringRadii={
       {{1.72f,.20f},{1.53f,.10f},{0,0}},
@@ -734,6 +734,8 @@ public class MainActivity extends Activity {
         hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
         for(int i=0;i<6;i++){
+          try{realHiltMeshes[i]=loadGzipMesh("real_hilts/hilt_"+i+".meshbin.gz");}catch(Exception e){realHiltMeshes[i]=null;}
+          try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
           try{hiltTextures[i]=loadTexture("hilt_materials/hilt_"+i+".png");}catch(Exception e){hiltTextures[i]=0;}
         }
         for(int i=0;i<objectFolders.length;i++)tex.put("ball"+i,loadTexture(findAsset("objects/"+objectFolders[i],".png")));
@@ -790,7 +792,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){return hiltIndex==3?13.6f:10.4f;}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,11.4f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
     float hiltBackWorld(){return 14.2f+chargePullWorld;}
 
@@ -831,6 +833,29 @@ public class MainActivity extends Activity {
       if(balls.isEmpty())return;
       float angle=(float)Math.toDegrees(Math.atan2(-aimZ,aimX));
       float y=2.72f;
+
+      int hi=Math.max(0,Math.min(5,hiltIndex));
+      Mesh authored=realHiltMeshes[hi];
+      if(authored!=null){
+        Ball cue=balls.get(0);
+        float cx=cue.x-aimX*hiltBackWorld();
+        float cz=cue.z-aimZ*hiltBackWorld();
+        float[] M=identity();
+        android.opengl.Matrix.translateM(M,0,cx,y,cz);
+        android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
+        // Exporter normalized each real model to a 1.0-unit dominant axis while
+        // preserving its true proportions, so a uniform scale keeps the authored shape.
+        float L=hiltWorldLength();
+        android.opengl.Matrix.scaleM(M,0,L,L,L);
+        drawMesh(authored,pv,M,realHiltTextures[hi],new float[]{1f,1f,1f,1f});
+
+        // Keep the selected saber-color emitter glow, but no blocky geometry overlays.
+        float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
+        GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+        drawHiltPart(pv,L*.49f,.12f,.98f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.42f});
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+        return;
+      }
       float[] silver={.72f,.76f,.82f,1};
       float[] bright={.90f,.93f,.98f,1};
       float[] dark={.055f,.065f,.08f,1};
@@ -964,6 +989,20 @@ public class MainActivity extends Activity {
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_CLAMP_TO_EDGE);
       GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_CLAMP_TO_EDGE);
       GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bmp,0);bmp.recycle();return id[0];
+    }
+
+    Mesh loadGzipMesh(String path)throws Exception{
+      try(DataInputStream in=new DataInputStream(new BufferedInputStream(new java.util.zip.GZIPInputStream(ctx.getAssets().open(path)),262144))){
+        byte[] magic=new byte[4];in.readFully(magic);
+        if(magic[0]!='G'||magic[1]!='M'||magic[2]!='H'||magic[3]!='1')throw new IOException("Bad mesh "+path);
+        int n=in.readInt();
+        float[] p=new float[n*3],t=new float[n*2];
+        for(int i=0;i<n;i++){
+          p[i*3]=in.readFloat();p[i*3+1]=in.readFloat();p[i*3+2]=in.readFloat();
+          t[i*2]=in.readFloat();t[i*2+1]=in.readFloat();
+        }
+        return new Mesh(p,t);
+      }
     }
 
     Mesh loadObj(String path)throws Exception{
