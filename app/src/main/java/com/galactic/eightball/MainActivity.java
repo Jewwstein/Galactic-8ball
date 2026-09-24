@@ -116,17 +116,20 @@ public class MainActivity extends Activity {
 
       saberMenuRect.set(28*ui,24*ui,190*ui,78*ui);
       rackRect.set(202*ui,24*ui,352*ui,78*ui);
-      lockRect.set(w-142*ui,24*ui,w-28*ui,138*ui);
+      lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       drawButton(c,saberMenuRect,"SABER MENU",17*ui,0xCC10151F);
       drawButton(c,rackRect,"NEW RACK",17*ui,0xCC3A1010);
+      drawMatchHud(c,w,h,ui,r);
 
-      if(r.state==GameRenderer.AIMING){
+      if(r.state==GameRenderer.AIMING && !r.gameOver){
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
         c.drawText("DRAG HILT • TAP LOCK",w*.5f,42*ui,p);
+      } else if(r.gameOver){
+        drawWinnerOverlay(c,w,h,ui,r);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
@@ -176,6 +179,78 @@ public class MainActivity extends Activity {
       p.setTextSize(13*ui);p.setColor(0xFFB9C1CC);c.drawText("Tap SABER MENU again to close",w*.5f,y+ph-18*ui,p);
     }
 
+    void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
+      float panelW=Math.min(w*.38f,235*ui),panelH=86*ui,top=90*ui;
+      RectF left=new RectF(18*ui,top,18*ui+panelW,top+panelH);
+      RectF right=new RectF(w-18*ui-panelW,top,w-18*ui,top+panelH);
+      drawTeamCard(c,left,1,ui,r);
+      drawTeamCard(c,right,2,ui,r);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(15*ui);p.setColor(0xFFF4C542);
+      String center=r.gameOver?("TEAM "+r.winnerTeam+" WINS"):("TEAM "+r.currentTeam+" TURN");
+      c.drawText(center,w*.5f,top+16*ui,p);
+
+      p.setTextSize(11*ui);p.setColor(0xFFD1D5DB);
+      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+35*ui,p);
+
+      // Persistent 8-ball objective between both team cards.
+      float bx=w*.5f,by=top+61*ui,br=16*ui;
+      p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);
+      stroke.setColor(0xFFE6E6E6);stroke.setStrokeWidth(2*ui);c.drawCircle(bx,by,br,stroke);
+      p.setColor(Color.WHITE);p.setTextSize(13*ui);p.setTextAlign(Paint.Align.CENTER);
+      c.drawText("8",bx,by+4.5f*ui,p);
+    }
+
+    void drawTeamCard(Canvas c,RectF rr,int team,float ui,GameRenderer r){
+      boolean active=!r.gameOver&&r.currentTeam==team;
+      p.setStyle(Paint.Style.FILL);p.setColor(active?0xD5232A36:0xB8141821);c.drawRoundRect(rr,14*ui,14*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((active?3f:1.5f)*ui);
+      stroke.setColor(active?0xFFF4C542:(team==1?0xAA55A8FF:0xAAFF5F5F));c.drawRoundRect(rr,14*ui,14*ui,stroke);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
+      p.setTextSize(14*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
+      c.drawText("TEAM "+team,rr.left+10*ui,rr.top+18*ui,p);
+
+      int suit=r.teamSuit[team-1];
+      String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN TABLE";
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(12*ui);p.setColor(Color.WHITE);
+      c.drawText(suitText,rr.right-10*ui,rr.top+18*ui,p);
+
+      if(suit==0){
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11*ui);p.setColor(0xFFCBD5E1);
+        c.drawText("FIRST MADE GROUP CLAIMS",rr.centerX(),rr.top+51*ui,p);
+      }else{
+        int start=suit==1?1:9,end=suit==1?7:15;
+        float gap=(rr.width()-22*ui)/7f,cx=rr.left+11*ui+gap*.5f,cy=rr.top+49*ui,rad=Math.min(11*ui,gap*.35f);
+        int remaining=0;
+        for(int n=start;n<=end;n++){
+          boolean onTable=r.isBallOnTable(n);
+          if(onTable)remaining++;
+          float x=cx+(n-start)*gap;
+          if(suit==1){
+            p.setColor(onTable?0xFFE8B84C:0x443A3A3A);c.drawCircle(x,cy,rad,p);
+          }else{
+            p.setColor(onTable?0xFFF7F7F7:0x443A3A3A);c.drawCircle(x,cy,rad,p);
+            stroke.setColor(onTable?0xFFE8B84C:0x44444444);stroke.setStrokeWidth(3*ui);c.drawCircle(x,cy,rad*.72f,stroke);
+          }
+          p.setTextAlign(Paint.Align.CENTER);p.setTextSize(7.5f*ui);p.setColor(onTable?0xFF111111:0x66888888);
+          c.drawText(String.valueOf(n),x,cy+2.7f*ui,p);
+        }
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10*ui);p.setColor(remaining==0?0xFFF4C542:0xFFCBD5E1);
+        c.drawText(remaining==0?"8 BALL READY":remaining+" REMAINING",rr.centerX(),rr.bottom-8*ui,p);
+      }
+    }
+
+    void drawWinnerOverlay(Canvas c,int w,int h,float ui,GameRenderer r){
+      RectF box=new RectF(w*.16f,h*.38f,w*.84f,h*.55f);
+      p.setColor(0xE510141C);p.setStyle(Paint.Style.FILL);c.drawRoundRect(box,24*ui,24*ui,p);
+      stroke.setColor(0xFFF4C542);stroke.setStrokeWidth(4*ui);c.drawRoundRect(box,24*ui,24*ui,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(32*ui);p.setColor(0xFFF4C542);c.drawText("TEAM "+r.winnerTeam+" WINS",box.centerX(),box.centerY()-5*ui,p);
+      p.setTextSize(15*ui);p.setColor(Color.WHITE);c.drawText("8 BALL POCKETED • TAP NEW RACK",box.centerX(),box.centerY()+28*ui,p);
+    }
+
     void drawCrosshairButton(Canvas c,RectF rr,float ui){
       p.setColor(0xDD111827);p.setStyle(Paint.Style.FILL);c.drawOval(rr,p);
       stroke.setStrokeWidth(4*ui);stroke.setColor(0xFFF4C542);c.drawOval(rr,stroke);
@@ -219,7 +294,7 @@ public class MainActivity extends Activity {
       if(d<1){dx=1;dy=0;d=1;}
       worldDirX=dx/d;worldDirY=dy/d;worldHiltAngle=(float)Math.toDegrees(Math.atan2(dy,dx));
       Bitmap hb=hilts[Math.max(0,Math.min(5,r.hiltIndex))];
-      float len=Math.max(125f,h*.132f);
+      float len=Math.max(150f,h*.1584f);
       float aspect=(hb!=null&&hb.getHeight()>0)?((float)hb.getWidth()/hb.getHeight()):1.70f;
       float thick=len/Math.max(1.15f,aspect);
       float cx=hp[0],cy=hp[1];
@@ -302,7 +377,7 @@ public class MainActivity extends Activity {
           return true;
         }
 
-        if(r.state==GameRenderer.AIMING && lockRect.contains(x,y)){
+        if(!r.gameOver && r.state==GameRenderer.AIMING && lockRect.contains(x,y)){
           aimingHilt=false;
           game.queueEvent(()->r.lockAngle());
           return true;
@@ -315,7 +390,7 @@ public class MainActivity extends Activity {
           if(cancelRect.contains(x,y)){game.queueEvent(()->r.cancelEnglish());return true;}
         }
 
-        if(r.state==GameRenderer.AIMING){
+        if(!r.gameOver && r.state==GameRenderer.AIMING){
           updateWorldHiltGeometry(w,h,r,0);
           RectF hit=new RectF(worldHiltRect);
           hit.inset(-34*ui,-34*ui);
@@ -452,6 +527,11 @@ public class MainActivity extends Activity {
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
+    volatile int currentTeam=1,winnerTeam=0;
+    final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
+    final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
+    volatile boolean tableOpen=true,gameOver=false;
+    volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
@@ -709,8 +789,74 @@ public class MainActivity extends Activity {
       }
     }
 
+    int suitForBall(int index){
+      if(index>=1&&index<=7)return 1;
+      if(index>=9&&index<=15)return 2;
+      return 0;
+    }
+
+    boolean isBallOnTable(int index){
+      for(Ball b:balls)if(b.index==index)return b.active||b.sinking;
+      return false;
+    }
+
+    int remainingForSuit(int suit){
+      int start=suit==1?1:9,end=suit==1?7:15,n=0;
+      for(int i=start;i<=end;i++)if(isBallOnTable(i))n++;
+      return n;
+    }
+
+    void resetRules(){
+      currentTeam=1;winnerTeam=0;teamSuit[0]=teamSuit[1]=0;
+      tableOpen=true;gameOver=false;ballsSunkThisShot.clear();
+      ruleMessage="BREAK • TEAM 1";
+    }
+
+    void recordPocket(int index){
+      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(index==8&&!gameOver){
+        winnerTeam=currentTeam;gameOver=true;
+        ruleMessage="8 BALL • TEAM "+currentTeam+" WINS";
+      }
+    }
+
+    void resolveShotRules(){
+      if(gameOver){ballsSunkThisShot.clear();return;}
+      boolean scratch=false,valid=false;
+      int teamIdx=currentTeam-1;
+
+      for(Integer idx:ballsSunkThisShot){
+        if(idx==0){scratch=true;continue;}
+        if(idx==8)continue;
+        int type=suitForBall(idx);
+        if(type==0)continue;
+
+        if(tableOpen){
+          tableOpen=false;
+          teamSuit[teamIdx]=type;
+          teamSuit[1-teamIdx]=(type==1)?2:1;
+          valid=true;
+          ruleMessage="TEAM "+currentTeam+" CLAIMED "+(type==1?"SOLIDS":"STRIPES");
+        }else if(teamSuit[teamIdx]==type){
+          valid=true;
+        }
+      }
+
+      if(scratch){
+        currentTeam=currentTeam==1?2:1;
+        ruleMessage="SCRATCH • TEAM "+currentTeam+" TURN";
+      }else if(valid){
+        int remain=remainingForSuit(teamSuit[currentTeam-1]);
+        ruleMessage=remain==0?("TEAM "+currentTeam+" • 8 BALL READY"):("TEAM "+currentTeam+" CONTINUES");
+      }else{
+        currentTeam=currentTeam==1?2:1;
+        ruleMessage="TEAM "+currentTeam+" TURN";
+      }
+      ballsSunkThisShot.clear();
+    }
+
     void resetRack(){
-      balls.clear();physicsAccum=0;
+      balls.clear();physicsAccum=0;resetRules();
       Ball cueBall=new Ball(-20f,0f,tex.getOrDefault("ball0",0));cueBall.index=0;balls.add(cueBall);
 
       // Exact positions from Star Wars Galactic 8-Ball v428 / TTS.
@@ -750,7 +896,7 @@ public class MainActivity extends Activity {
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
     void lockAngle(){
-      if(state==AIMING&&allStopped()){
+      if(state==AIMING&&!gameOver&&allStopped()){
         float n=(float)Math.sqrt(desiredAimX*desiredAimX+desiredAimZ*desiredAimZ);
         if(n>.0001f){aimX=desiredAimX/n;aimZ=desiredAimZ/n;desiredAimX=aimX;desiredAimZ=aimZ;}
         state=SELECTING_ENGLISH;power=0;englishX=englishY=0;
@@ -832,7 +978,10 @@ public class MainActivity extends Activity {
           advanceSinks(FIXED_DT);
           physicsAccum-=FIXED_DT;loops++;
         }
-        if(allStopped()){state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;physicsAccum=0;}
+        if(allStopped()){
+          resolveShotRules();
+          state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;physicsAccum=0;
+        }
       }else{
         advanceSinks(dt);
       }
@@ -840,6 +989,7 @@ public class MainActivity extends Activity {
 
     void startPocketSink(int index,Ball b,float px,float pz){
       if(b.sinking)return;
+      recordPocket(index);
       b.sinking=true;b.sinkT=0;b.sinkStartX=b.x;b.sinkStartZ=b.z;b.sinkX=px;b.sinkZ=pz;
       b.vx=b.vz=b.spin=0;
       if(b.body!=null){b.body.setLinearVelocity(new Vec2(0,0));b.body.setAngularVelocity(0);b.body.setActive(false);}
