@@ -792,7 +792,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,11.4f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
     float hiltBackWorld(){return 14.2f+chargePullWorld;}
 
