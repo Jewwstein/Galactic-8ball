@@ -332,7 +332,7 @@ public class MainActivity extends Activity {
         float delta=fingerAngle-aimStartFingerAngle;
         while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
         while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
-        final float target=aimStartWorldAngle+delta;
+        final float target=aimStartWorldAngle+delta*.34f;
         if(a==MotionEvent.ACTION_MOVE){
           game.queueEvent(()->r.setAimAngle(target));
           return true;
@@ -414,11 +414,11 @@ public class MainActivity extends Activity {
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
-    float physicsAccum=0f;
+    float physicsAccum=0f; boolean breakSpreadPending=true;
     static final float FIXED_DT=1f/360f;
-    static final float BALL_E=.925f;
-    static final float RAIL_E=.74f;
-    static final float ROLL_DECEL=2.25f;
+    static final float BALL_E=.89f;
+    static final float RAIL_E=.70f;
+    static final float ROLL_DECEL=3.35f;
     static final float STOP_SPEED=.35f;
     static final float CONTACT_EPS=.0010f;
     final float R=1.192f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
@@ -449,7 +449,7 @@ public class MainActivity extends Activity {
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
       if(state==AIMING){
-        float k=.085f;
+        float k=.045f;
         aimX=aimX*(1f-k)+desiredAimX*k;aimZ=aimZ*(1f-k)+desiredAimZ*k;
         float an=(float)Math.sqrt(aimX*aimX+aimZ*aimZ);if(an>.0001f){aimX/=an;aimZ/=an;}
       }
@@ -578,7 +578,7 @@ public class MainActivity extends Activity {
     }
 
     void resetRack(){
-      balls.clear();physicsAccum=0;
+      balls.clear();physicsAccum=0;breakSpreadPending=true;
       balls.add(new Ball(-20f,0f,tex.getOrDefault("ball0",0)));
 
       // Tight triangle with a small non-overlap gap and microscopic deterministic
@@ -629,7 +629,7 @@ public class MainActivity extends Activity {
     void executeShot(){
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;}
-      float speed=power*1.60f;
+      float speed=power*.72f;
       cue.vx=aimX*speed;cue.vz=aimZ*speed;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
@@ -697,6 +697,11 @@ public class MainActivity extends Activity {
 
       a.vx=nv1*nx+v1t*tx;a.vz=nv1*nz+v1t*tz;
       b.vx=nv2*nx+v2t*tx;b.vz=nv2*nz+v2t*tz;
+
+      if(breakSpreadPending && balls.size()>1){
+        Ball cue=balls.get(0),apex=balls.get(1);
+        if((a==cue&&b==apex)||(b==cue&&a==apex)) applyBreakSpread(cue,apex);
+      }
     }
 
     void resolveTouchingCluster(){
@@ -721,6 +726,47 @@ public class MainActivity extends Activity {
       if(b.x+R>MAXX){b.x=MAXX-R;b.vx=-Math.abs(b.vx)*RAIL_E;b.vz*=.965f;b.vz-=b.spin*Math.abs(b.vx)*.05f;}
       if(b.z-R<MINZ){b.z=MINZ+R;b.vz=Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx-=b.spin*Math.abs(b.vz)*.05f;}
       if(b.z+R>MAXZ){b.z=MAXZ-R;b.vz=-Math.abs(b.vz)*RAIL_E;b.vx*=.965f;b.vx+=b.spin*Math.abs(b.vz)*.05f;}
+    }
+
+    void applyBreakSpread(Ball cue,Ball apex){
+      if(!breakSpreadPending)return;
+      float cueSpeed=(float)Math.sqrt(cue.speed2());
+      if(cueSpeed<10f)return;
+      breakSpreadPending=false;
+
+      // Preserve forward momentum, but distribute some of the break energy through
+      // the whole triangle so a tight rack opens instead of behaving like a single block.
+      float forwardX=aimX,forwardZ=aimZ;
+      float rackCx=24.15f,rackCz=0f;
+      for(int i=1;i<balls.size();i++){
+        Ball b=balls.get(i);
+        if(!b.active)continue;
+
+        float rx=b.x-rackCx,rz=b.z-rackCz;
+        float n=(float)Math.sqrt(rx*rx+rz*rz);
+        if(n<.001f){rx=((i&1)==0?.18f:-.18f);rz=.12f;n=(float)Math.sqrt(rx*rx+rz*rz);}
+        rx/=n;rz/=n;
+
+        // Front balls retain more forward push; outer/rear balls get more side spread.
+        float row=Math.max(0f,Math.min(4f,(b.x-20f)/2.07f));
+        float side=Math.abs(rz);
+        float forward=cueSpeed*(.060f-.006f*row);
+        float outward=cueSpeed*(.050f+.018f*row+.020f*side);
+
+        // deterministic tiny asymmetry to avoid perfectly mirrored rack motion
+        float j=((i%4)-1.5f)*cueSpeed*.0028f;
+
+        b.vx += forwardX*forward + rx*outward - forwardZ*j;
+        b.vz += forwardZ*forward + rz*outward + forwardX*j;
+
+        // Keep break speeds bounded so no single ball rockets unrealistically.
+        float sp=(float)Math.sqrt(b.speed2());
+        float cap=38f;
+        if(sp>cap){float q=cap/sp;b.vx*=q;b.vz*=q;}
+      }
+
+      // Cue ball loses energy after the rack absorbs the break.
+      cue.vx*=.38f;cue.vz*=.38f;
     }
 
     void physicsSlice(float dt){
