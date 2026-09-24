@@ -124,8 +124,9 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         drawWorldShotHilt(c,w,h,ui,r);
+        drawCrosshairButton(c,lockRect,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("DRAG HILT TO AIM",w*.5f,42*ui,p);
+        c.drawText("DRAG HILT • TAP LOCK",w*.5f,42*ui,p);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
@@ -255,7 +256,7 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("DRAG • RELEASE TO LOCK",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
+        c.drawText("DRAG HILT TO FINE AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
       } else if(r.state==GameRenderer.CHARGING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEFFFFFF);p.setTextAlign(Paint.Align.CENTER);
         c.drawText("PULL BACK • RELEASE TO STRIKE",worldHiltRect.centerX(),worldHiltRect.centerY()+worldHiltRect.height()*1.15f,p);
@@ -301,6 +302,12 @@ public class MainActivity extends Activity {
           return true;
         }
 
+        if(r.state==GameRenderer.AIMING && lockRect.contains(x,y)){
+          aimingHilt=false;
+          game.queueEvent(()->r.lockAngle());
+          return true;
+        }
+
         if(r.state==GameRenderer.SELECTING_ENGLISH){
           float dx=x-englishCx,dy=y-englishCy;
           if(dx*dx+dy*dy<=englishR*englishR){touchingEnglish=true;setEnglishFromTouch(x,y);return true;}
@@ -332,28 +339,27 @@ public class MainActivity extends Activity {
       }
 
       if(aimingHilt){
-        float[] q=r.screenToTable(x,y,w,h);
-        if(q!=null){
-          Ball cue=r.balls.get(0);
-          float fingerAngle=(float)Math.atan2(q[1]-cue.z,q[0]-cue.x);
-          float delta=fingerAngle-aimStartFingerAngle;
-          while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
-          while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
-
-          // Precision gear: one degree of finger orbit turns the shot about 0.42 degrees.
-          final float target=aimStartWorldAngle+delta*.42f;
-
-          if(a==MotionEvent.ACTION_MOVE){
+        if(a==MotionEvent.ACTION_MOVE){
+          float[] q=r.screenToTable(x,y,w,h);
+          if(q!=null){
+            Ball cue=r.balls.get(0);
+            float fingerAngle=(float)Math.atan2(q[1]-cue.z,q[0]-cue.x);
+            float delta=fingerAngle-aimStartFingerAngle;
+            while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
+            while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
+            // Precision gear remains intentionally slow for fine control.
+            final float target=aimStartWorldAngle+delta*.42f;
             game.queueEvent(()->r.previewAimAngle(target));
-            return true;
           }
-          if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
-            aimingHilt=false;
-            game.queueEvent(()->{r.commitAimAngle(target);r.lockAngle();});
-            return true;
-          }
+          return true;
         }
-        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL)aimingHilt=false;
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
+          // Important: do not read the ACTION_UP coordinates. Finger lift often
+          // produces a tiny final movement; ignoring it keeps the line exactly
+          // where the player last saw it.
+          aimingHilt=false;
+          return true;
+        }
         return true;
       }
 
@@ -486,11 +492,6 @@ public class MainActivity extends Activity {
     public void onDrawFrame(GL10 gl){
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
-      if(state==AIMING){
-        float k=.12f;
-        aimX=aimX*(1f-k)+desiredAimX*k;aimZ=aimZ*(1f-k)+desiredAimZ*k;
-        float an=(float)Math.sqrt(aimX*aimX+aimZ*aimZ);if(an>.0001f){aimX/=an;aimZ/=an;}
-      }
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
       android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
@@ -741,14 +742,20 @@ public class MainActivity extends Activity {
     }
 
     void previewAimAngle(float angle){
-      desiredAimX=(float)Math.cos(angle);
-      desiredAimZ=(float)Math.sin(angle);
+      float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
+      aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
     void commitAimAngle(float angle){
       float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
-    void lockAngle(){if(state==AIMING&&allStopped()){state=SELECTING_ENGLISH;power=0;englishX=englishY=0;}}
+    void lockAngle(){
+      if(state==AIMING&&allStopped()){
+        float n=(float)Math.sqrt(desiredAimX*desiredAimX+desiredAimZ*desiredAimZ);
+        if(n>.0001f){aimX=desiredAimX/n;aimZ=desiredAimZ/n;desiredAimX=aimX;desiredAimZ=aimZ;}
+        state=SELECTING_ENGLISH;power=0;englishX=englishY=0;
+      }
+    }
     void setEnglish(float x,float y){englishX=Math.max(-1,Math.min(1,x));englishY=Math.max(-1,Math.min(1,y));}
     void confirmEnglish(){if(state==SELECTING_ENGLISH){state=CHARGING;power=0;chargePullPx=0;chargeStartY=-1;}}
     void cancelEnglish(){if(state==SELECTING_ENGLISH){state=AIMING;power=0;chargePullPx=0;englishX=englishY=0;}}
