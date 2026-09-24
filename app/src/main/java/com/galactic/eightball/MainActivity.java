@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
     root.addView(game,new FrameLayout.LayoutParams(-1,-1));
     root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
     setContentView(root);
+    new Handler(Looper.getMainLooper()).postDelayed(()->multiplayer.autoConnect(),450);
   }
 
   protected void onDestroy(){
@@ -57,40 +58,121 @@ public class MainActivity extends Activity {
   }
 
   void showMultiplayerDialog(){
-    String status=multiplayer==null?"OFFLINE":multiplayer.statusText();
-    String server=multiplayer==null?"NOT SET":multiplayer.serverDisplay();
+    if(multiplayer==null)return;
+    String server=multiplayer.serverDisplay();
+
+    if(multiplayer.savedServerUrl().isEmpty()){
+      new AlertDialog.Builder(this)
+        .setTitle("ONLINE MULTIPLAYER")
+        .setMessage("The online game server has not been connected yet.")
+        .setItems(new String[]{"SET SERVER","CANCEL"},(d,which)->{if(which==0)showServerDialog();})
+        .show();
+      return;
+    }
+
+    if(!multiplayer.authenticated){
+      new AlertDialog.Builder(this)
+        .setTitle("GALACTIC ONLINE")
+        .setMessage(multiplayer.statusText()+"\nSERVER: "+server+"\n\nLog in once and the app will remember this device.")
+        .setItems(new String[]{"LOG IN","CREATE ACCOUNT","SET SERVER","CANCEL"},(d,which)->{
+          if(which==0)showAuthDialog(false);
+          else if(which==1)showAuthDialog(true);
+          else if(which==2)showServerDialog();
+        }).show();
+      return;
+    }
+
+    if(multiplayer.inRoom){
+      new AlertDialog.Builder(this)
+        .setTitle(multiplayer.roomName)
+        .setMessage("Signed in as "+multiplayer.username+"\n"+multiplayer.statusText()+"\n\nThe cloud server is running the match physics for both players.")
+        .setItems(new String[]{"LEAVE ROOM","LOG OUT","CANCEL"},(d,which)->{
+          if(which==0)multiplayer.leaveRoom();
+          else if(which==1)multiplayer.logout();
+        }).show();
+      return;
+    }
+
     new AlertDialog.Builder(this)
-      .setTitle("ONLINE MULTIPLAYER")
-      .setMessage(status+"\nSERVER: "+server+"\n\nThe server owns the physics and game state. Both players only send controls.")
-      .setItems(new String[]{"CREATE ONLINE GAME","JOIN WITH CODE","SET SERVER","DISCONNECT","CANCEL"},(d,which)->{
-        if(which==0){
-          multiplayer.createRoom();
-        }else if(which==1){
-          showJoinDialog();
-        }else if(which==2){
-          showServerDialog();
-        }else if(which==3){
-          multiplayer.disconnect();
-          Toast.makeText(this,"Multiplayer disconnected",Toast.LENGTH_SHORT).show();
-        }
+      .setTitle("ONLINE LOBBY")
+      .setMessage("Signed in as "+multiplayer.username+"\nSERVER: "+server)
+      .setItems(new String[]{"BROWSE ROOMS","CREATE ROOM","LOG OUT","SET SERVER","CANCEL"},(d,which)->{
+        if(which==0)multiplayer.requestLobby();
+        else if(which==1)showCreateRoomDialog();
+        else if(which==2)multiplayer.logout();
+        else if(which==3)showServerDialog();
       }).show();
   }
 
-  void showJoinDialog(){
-    final EditText input=new EditText(this);
-    input.setSingleLine(true);
-    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
-    input.setHint("ROOM CODE");
-    input.setPadding(36,18,36,18);
+  void showAuthDialog(boolean register){
+    LinearLayout box=new LinearLayout(this);
+    box.setOrientation(LinearLayout.VERTICAL);
+    int pad=(int)(22*getResources().getDisplayMetrics().density);
+    box.setPadding(pad,pad/2,pad,pad/2);
+
+    EditText user=new EditText(this);
+    user.setSingleLine(true);user.setHint("Username");
+    user.setInputType(InputType.TYPE_CLASS_TEXT);
+    box.addView(user,new LinearLayout.LayoutParams(-1,-2));
+
+    EditText pass=new EditText(this);
+    pass.setSingleLine(true);pass.setHint("Password");
+    pass.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
+    box.addView(pass,new LinearLayout.LayoutParams(-1,-2));
+
     new AlertDialog.Builder(this)
-      .setTitle("JOIN ONLINE GAME")
-      .setMessage("Enter the 6-character room code from your friend.")
-      .setView(input)
-      .setPositiveButton("JOIN",(d,w)->{
-        String code=input.getText().toString().trim().toUpperCase(Locale.US);
-        if(!code.isEmpty())multiplayer.joinRoom(code);
+      .setTitle(register?"CREATE GALACTIC ACCOUNT":"GALACTIC LOGIN")
+      .setMessage(register?"Username: 3-18 letters, numbers, or underscores. Password: at least 6 characters.":"Log in to see and join your friends' rooms.")
+      .setView(box)
+      .setPositiveButton(register?"CREATE ACCOUNT":"LOG IN",(d,w)->{
+        String u=user.getText().toString().trim();
+        String p=pass.getText().toString();
+        if(register)multiplayer.register(u,p);else multiplayer.login(u,p);
       })
       .setNegativeButton("CANCEL",null)
+      .show();
+  }
+
+  void showCreateRoomDialog(){
+    final EditText input=new EditText(this);
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+    input.setHint("Friday Night Galactic Pool");
+    input.setPadding(36,18,36,18);
+    new AlertDialog.Builder(this)
+      .setTitle("CREATE ONLINE ROOM")
+      .setMessage("Give the room a name. Your friends will see it in the lobby and can join with one tap.")
+      .setView(input)
+      .setPositiveButton("CREATE",(d,w)->{
+        String name=input.getText().toString().trim();
+        if(!name.isEmpty())multiplayer.createNamedRoom(name);
+      })
+      .setNegativeButton("CANCEL",null)
+      .show();
+  }
+
+  void showLobbyDialog(String[] labels,String[] ids,boolean[] full){
+    if(labels==null||labels.length==0){
+      new AlertDialog.Builder(this)
+        .setTitle("ONLINE ROOMS")
+        .setMessage("No public rooms are open right now.")
+        .setPositiveButton("CREATE ROOM",(d,w)->showCreateRoomDialog())
+        .setNeutralButton("REFRESH",(d,w)->multiplayer.requestLobby())
+        .setNegativeButton("CLOSE",null)
+        .show();
+      return;
+    }
+
+    new AlertDialog.Builder(this)
+      .setTitle("ONLINE ROOMS")
+      .setItems(labels,(d,which)->{
+        if(which<0||which>=ids.length)return;
+        if(full[which])Toast.makeText(this,"That room is full.",Toast.LENGTH_SHORT).show();
+        else multiplayer.joinRoom(ids[which]);
+      })
+      .setPositiveButton("CREATE ROOM",(d,w)->showCreateRoomDialog())
+      .setNeutralButton("REFRESH",(d,w)->multiplayer.requestLobby())
+      .setNegativeButton("CLOSE",null)
       .show();
   }
 
@@ -103,13 +185,14 @@ public class MainActivity extends Activity {
     input.setSelection(input.getText().length());
     input.setPadding(36,18,36,18);
     new AlertDialog.Builder(this)
-      .setTitle("ONLINE SERVER")
-      .setMessage("Paste the Render service URL. The app converts it to a secure WebSocket automatically.")
+      .setTitle("GALACTIC ONLINE SERVER")
+      .setMessage("Paste the Render service URL once. After that the app remembers it.")
       .setView(input)
       .setPositiveButton("SAVE",(d,w)->{
         String url=input.getText().toString().trim();
         multiplayer.setServerUrl(url);
         Toast.makeText(this,"Server saved",Toast.LENGTH_SHORT).show();
+        multiplayer.autoConnect();
       })
       .setNegativeButton("CANCEL",null)
       .show();
@@ -122,66 +205,136 @@ public class MainActivity extends Activity {
       .pingInterval(20,TimeUnit.SECONDS)
       .connectTimeout(8,TimeUnit.SECONDS)
       .build();
-    volatile boolean connected=false,connecting=false;
+
+    volatile boolean socketConnected=false,connecting=false,authenticated=false,inRoom=false;
+    volatile boolean hosting=false;
     volatile int localPlayer=0;
-    volatile String roomCode="";
-    volatile String status="OFFLINE";
-    volatile boolean hosting=false; // retained only for old renderer compatibility; server is authoritative.
+    volatile String username="",roomId="",roomName="",status="OFFLINE";
     WebSocket socket;
 
-    MultiplayerManager(MainActivity a,GameView g,HudView h){activity=a;game=g;hud=h;}
+    MultiplayerManager(MainActivity a,GameView g,HudView h){
+      activity=a;game=g;hud=h;
+      username=activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).getString("username","");
+    }
 
-    boolean isConnected(){return connected;}
-    boolean isFollower(){return connected;} // every online client follows the authoritative server simulation.
-    boolean canLocalControl(int activeShooter){return !connected||localPlayer==activeShooter;}
+    boolean isConnected(){return socketConnected&&authenticated;}
+    boolean isFollower(){return inRoom;}
+    boolean canLocalControl(int activeShooter){return !inRoom||localPlayer==activeShooter;}
 
     String savedServerUrl(){
       return activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).getString("server_url","");
     }
 
+    String savedToken(){
+      return activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).getString("auth_token","");
+    }
+
+    void saveLogin(String user,String token){
+      username=user==null?"":user;
+      activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).edit()
+        .putString("username",username).putString("auth_token",token==null?"":token).apply();
+    }
+
+    void clearLogin(){
+      username="";
+      activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).edit()
+        .remove("username").remove("auth_token").apply();
+    }
+
     void setServerUrl(String url){
-      activity.getSharedPreferences("galactic_online",MODE_PRIVATE).edit().putString("server_url",url==null?"":url.trim()).apply();
+      String clean=url==null?"":url.trim();
+      activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).edit().putString("server_url",clean).apply();
+      disconnectSocket();
     }
 
     String serverDisplay(){
-      String s=savedServerUrl();
-      if(s==null||s.isEmpty())return "NOT SET";
-      s=s.replace("https://","").replace("http://","").replace("wss://","").replace("ws://","");
-      if(s.endsWith("/ws"))s=s.substring(0,s.length()-3);
-      return s;
+      String q=savedServerUrl();
+      if(q==null||q.isEmpty())return "NOT SET";
+      q=q.replace("https://","").replace("http://","").replace("wss://","").replace("ws://","");
+      if(q.endsWith("/ws"))q=q.substring(0,q.length()-3);
+      return q;
     }
 
     String websocketUrl(){
-      String s=savedServerUrl();
-      if(s==null)s="";
-      s=s.trim();
-      if(s.isEmpty())return "";
-      if(s.startsWith("https://"))s="wss://"+s.substring(8);
-      else if(s.startsWith("http://"))s="ws://"+s.substring(7);
-      else if(!s.startsWith("wss://")&&!s.startsWith("ws://"))s="wss://"+s;
-      while(s.endsWith("/"))s=s.substring(0,s.length()-1);
-      if(!s.endsWith("/ws"))s+="/ws";
-      return s;
+      String q=savedServerUrl();
+      if(q==null)q="";
+      q=q.trim();
+      if(q.isEmpty())return "";
+      if(q.startsWith("https://"))q="wss://"+q.substring(8);
+      else if(q.startsWith("http://"))q="ws://"+q.substring(7);
+      else if(!q.startsWith("wss://")&&!q.startsWith("ws://"))q="wss://"+q;
+      while(q.endsWith("/"))q=q.substring(0,q.length()-1);
+      if(!q.endsWith("/ws"))q+="/ws";
+      return q;
     }
 
     String statusText(){
-      if(connected){
-        String code=roomCode==null||roomCode.isEmpty()?"":(" • "+roomCode);
-        return "ONLINE • PLAYER "+localPlayer+code;
-      }
+      if(inRoom)return "ROOM • "+roomName+" • PLAYER "+localPlayer;
+      if(authenticated)return "ONLINE • "+username;
       if(connecting)return "CONNECTING";
       return status;
     }
 
-    void toast(String t){main.post(()->Toast.makeText(activity,t,Toast.LENGTH_LONG).show());}
-
-    void createRoom(){
-      connectThen("CREATE");
+    String b64(String v){
+      if(v==null)v="";
+      return android.util.Base64.encodeToString(v.getBytes(StandardCharsets.UTF_8),
+        android.util.Base64.URL_SAFE|android.util.Base64.NO_WRAP|android.util.Base64.NO_PADDING);
     }
 
-    void joinRoom(String code){
-      if(code==null||code.trim().isEmpty())return;
-      connectThen("JOIN|"+code.trim().toUpperCase(Locale.US));
+    String unb64(String v){
+      try{return new String(android.util.Base64.decode(v,android.util.Base64.URL_SAFE|android.util.Base64.NO_WRAP),StandardCharsets.UTF_8);}
+      catch(Exception e){return "";}
+    }
+
+    void toast(String t){main.post(()->Toast.makeText(activity,t,Toast.LENGTH_LONG).show());}
+
+    void autoConnect(){
+      String token=savedToken();
+      if(savedServerUrl().isEmpty()||token.isEmpty())return;
+      connectThen("AUTH|"+token);
+    }
+
+    void register(String user,String pass){
+      if(user==null||user.trim().isEmpty()||pass==null||pass.length()<6){
+        toast("Enter a username and a password with at least 6 characters.");return;
+      }
+      connectThen("REGISTER|"+b64(user.trim())+"|"+b64(pass));
+    }
+
+    void login(String user,String pass){
+      if(user==null||user.trim().isEmpty()||pass==null||pass.isEmpty()){
+        toast("Enter your username and password.");return;
+      }
+      connectThen("LOGIN|"+b64(user.trim())+"|"+b64(pass));
+    }
+
+    void logout(){
+      if(socketConnected&&socket!=null)socket.send("LOGOUT");
+      clearLogin();
+      disconnectSocket();
+      authenticated=false;status="OFFLINE";
+      if(hud!=null)main.post(hud::invalidate);
+    }
+
+    void requestLobby(){
+      if(!authenticated){toast("Log in first.");return;}
+      send("LOBBY");
+    }
+
+    void createNamedRoom(String name){
+      if(!authenticated){toast("Log in first.");return;}
+      if(name==null||name.trim().isEmpty())return;
+      send("CREATE_ROOM|"+b64(name.trim()));
+    }
+
+    void joinRoom(String id){
+      if(!authenticated||id==null||id.isEmpty())return;
+      send("JOIN_ROOM|"+id);
+    }
+
+    void leaveRoom(){
+      if(!inRoom)return;
+      send("LEAVE_ROOM");
     }
 
     synchronized void connectThen(String firstMessage){
@@ -191,53 +344,91 @@ public class MainActivity extends Activity {
         main.post(activity::showServerDialog);
         return;
       }
-      disconnect();
-      connecting=true;status="CONNECTING";localPlayer=0;roomCode="";
+
+      if(socketConnected&&socket!=null){
+        socket.send(firstMessage);
+        return;
+      }
+
+      disconnectSocket();
+      connecting=true;status="CONNECTING";
       if(hud!=null)main.post(hud::invalidate);
 
       Request request=new Request.Builder().url(url).build();
       socket=http.newWebSocket(request,new WebSocketListener(){
         public void onOpen(WebSocket ws,Response response){
-          connecting=false;
+          socketConnected=true;connecting=false;status="ONLINE";
           ws.send(firstMessage);
+          if(hud!=null)main.post(hud::invalidate);
         }
 
         public void onMessage(WebSocket ws,String msg){
-          if(msg.startsWith("ROOM|")){
-            String[] p=msg.split("\\|");
+          if(msg.startsWith("AUTH_OK|")){
+            String[] p=msg.split("\\|",-1);
             if(p.length>=3){
-              roomCode=p[1];
-              try{localPlayer=Integer.parseInt(p[2]);}catch(Exception ignored){}
-              connected=true;connecting=false;status="ONLINE";
-              toast(localPlayer==1?"Room "+roomCode+" created — send this code to your friend.":"Joined room "+roomCode+" as Player 2.");
+              String user=unb64(p[1]);
+              String token=p[2];
+              saveLogin(user,token);
+              authenticated=true;status="ONLINE";
               if(hud!=null)main.post(hud::invalidate);
             }
+          }else if(msg.startsWith("AUTH_FAIL|")){
+            authenticated=false;
+            String[] p=msg.split("\\|",-1);
+            String why=p.length>1?unb64(p[1]):"Login failed";
+            if(!savedToken().isEmpty())clearLogin();
+            toast(why);
+            if(hud!=null)main.post(hud::invalidate);
+          }else if(msg.startsWith("LOBBY|")){
+            parseLobby(msg);
+          }else if(msg.startsWith("ROOM_JOINED|")){
+            String[] p=msg.split("\\|",-1);
+            if(p.length>=4){
+              roomId=p[1];roomName=unb64(p[2]);
+              try{localPlayer=Integer.parseInt(p[3]);}catch(Exception ignored){}
+              inRoom=true;status="IN ROOM";
+              toast("Joined "+roomName+" as Player "+localPlayer);
+              if(hud!=null)main.post(hud::invalidate);
+            }
+          }else if(msg.startsWith("ROOM_LEFT")){
+            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
+            game.queueEvent(()->game.r.resetRack());
+            if(hud!=null)main.post(hud::invalidate);
+          }else if(msg.startsWith("ROOM_CLOSED")){
+            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
+            toast("The room was closed.");
+            game.queueEvent(()->game.r.resetRack());
+            if(hud!=null)main.post(hud::invalidate);
           }else if(msg.startsWith("STATE|")){
-            game.queueEvent(()->game.r.applyNetworkState(msg));
-          }else if(msg.startsWith("PLAYER_JOINED")){
-            toast("Player 2 joined room "+roomCode);
-          }else if(msg.startsWith("PLAYER_LEFT")){
-            toast("The other player disconnected.");
+            if(inRoom)game.queueEvent(()->game.r.applyNetworkState(msg));
+          }else if(msg.startsWith("PLAYER_JOINED|")){
+            String[] p=msg.split("\\|",-1);
+            toast((p.length>1?unb64(p[1]):"Player 2")+" joined "+roomName);
+          }else if(msg.startsWith("PLAYER_LEFT|")){
+            toast("The other player left the room.");
+          }else if(msg.startsWith("LOGGED_OUT")){
+            authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";
+            if(hud!=null)main.post(hud::invalidate);
           }else if(msg.startsWith("ERROR|")){
-            String err=msg.substring(6).replace('_',' ');
-            toast("Server: "+err);
+            String[] p=msg.split("\\|",-1);
+            toast("Server: "+(p.length>1?unb64(p[1]):"Request failed"));
           }
         }
 
-        public void onClosing(WebSocket ws,int code,String reason){
-          ws.close(code,reason);
-        }
+        public void onClosing(WebSocket ws,int code,String reason){ws.close(code,reason);}
 
         public void onClosed(WebSocket ws,int code,String reason){
           if(socket==ws){
-            connected=false;connecting=false;localPlayer=0;roomCode="";status="OFFLINE";
+            socketConnected=false;connecting=false;authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";
+            status="OFFLINE";
             if(hud!=null)main.post(hud::invalidate);
           }
         }
 
         public void onFailure(WebSocket ws,Throwable t,Response response){
           if(socket==ws){
-            connected=false;connecting=false;localPlayer=0;roomCode="";status="CONNECTION FAILED";
+            socketConnected=false;connecting=false;authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";
+            status="CONNECTION FAILED";
             toast("Could not reach multiplayer server: "+(t.getMessage()==null?"connection failed":t.getMessage()));
             if(hud!=null)main.post(hud::invalidate);
           }
@@ -245,20 +436,50 @@ public class MainActivity extends Activity {
       });
     }
 
+    void parseLobby(String msg){
+      String payload=msg.length()>6?msg.substring(6):"";
+      if(payload.isEmpty()){
+        main.post(()->activity.showLobbyDialog(new String[0],new String[0],new boolean[0]));
+        return;
+      }
+      ArrayList<String> labels=new ArrayList<>();
+      ArrayList<String> ids=new ArrayList<>();
+      ArrayList<Boolean> full=new ArrayList<>();
+      String[] rows=payload.split(";");
+      for(String row:rows){
+        if(row.isEmpty())continue;
+        String[] p=row.split(",",-1);
+        if(p.length<5)continue;
+        String id=p[0],name=unb64(p[1]),owner=unb64(p[2]);
+        int count=0,max=2;
+        try{count=Integer.parseInt(p[3]);max=Integer.parseInt(p[4]);}catch(Exception ignored){}
+        labels.add(name+"   ["+count+"/"+max+"]\nHost: "+owner+(count>=max?"   • FULL":""));
+        ids.add(id);full.add(count>=max);
+      }
+      String[] la=labels.toArray(new String[0]),ia=ids.toArray(new String[0]);
+      boolean[] fa=new boolean[full.size()];for(int i=0;i<fa.length;i++)fa[i]=full.get(i);
+      main.post(()->activity.showLobbyDialog(la,ia,fa));
+    }
+
     synchronized void send(String line){
-      if(!connected||socket==null)return;
+      if(!socketConnected||socket==null)return;
       socket.send(line);
     }
 
-    synchronized void disconnect(){
+    synchronized void disconnectSocket(){
       WebSocket old=socket;socket=null;
-      if(old!=null){try{old.send("LEAVE");}catch(Exception ignored){}try{old.close(1000,"bye");}catch(Exception ignored){}}
-      connected=false;connecting=false;localPlayer=0;roomCode="";hosting=false;status="OFFLINE";
+      if(old!=null){try{old.close(1000,"bye");}catch(Exception ignored){}}
+      socketConnected=false;connecting=false;authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";hosting=false;status="OFFLINE";
       if(hud!=null)main.post(hud::invalidate);
     }
 
+    void disconnect(){
+      if(inRoom&&socketConnected&&socket!=null)socket.send("LEAVE_ROOM");
+      disconnectSocket();
+    }
+
     void onFrame(GameRenderer r){
-      // No client snapshots are sent. The cloud server owns physics and broadcasts state.
+      // The cloud server owns all authoritative physics and rules.
     }
   }
 
