@@ -24,6 +24,7 @@ import org.jbox2d.dynamics.BodyDef;
 import org.jbox2d.dynamics.BodyType;
 import org.jbox2d.dynamics.FixtureDef;
 import org.jbox2d.dynamics.World;
+import okhttp3.*;
 
 public class MainActivity extends Activity {
   GameView game;
@@ -56,16 +57,18 @@ public class MainActivity extends Activity {
 
   void showMultiplayerDialog(){
     String status=multiplayer==null?"OFFLINE":multiplayer.statusText();
+    String server=multiplayer==null?"NOT SET":multiplayer.serverDisplay();
     new AlertDialog.Builder(this)
-      .setTitle("LAN MULTIPLAYER BETA")
-      .setMessage(status+"\n\nUse the same Wi-Fi network. Host on one device, then join from the other.")
-      .setItems(new String[]{"HOST GAME","JOIN GAME","DISCONNECT","CANCEL"},(d,which)->{
+      .setTitle("ONLINE MULTIPLAYER")
+      .setMessage(status+"\nSERVER: "+server+"\n\nThe server owns the physics and game state. Both players only send controls.")
+      .setItems(new String[]{"CREATE ONLINE GAME","JOIN WITH CODE","SET SERVER","DISCONNECT","CANCEL"},(d,which)->{
         if(which==0){
-          multiplayer.startHost();
-          Toast.makeText(this,"Hosting on "+multiplayer.localAddress()+":"+MultiplayerManager.PORT,Toast.LENGTH_LONG).show();
+          multiplayer.createRoom();
         }else if(which==1){
           showJoinDialog();
         }else if(which==2){
+          showServerDialog();
+        }else if(which==3){
           multiplayer.disconnect();
           Toast.makeText(this,"Multiplayer disconnected",Toast.LENGTH_SHORT).show();
         }
@@ -75,144 +78,186 @@ public class MainActivity extends Activity {
   void showJoinDialog(){
     final EditText input=new EditText(this);
     input.setSingleLine(true);
-    input.setInputType(InputType.TYPE_CLASS_PHONE|InputType.TYPE_NUMBER_FLAG_DECIMAL);
-    input.setHint("Host IP, e.g. 192.168.1.25");
+    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+    input.setHint("ROOM CODE");
     input.setPadding(36,18,36,18);
     new AlertDialog.Builder(this)
-      .setTitle("JOIN LAN GAME")
-      .setMessage("Enter the host device's IP address.")
+      .setTitle("JOIN ONLINE GAME")
+      .setMessage("Enter the 6-character room code from your friend.")
       .setView(input)
       .setPositiveButton("JOIN",(d,w)->{
-        String ip=input.getText().toString().trim();
-        if(!ip.isEmpty())multiplayer.joinHost(ip);
+        String code=input.getText().toString().trim().toUpperCase(Locale.US);
+        if(!code.isEmpty())multiplayer.joinRoom(code);
+      })
+      .setNegativeButton("CANCEL",null)
+      .show();
+  }
+
+  void showServerDialog(){
+    final EditText input=new EditText(this);
+    input.setSingleLine(true);
+    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
+    input.setHint("https://your-server.onrender.com");
+    input.setText(multiplayer==null?"":multiplayer.savedServerUrl());
+    input.setSelection(input.getText().length());
+    input.setPadding(36,18,36,18);
+    new AlertDialog.Builder(this)
+      .setTitle("ONLINE SERVER")
+      .setMessage("Paste the Render service URL. The app converts it to a secure WebSocket automatically.")
+      .setView(input)
+      .setPositiveButton("SAVE",(d,w)->{
+        String url=input.getText().toString().trim();
+        multiplayer.setServerUrl(url);
+        Toast.makeText(this,"Server saved",Toast.LENGTH_SHORT).show();
       })
       .setNegativeButton("CANCEL",null)
       .show();
   }
 
   static class MultiplayerManager {
-    static final int PORT=27861;
     final MainActivity activity; final GameView game; final HudView hud;
     final Handler main=new Handler(Looper.getMainLooper());
-    volatile boolean hosting=false,connected=false;
+    final OkHttpClient http=new OkHttpClient.Builder()
+      .pingInterval(20,TimeUnit.SECONDS)
+      .connectTimeout(8,TimeUnit.SECONDS)
+      .build();
+    volatile boolean connected=false,connecting=false;
     volatile int localPlayer=0;
+    volatile String roomCode="";
     volatile String status="OFFLINE";
-    volatile long lastSyncMs=0;
-    ServerSocket server; Socket socket; BufferedReader reader; PrintWriter writer;
+    volatile boolean hosting=false; // retained only for old renderer compatibility; server is authoritative.
+    WebSocket socket;
 
     MultiplayerManager(MainActivity a,GameView g,HudView h){activity=a;game=g;hud=h;}
 
     boolean isConnected(){return connected;}
-    boolean isFollower(){return connected&&!hosting;}
+    boolean isFollower(){return connected;} // every online client follows the authoritative server simulation.
     boolean canLocalControl(int activeShooter){return !connected||localPlayer==activeShooter;}
 
-    String statusText(){
-      if(connected)return hosting?"CONNECTED • HOST / PLAYER 1":"CONNECTED • GUEST / PLAYER 2";
-      if(hosting)return "HOSTING • "+localAddress()+":"+PORT;
-      return status;
+    String savedServerUrl(){
+      return activity.getSharedPreferences("galactic_online",MODE_PRIVATE).getString("server_url","");
     }
 
-    String localAddress(){
-      try{
-        Enumeration<NetworkInterface> ifs=NetworkInterface.getNetworkInterfaces();
-        while(ifs.hasMoreElements()){
-          NetworkInterface ni=ifs.nextElement();
-          Enumeration<InetAddress> as=ni.getInetAddresses();
-          while(as.hasMoreElements()){
-            InetAddress a=as.nextElement();
-            if(!a.isLoopbackAddress()&&a instanceof Inet4Address)return a.getHostAddress();
-          }
-        }
-      }catch(Exception ignored){}
-      return "0.0.0.0";
+    void setServerUrl(String url){
+      activity.getSharedPreferences("galactic_online",MODE_PRIVATE).edit().putString("server_url",url==null?"":url.trim()).apply();
+    }
+
+    String serverDisplay(){
+      String s=savedServerUrl();
+      if(s==null||s.isEmpty())return "NOT SET";
+      s=s.replace("https://","").replace("http://","").replace("wss://","").replace("ws://","");
+      if(s.endsWith("/ws"))s=s.substring(0,s.length()-3);
+      return s;
+    }
+
+    String websocketUrl(){
+      String s=savedServerUrl();
+      if(s==null)s="";
+      s=s.trim();
+      if(s.isEmpty())return "";
+      if(s.startsWith("https://"))s="wss://"+s.substring(8);
+      else if(s.startsWith("http://"))s="ws://"+s.substring(7);
+      else if(!s.startsWith("wss://")&&!s.startsWith("ws://"))s="wss://"+s;
+      while(s.endsWith("/"))s=s.substring(0,s.length()-1);
+      if(!s.endsWith("/ws"))s+="/ws";
+      return s;
+    }
+
+    String statusText(){
+      if(connected){
+        String code=roomCode==null||roomCode.isEmpty()?"":(" • "+roomCode);
+        return "ONLINE • PLAYER "+localPlayer+code;
+      }
+      if(connecting)return "CONNECTING";
+      return status;
     }
 
     void toast(String t){main.post(()->Toast.makeText(activity,t,Toast.LENGTH_LONG).show());}
 
-    synchronized void closeSockets(){
-      try{if(reader!=null)reader.close();}catch(Exception ignored){}
-      try{if(writer!=null)writer.close();}catch(Exception ignored){}
-      try{if(socket!=null)socket.close();}catch(Exception ignored){}
-      try{if(server!=null)server.close();}catch(Exception ignored){}
-      reader=null;writer=null;socket=null;server=null;
+    void createRoom(){
+      connectThen("CREATE");
     }
 
-    void disconnect(){
-      connected=false;hosting=false;localPlayer=0;status="OFFLINE";closeSockets();
+    void joinRoom(String code){
+      if(code==null||code.trim().isEmpty())return;
+      connectThen("JOIN|"+code.trim().toUpperCase(Locale.US));
+    }
+
+    synchronized void connectThen(String firstMessage){
+      String url=websocketUrl();
+      if(url.isEmpty()){
+        toast("Set the online server first.");
+        main.post(activity::showServerDialog);
+        return;
+      }
+      disconnect();
+      connecting=true;status="CONNECTING";localPlayer=0;roomCode="";
       if(hud!=null)main.post(hud::invalidate);
-    }
 
-    void startHost(){
-      disconnect();hosting=true;localPlayer=1;status="HOSTING • "+localAddress()+":"+PORT;
-      if(hud!=null)hud.invalidate();
-      new Thread(()->{
-        try{
-          server=new ServerSocket(PORT);
-          Socket s=server.accept();
-          attachSocket(s,true);
-        }catch(Exception e){
-          if(hosting){status="HOST ERROR";toast("Host failed: "+e.getMessage());}
+      Request request=new Request.Builder().url(url).build();
+      socket=http.newWebSocket(request,new WebSocketListener(){
+        public void onOpen(WebSocket ws,Response response){
+          connecting=false;
+          ws.send(firstMessage);
         }
-      },"GalacticHost").start();
-    }
 
-    void joinHost(String ip){
-      disconnect();hosting=false;localPlayer=2;status="CONNECTING • "+ip;
-      if(hud!=null)hud.invalidate();
-      new Thread(()->{
-        try{
-          Socket s=new Socket();
-          s.connect(new InetSocketAddress(ip,PORT),5000);
-          attachSocket(s,false);
-        }catch(Exception e){
-          status="JOIN FAILED";toast("Could not join host: "+e.getMessage());
-          if(hud!=null)main.post(hud::invalidate);
+        public void onMessage(WebSocket ws,String msg){
+          if(msg.startsWith("ROOM|")){
+            String[] p=msg.split("\\|");
+            if(p.length>=3){
+              roomCode=p[1];
+              try{localPlayer=Integer.parseInt(p[2]);}catch(Exception ignored){}
+              connected=true;connecting=false;status="ONLINE";
+              toast(localPlayer==1?"Room "+roomCode+" created — send this code to your friend.":"Joined room "+roomCode+" as Player 2.");
+              if(hud!=null)main.post(hud::invalidate);
+            }
+          }else if(msg.startsWith("STATE|")){
+            game.queueEvent(()->game.r.applyNetworkState(msg));
+          }else if(msg.startsWith("PLAYER_JOINED")){
+            toast("Player 2 joined room "+roomCode);
+          }else if(msg.startsWith("PLAYER_LEFT")){
+            toast("The other player disconnected.");
+          }else if(msg.startsWith("ERROR|")){
+            String err=msg.substring(6).replace('_',' ');
+            toast("Server: "+err);
+          }
         }
-      },"GalacticJoin").start();
-    }
 
-    void attachSocket(Socket s,boolean asHost)throws Exception{
-      socket=s;socket.setTcpNoDelay(true);socket.setKeepAlive(true);
-      reader=new BufferedReader(new InputStreamReader(socket.getInputStream()));
-      writer=new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())),true);
-      connected=true;hosting=asHost;localPlayer=asHost?1:2;
-      status=asHost?"CONNECTED • HOST / PLAYER 1":"CONNECTED • GUEST / PLAYER 2";
-      toast(asHost?"Player 2 connected":"Connected to host");
-      if(hud!=null)main.post(hud::invalidate);
-      if(asHost)send("HELLO|1");
-      readLoop();
+        public void onClosing(WebSocket ws,int code,String reason){
+          ws.close(code,reason);
+        }
+
+        public void onClosed(WebSocket ws,int code,String reason){
+          if(socket==ws){
+            connected=false;connecting=false;localPlayer=0;roomCode="";status="OFFLINE";
+            if(hud!=null)main.post(hud::invalidate);
+          }
+        }
+
+        public void onFailure(WebSocket ws,Throwable t,Response response){
+          if(socket==ws){
+            connected=false;connecting=false;localPlayer=0;roomCode="";status="CONNECTION FAILED";
+            toast("Could not reach multiplayer server: "+(t.getMessage()==null?"connection failed":t.getMessage()));
+            if(hud!=null)main.post(hud::invalidate);
+          }
+        }
+      });
     }
 
     synchronized void send(String line){
-      if(!connected||writer==null)return;
-      try{writer.println(line);writer.flush();}catch(Exception ignored){}
+      if(!connected||socket==null)return;
+      socket.send(line);
     }
 
-    void readLoop(){
-      try{
-        String line;
-        while(connected&&(line=reader.readLine())!=null){
-          final String msg=line;
-          if(hosting){
-            if(msg.startsWith("CMD|"))game.queueEvent(()->game.r.applyNetworkCommand(msg.substring(4)));
-          }else if(msg.startsWith("STATE|")){
-            game.queueEvent(()->game.r.applyNetworkState(msg));
-          }
-        }
-      }catch(Exception ignored){}
-      if(connected){
-        connected=false;status="CONNECTION LOST";
-        toast("Multiplayer connection lost");
-        if(hud!=null)main.post(hud::invalidate);
-      }
+    synchronized void disconnect(){
+      WebSocket old=socket;socket=null;
+      if(old!=null){try{old.send("LEAVE");}catch(Exception ignored){}try{old.close(1000,"bye");}catch(Exception ignored){}}
+      connected=false;connecting=false;localPlayer=0;roomCode="";hosting=false;status="OFFLINE";
+      if(hud!=null)main.post(hud::invalidate);
     }
 
     void onFrame(GameRenderer r){
-      if(!connected||!hosting)return;
-      long now=System.currentTimeMillis();
-      if(now-lastSyncMs<66)return;
-      lastSyncMs=now;
-      send(r.buildNetworkState());
+      // No client snapshots are sent. The cloud server owns physics and broadcasts state.
     }
   }
 
