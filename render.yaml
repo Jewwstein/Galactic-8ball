@@ -4,6 +4,13 @@ services:
     runtime: docker
     rootDir: server
     region: virginia
-    plan: free
+    plan: starter
     healthCheckPath: /health
     autoDeploy: true
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: galactic-accounts
+      mountPath: /var/data
+      sizeGB: 1
