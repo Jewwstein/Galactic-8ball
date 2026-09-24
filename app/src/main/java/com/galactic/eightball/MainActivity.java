@@ -32,24 +32,219 @@ public class MainActivity extends Activity {
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
+  FrameLayout appRoot, gameRoot;
+  View homeScreen;
+  TextView homeStatus;
+  Button continueButton;
+  boolean showingTable=false;
 
   public void onCreate(Bundle b){
     super.onCreate(b);
     getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
     game=new GameView(this);
     hud=new HudView(this,game);
     multiplayer=new MultiplayerManager(this,game,hud);
     game.r.net=multiplayer;
     hud.net=multiplayer;
-    FrameLayout root=new FrameLayout(this);
+
+    appRoot=new FrameLayout(this);
+    gameRoot=new FrameLayout(this);
+
     ImageView space=new ImageView(this);
     space.setScaleType(ImageView.ScaleType.CENTER_CROP);
-    try(InputStream in=getAssets().open("environment/sky.jpg")){space.setImageBitmap(BitmapFactory.decodeStream(in));}catch(Exception ignored){space.setBackgroundColor(Color.BLACK);}
-    root.addView(space,new FrameLayout.LayoutParams(-1,-1));
-    root.addView(game,new FrameLayout.LayoutParams(-1,-1));
-    root.addView(hud,new FrameLayout.LayoutParams(-1,-1));
-    setContentView(root);
-    new Handler(Looper.getMainLooper()).postDelayed(()->multiplayer.autoConnect(),450);
+    try(InputStream in=getAssets().open("environment/sky.jpg")){
+      space.setImageBitmap(BitmapFactory.decodeStream(in));
+    }catch(Exception ignored){
+      space.setBackgroundColor(Color.BLACK);
+    }
+
+    gameRoot.addView(space,new FrameLayout.LayoutParams(-1,-1));
+    gameRoot.addView(game,new FrameLayout.LayoutParams(-1,-1));
+    gameRoot.addView(hud,new FrameLayout.LayoutParams(-1,-1));
+    appRoot.addView(gameRoot,new FrameLayout.LayoutParams(-1,-1));
+
+    homeScreen=buildHomeScreen();
+    appRoot.addView(homeScreen,new FrameLayout.LayoutParams(-1,-1));
+
+    setContentView(appRoot);
+    showHomeScreen();
+  }
+
+  int dp(float v){
+    return (int)(v*getResources().getDisplayMetrics().density+0.5f);
+  }
+
+  GradientDrawable homePanel(int fill,int stroke,float radius){
+    GradientDrawable g=new GradientDrawable();
+    g.setColor(fill);
+    g.setCornerRadius(dp(radius));
+    if(stroke!=Color.TRANSPARENT)g.setStroke(dp(1.2f),stroke);
+    return g;
+  }
+
+  Button homeButton(String label){
+    Button b=new Button(this);
+    b.setText(label);
+    b.setTextColor(Color.WHITE);
+    b.setTextSize(16);
+    b.setAllCaps(false);
+    b.setGravity(Gravity.CENTER);
+    b.setPadding(dp(18),dp(12),dp(18),dp(12));
+    b.setBackground(homePanel(Color.argb(220,8,19,42),Color.rgb(34,157,255),14));
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));
+    lp.setMargins(0,dp(8),0,dp(8));
+    b.setLayoutParams(lp);
+    return b;
+  }
+
+  View buildHomeScreen(){
+    FrameLayout home=new FrameLayout(this);
+    home.setBackgroundColor(Color.rgb(1,4,12));
+
+    ImageView bg=new ImageView(this);
+    bg.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    try(InputStream in=getAssets().open("environment/sky.jpg")){
+      bg.setImageBitmap(BitmapFactory.decodeStream(in));
+    }catch(Exception ignored){
+      bg.setBackgroundColor(Color.rgb(1,4,12));
+    }
+    home.addView(bg,new FrameLayout.LayoutParams(-1,-1));
+
+    View shade=new View(this);
+    shade.setBackgroundColor(Color.argb(178,0,3,13));
+    home.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+
+    ScrollView scroll=new ScrollView(this);
+    scroll.setFillViewport(true);
+    FrameLayout.LayoutParams slp=new FrameLayout.LayoutParams(-1,-1);
+    home.addView(scroll,slp);
+
+    LinearLayout outer=new LinearLayout(this);
+    outer.setOrientation(LinearLayout.VERTICAL);
+    outer.setGravity(Gravity.CENTER);
+    outer.setPadding(dp(22),dp(24),dp(22),dp(24));
+    scroll.addView(outer,new ScrollView.LayoutParams(-1,-1));
+
+    LinearLayout card=new LinearLayout(this);
+    card.setOrientation(LinearLayout.VERTICAL);
+    card.setGravity(Gravity.CENTER_HORIZONTAL);
+    card.setPadding(dp(24),dp(24),dp(24),dp(24));
+    card.setBackground(homePanel(Color.argb(188,2,7,20),Color.argb(150,41,162,255),22));
+    LinearLayout.LayoutParams cardLp=new LinearLayout.LayoutParams(-1,-2);
+    cardLp.width=Math.min(dp(620),Math.max(dp(300),getResources().getDisplayMetrics().widthPixels-dp(44)));
+    card.setLayoutParams(cardLp);
+    outer.addView(card);
+
+    ImageView logo=new ImageView(this);
+    logo.setAdjustViewBounds(true);
+    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+      logo.setImageBitmap(BitmapFactory.decodeStream(in));
+    }catch(Exception ignored){}
+    LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,-2);
+    logoLp.bottomMargin=dp(10);
+    logo.setLayoutParams(logoLp);
+    card.addView(logo);
+
+    TextView title=new TextView(this);
+    title.setText("ONLINE GALACTIC POOL");
+    title.setTextColor(Color.rgb(194,226,255));
+    title.setTextSize(15);
+    title.setGravity(Gravity.CENTER);
+    title.setLetterSpacing(.14f);
+    LinearLayout.LayoutParams titleLp=new LinearLayout.LayoutParams(-1,-2);
+    titleLp.bottomMargin=dp(14);
+    card.addView(title,titleLp);
+
+    homeStatus=new TextView(this);
+    homeStatus.setTextColor(Color.rgb(190,200,219));
+    homeStatus.setTextSize(14);
+    homeStatus.setGravity(Gravity.CENTER);
+    homeStatus.setLineSpacing(0,1.15f);
+    LinearLayout.LayoutParams statusLp=new LinearLayout.LayoutParams(-1,-2);
+    statusLp.bottomMargin=dp(14);
+    card.addView(homeStatus,statusLp);
+
+    continueButton=homeButton("Continue saved login");
+    continueButton.setOnClickListener(v->{
+      if(multiplayer.savedServerUrl().isEmpty()){
+        Toast.makeText(this,"Set the online server first.",Toast.LENGTH_SHORT).show();
+        showServerDialog();
+      }else{
+        multiplayer.autoConnect();
+        refreshHomeScreen();
+      }
+    });
+    card.addView(continueButton);
+
+    Button login=homeButton("Log in");
+    login.setOnClickListener(v->openAuthFromHome(false));
+    card.addView(login);
+
+    Button create=homeButton("Create account");
+    create.setOnClickListener(v->openAuthFromHome(true));
+    card.addView(create);
+
+    Button server=homeButton("Server settings");
+    server.setOnClickListener(v->showServerDialog());
+    card.addView(server);
+
+    TextView foot=new TextView(this);
+    foot.setText("Sign in first. The pool table opens after authentication.");
+    foot.setTextColor(Color.rgb(120,137,164));
+    foot.setTextSize(12);
+    foot.setGravity(Gravity.CENTER);
+    LinearLayout.LayoutParams footLp=new LinearLayout.LayoutParams(-1,-2);
+    footLp.topMargin=dp(12);
+    card.addView(foot,footLp);
+
+    return home;
+  }
+
+  void openAuthFromHome(boolean register){
+    if(multiplayer==null)return;
+    if(multiplayer.savedServerUrl().isEmpty()){
+      Toast.makeText(this,"Set the Render server URL first.",Toast.LENGTH_LONG).show();
+      showServerDialog();
+      return;
+    }
+    showAuthDialog(register);
+  }
+
+  void refreshHomeScreen(){
+    if(multiplayer==null||homeStatus==null)return;
+    String server=multiplayer.serverDisplay();
+    String user=multiplayer.username==null?"":multiplayer.username;
+    boolean hasServer=!multiplayer.savedServerUrl().isEmpty();
+    boolean hasToken=!multiplayer.savedToken().isEmpty();
+
+    if(!hasServer){
+      homeStatus.setText("ONLINE SERVER NOT SET\nTap Server settings and paste your Render URL.");
+    }else if(hasToken){
+      homeStatus.setText("SERVER: "+server+"\nSaved account: "+(user.isEmpty()?"Galactic player":user));
+    }else{
+      homeStatus.setText("SERVER: "+server+"\nLog in or create an account to enter the table.");
+    }
+
+    if(continueButton!=null){
+      continueButton.setVisibility(hasServer&&hasToken?View.VISIBLE:View.GONE);
+      if(hasToken&&!user.isEmpty())continueButton.setText("Continue as "+user);
+    }
+  }
+
+  void showHomeScreen(){
+    showingTable=false;
+    if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
+    if(homeScreen!=null)homeScreen.setVisibility(View.VISIBLE);
+    refreshHomeScreen();
+  }
+
+  void showGameScreen(){
+    showingTable=true;
+    if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
+    if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
+    if(hud!=null)hud.invalidate();
   }
 
   protected void onDestroy(){
@@ -193,7 +388,7 @@ public class MainActivity extends Activity {
         String url=input.getText().toString().trim();
         multiplayer.setServerUrl(url);
         Toast.makeText(this,"Server saved",Toast.LENGTH_SHORT).show();
-        multiplayer.autoConnect();
+        refreshHomeScreen();
       })
       .setNegativeButton("CANCEL",null)
       .show();
@@ -315,6 +510,7 @@ public class MainActivity extends Activity {
       disconnectSocket();
       authenticated=false;status="OFFLINE";
       if(hud!=null)main.post(hud::invalidate);
+      main.post(activity::showHomeScreen);
     }
 
     void requestLobby(){
@@ -372,6 +568,7 @@ public class MainActivity extends Activity {
               saveLogin(user,token);
               authenticated=true;status="ONLINE";
               if(hud!=null)main.post(hud::invalidate);
+              main.post(activity::showGameScreen);
             }
           }else if(msg.startsWith("AUTH_FAIL|")){
             authenticated=false;
