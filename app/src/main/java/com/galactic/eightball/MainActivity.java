@@ -404,7 +404,7 @@ public class MainActivity extends Activity {
       "Drag the lightsaber hilt around the cue ball to rotate your shot. The glowing predictor shows the cue-ball path and the projected object-ball path.",
       "Use the large glowing LEFT and RIGHT controls for precision. Tap for a tiny adjustment or hold either button for continuous rotation.",
       "When your line is ready, tap LOCK. Then choose where the cue tip strikes the cue ball for English and lock that selection.",
-      "Pull the hilt backward to set power, then release to shoot. Use two fingers to orbit the camera and pinch to zoom. The camera will also smoothly reframe between turns.",
+      "Pull the hilt on the table backward to set power, or use the separate right-thumb hilt beside the LOCK area and drag it downward. Release either hilt to shoot. Use two fingers to orbit the camera and pinch to zoom.",
       "The top HUD shows each team's remaining balls. Glowing rings on the table identify team balls. Open the side menu for your saber loadout, new rack, team controls, or to return to the Galactic Lobby."
     };
     showTutorialPage(user,titles,messages,0);
@@ -960,11 +960,11 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false,microHolding=false;
-    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
+    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false;
+    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     long lastAimTapMs=0;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
     final Handler uiHandler=new Handler(Looper.getMainLooper());
@@ -973,8 +973,8 @@ public class MainActivity extends Activity {
         if(!microHolding)return;
         final boolean left=microHoldDir<0;
         final int ww=microHoldW,hh=microHoldH;
-        game.queueEvent(()->game.r.microAimScreen(left,ww,hh));
-        uiHandler.postDelayed(this,45);
+        game.queueEvent(()->game.r.microAimScreen(left,ww,hh,3.6f));
+        uiHandler.postDelayed(this,30);
       }
     };
 
@@ -1065,6 +1065,7 @@ public class MainActivity extends Activity {
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
         drawWorldShotHilt(c,w,h,ui,r);
+        if(r.localCanControl())drawThumbStrikeHilt(c,w,h,ui,r);
       } else {
         p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
         c.drawText("BALLS ROLLING",w*.5f,42*ui,p);
@@ -1427,6 +1428,40 @@ public class MainActivity extends Activity {
       // permanently covering the hilt and predictor during every shot.
     }
 
+    void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
+      float baseW=150*ui,baseH=62*ui;
+      float cx=w-95*ui;
+      float baseCy=Math.max(145*ui,lockRect.top-86*ui);
+      float travel=Math.min(145*ui,r.chargePullPx*.62f);
+      float cy=baseCy+travel;
+      thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.5f,cx+baseW*.5f,cy+baseH*.5f);
+
+      // Slim illuminated guide for a one-thumb pull-down shot control.
+      float trackTop=baseCy-baseH*.72f,trackBottom=Math.min(h-24*ui,baseCy+170*ui);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(3*ui);
+      stroke.setColor(0x665BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
+      p.setStyle(Paint.Style.FILL);p.setColor(0x50050B14);
+      p.setShadowLayer(12*ui,0,0,0xAA5BD6FF);
+      c.drawRoundRect(new RectF(thumbHiltRect.left-8*ui,thumbHiltRect.top-7*ui,thumbHiltRect.right+8*ui,thumbHiltRect.bottom+7*ui),18*ui,18*ui,p);
+      p.clearShadowLayer();
+      stroke.setStrokeWidth(1.8f*ui);stroke.setColor(0xAA78E4FF);
+      c.drawRoundRect(new RectF(thumbHiltRect.left-8*ui,thumbHiltRect.top-7*ui,thumbHiltRect.right+8*ui,thumbHiltRect.bottom+7*ui),18*ui,18*ui,stroke);
+
+      Bitmap hb=hilts[Math.max(0,Math.min(5,r.hiltIndex))];
+      if(hb!=null){
+        RectF img=new RectF(thumbHiltRect.left+6*ui,thumbHiltRect.top+8*ui,thumbHiltRect.right-6*ui,thumbHiltRect.bottom-8*ui);
+        c.drawBitmap(hb,null,img,p);
+      }else{
+        p.setColor(0xFFE6EDF7);c.drawRoundRect(thumbHiltRect,9*ui,9*ui,p);
+      }
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(11*ui);p.setColor(0xFFDDF8FF);
+      c.drawText("THUMB STRIKE",cx,trackTop-9*ui,p);
+      p.setTextSize(13*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFB8C7D8);
+      c.drawText(Math.round(r.power)+"%",cx,Math.min(h-8*ui,trackBottom+18*ui),p);
+    }
+
     public boolean onTouchEvent(MotionEvent e){
       final int a=e.getActionMasked();final float x=e.getX(),y=e.getY();final int w=getWidth(),h=getHeight();
       final float ui=Math.max(.90f,Math.min(w/900f,h/640f));
@@ -1530,6 +1565,11 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.CHARGING){
+          if(thumbHiltRect.contains(x,y)){
+            pullingThumbHilt=true;thumbPullStartY=y;
+            game.queueEvent(()->r.beginWorldCharge());
+            return true;
+          }
           updateWorldHiltGeometry(w,h,r,r.chargePullPx);
           RectF hit=new RectF(worldHiltRect);hit.inset(-36*ui,-36*ui);
           if(hit.contains(x,y)){pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;game.queueEvent(()->r.beginWorldCharge());return true;}
@@ -1563,6 +1603,22 @@ public class MainActivity extends Activity {
           // produces a tiny final movement; ignoring it keeps the line exactly
           // where the player last saw it.
           aimingHilt=false;
+          return true;
+        }
+        return true;
+      }
+
+      if(pullingThumbHilt){
+        if(a==MotionEvent.ACTION_MOVE){
+          float pull=Math.max(0,y-thumbPullStartY);
+          if(r.state==GameRenderer.CHARGING){
+            final float fp=pull;game.queueEvent(()->r.updateWorldCharge(fp,h));
+          }
+          return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
+          pullingThumbHilt=false;
+          if(r.state==GameRenderer.CHARGING)game.queueEvent(()->r.releaseWorldCharge());
           return true;
         }
         return true;
@@ -2253,7 +2309,9 @@ public class MainActivity extends Activity {
     }
 
     void smoothCamera(float dt){
-      float k=1f-(float)Math.exp(-dt*4.2f);
+      // Deliberately gentle: automatic framing should feel like a camera operator
+      // nudging the composition, never like a teleport or forced spin.
+      float k=1f-(float)Math.exp(-dt*1.65f);
       camYaw+=angleDelta(camGoalYaw,camYaw)*k;
       camPitch+=(camGoalPitch-camPitch)*k;
       camDist+=(camGoalDist-camDist)*k;
@@ -2266,21 +2324,19 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0);
       if(cue==null)return;
 
-      // Frame inward from the cue ball toward the useful table area. This keeps
-      // the camera over the table instead of throwing it far into space.
-      float dx=-cue.x,dz=-cue.z,d=(float)Math.sqrt(dx*dx+dz*dz);
-      if(d<5f){dx=aimX;dz=aimZ;d=(float)Math.sqrt(dx*dx+dz*dz);}
-      if(d<.001f){dx=1;dz=0;d=1;}
-      dx/=d;dz/=d;
+      // Preserve the player's viewing angle and pitch. Only make a restrained,
+      // slow pan/zoom toward the cue side of the table so the camera never whips
+      // around after a shot.
+      camGoalYaw=camYaw;
+      camGoalPitch=camPitch;
 
-      float lookAhead=5.0f;
-      camGoalTargetX=Math.max(MINX+10f,Math.min(MAXX-10f,cue.x+dx*lookAhead));
-      camGoalTargetZ=Math.max(MINZ+7f,Math.min(MAXZ-7f,cue.z+dz*lookAhead));
+      float tx=cue.x*.22f+aimX*2.4f;
+      float tz=cue.z*.22f+aimZ*2.4f;
+      camGoalTargetX=Math.max(-12f,Math.min(12f,tx));
+      camGoalTargetZ=Math.max(-8f,Math.min(8f,tz));
 
       float edge=Math.max(Math.abs(cue.x)/Math.max(1f,MAXX),Math.abs(cue.z)/Math.max(1f,MAXZ));
-      camGoalDist=Math.max(116f,Math.min(138f,120f+edge*15f));
-      camGoalPitch=42f;
-      camGoalYaw=(float)Math.toDegrees(Math.atan2(-dx,-dz));
+      camGoalDist=Math.max(122f,Math.min(134f,124f+edge*8f));
     }
 
     float[] worldToScreen(float x,float y,float z,int w,int h){
@@ -2505,10 +2561,14 @@ public class MainActivity extends Activity {
     }
 
     void microAimScreen(boolean left,int w,int h){
+      microAimScreen(left,w,h,.35f);
+    }
+
+    void microAimScreen(boolean left,int w,int h,float degrees){
       if(!localCanControl()||state!=AIMING||gameOver||balls.isEmpty())return;
       Ball cue=balls.get(0);
       float base=(float)Math.atan2(aimZ,aimX);
-      float step=(float)Math.toRadians(.35);
+      float step=(float)Math.toRadians(Math.max(.05f,degrees));
       float a1=base-step,a2=base+step;
 
       float[] p0=worldToScreen(cue.x+aimX*12f,2.22f,cue.z+aimZ*12f,w,h);
