@@ -56,34 +56,22 @@ for idx,outname in mapping.items():
     if not samples:
         raise RuntimeError(f"No decoded sample for {clipname}")
     sample_name,blob=next(iter(samples.items()))
-    # The source bundle is PCM16 HQ. Preserve the exact clip content while
-    # resampling to 32 kHz for a compact mobile build (no external encoder needed).
-    with wave.open(io.BytesIO(blob),"rb") as w:
-        nch=w.getnchannels(); sw=w.getsampwidth(); rate=w.getframerate(); frames=w.readframes(w.getnframes())
-    if sw!=2:
-        raise RuntimeError(f"Expected PCM16 for {clipname}, got sample width {sw}")
-    arr=np.frombuffer(frames,dtype="<i2")
-    arr=arr.reshape((-1,nch)).astype(np.float32)
-    target_rate=32000
-    if rate!=target_rate and len(arr)>1:
-        oldx=np.arange(len(arr),dtype=np.float32)
-        newlen=max(1,int(round(len(arr)*target_rate/rate)))
-        newx=np.linspace(0,len(arr)-1,newlen,dtype=np.float32)
-        chans=[np.interp(newx,oldx,arr[:,c]) for c in range(nch)]
-        arr=np.stack(chans,axis=1)
-    arr=np.clip(arr,-32768,32767).astype("<i2")
-    wav=rawout/f"{outname}.wav"
-    with wave.open(str(wav),"wb") as o:
-        o.setnchannels(nch);o.setsampwidth(2);o.setframerate(target_rate);o.writeframes(arr.tobytes())
+    # Keep the exact decoded TTS clip and encode it as Vorbis for Android.
+    # This preserves the original source far better than shipping huge PCM WAVs.
+    wav=rawout/f"{outname}_source.wav"
+    ogg=rawout/f"{outname}.ogg"
+    wav.write_bytes(blob)
+    subprocess.run([
+        "ffmpeg","-hide_banner","-loglevel","error","-y",
+        "-i",str(wav),"-vn","-c:a","libvorbis","-q:a","4",str(ogg)
+    ],check=True)
+    wav.unlink()
     manifest.append({
         "trigger_index":idx,
         "effect_name":effect.get("Name",""),
         "clip_name":clipname,
         "source_sample":sample_name,
-        "output":wav.name,
-        "bytes":wav.stat().st_size
+        "output":ogg.name,
+        "bytes":ogg.stat().st_size
     })
-    print("SFX",idx,effect.get("Name",""),"->",clipname,"->",wav.name,wav.stat().st_size)
-
-(rawout/"sfx_manifest.json").write_text(json.dumps(manifest,indent=2))
-print("Extracted",len(manifest),"exact v428 gameplay sounds")
+    print("SFX",idx,effect.get("Name",""),"->",clipname,"->",ogg.name,ogg.stat().st_size)
