@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: galactic-8ball-server
+    runtime: docker
+    rootDir: server
+    region: virginia
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
