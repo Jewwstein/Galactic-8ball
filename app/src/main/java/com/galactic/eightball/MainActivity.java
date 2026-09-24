@@ -1235,10 +1235,13 @@ public class MainActivity extends Activity {
     }
 
     void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
-      float panelH=96*ui,top=76*ui,margin=14*ui,centerW=Math.min(164*ui,w*.18f);
+      // Compact scoreboard hugs the very top and stays centered so it does not
+      // cover useful table space at low camera angles.
+      float panelH=70*ui,top=7*ui,centerW=Math.min(112*ui,w*.13f);
+      float teamW=Math.min(224*ui,(w-centerW-22*ui)*.5f);
       float mid=w*.5f,leftRight=mid-centerW*.5f,rightLeft=mid+centerW*.5f;
-      RectF left=new RectF(margin,top,leftRight+2*ui,top+panelH);
-      RectF right=new RectF(rightLeft-2*ui,top,w-margin,top+panelH);
+      RectF left=new RectF(leftRight-teamW,top,leftRight+1*ui,top+panelH);
+      RectF right=new RectF(rightLeft-1*ui,top,rightLeft+teamW,top+panelH);
       RectF center=new RectF(leftRight,top,rightLeft,top+panelH);
       drawTeamCard(c,left,1,ui,r);
       drawTeamCard(c,right,2,ui,r);
@@ -1247,73 +1250,84 @@ public class MainActivity extends Activity {
       int activeSuit=r.teamSuit[Math.max(0,Math.min(1,r.currentTeam-1))];
       if(activeSuit!=0)activeReady=r.remainingForSuit(activeSuit)==0;
 
-      p.setStyle(Paint.Style.FILL);p.setColor(0xE00C1119);c.drawRoundRect(center,12*ui,12*ui,p);
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);
-      stroke.setColor(activeReady?0xFFF4C542:0x996F7B8A);c.drawRoundRect(center,12*ui,12*ui,stroke);
+      p.setStyle(Paint.Style.FILL);p.setColor(0xE20A0F17);c.drawRoundRect(center,10*ui,10*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(activeReady?2.8f*ui:1.5f*ui);
+      stroke.setColor(activeReady?0xFFF4C542:0x88778491);c.drawRoundRect(center,10*ui,10*ui,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(14*ui);p.setColor(0xFFF4C542);
+      p.setTextSize(11.5f*ui);p.setColor(0xFFF4C542);
       String centerText=r.gameOver?(r.aiEnabled?(r.winnerTeam==1?"YOU WIN":"AI WINS"):("TEAM "+r.winnerTeam+" WINS")):
         (r.aiEnabled?(r.currentTeam==1?"YOUR TURN":"AI TURN"):("TEAM "+r.currentTeam+" TURN"));
-      c.drawText(centerText,center.centerX(),center.top+19*ui,p);
+      c.drawText(centerText,center.centerX(),center.top+15*ui,p);
 
-      float bx=center.centerX(),by=center.top+52*ui,br=18*ui;
+      float bx=center.centerX(),by=center.top+39*ui,br=12.5f*ui;
       if(activeReady){
-        p.setShadowLayer(13*ui,0,0,0xFFF4C542);
-        p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);p.clearShadowLayer();
-        stroke.setStrokeWidth(3.5f*ui);stroke.setColor(0xFFF4C542);c.drawCircle(bx,by,br,stroke);
+        p.setShadowLayer(9*ui,0,0,0xFFF4C542);
+        p.setColor(0xFF070707);c.drawCircle(bx,by,br,p);p.clearShadowLayer();
+        stroke.setStrokeWidth(2.6f*ui);stroke.setColor(0xFFF4C542);c.drawCircle(bx,by,br,stroke);
       }else{
-        p.setColor(0xFF080808);c.drawCircle(bx,by,br,p);
-        stroke.setStrokeWidth(2*ui);stroke.setColor(0xFFE6E6E6);c.drawCircle(bx,by,br,stroke);
+        p.setColor(0xFF070707);c.drawCircle(bx,by,br,p);
+        stroke.setStrokeWidth(1.5f*ui);stroke.setColor(0xFFD8DEE7);c.drawCircle(bx,by,br,stroke);
       }
-      p.setColor(Color.WHITE);p.setTextSize(14*ui);c.drawText("8",bx,by+5*ui,p);
-      p.setTextSize(9.5f*ui);p.setColor(activeReady?0xFFF4C542:0xFFB6C0CE);
-      c.drawText(activeReady?"8 BALL READY":"8 BALL",bx,center.bottom-9*ui,p);
+      p.setColor(Color.WHITE);p.setTextSize(10.5f*ui);c.drawText("8",bx,by+3.7f*ui,p);
+      p.setTextSize(7.5f*ui);p.setColor(activeReady?0xFFF4C542:0xFF9FAABA);
+      c.drawText(activeReady?"READY":"8 BALL",bx,center.bottom-6*ui,p);
 
-      p.setTextSize(11*ui);p.setColor(0xFFE2E8F0);
-      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+panelH+16*ui,p);
+      // Keep the rule message tiny and directly below the scoreboard.
+      p.setTextSize(9.5f*ui);p.setColor(0xDDDCE4EE);
+      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+panelH+11*ui,p);
     }
 
     void drawTeamCard(Canvas c,RectF rr,int team,float ui,GameRenderer r){
       boolean active=!r.gameOver&&r.currentTeam==team;
-      p.setStyle(Paint.Style.FILL);p.setColor(active?0xD5232A36:0xB8141821);c.drawRoundRect(rr,14*ui,14*ui,p);
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((active?3f:1.5f)*ui);
-      stroke.setColor(active?0xFFF4C542:(team==1?0xAA55A8FF:0xAAFF5F5F));c.drawRoundRect(rr,14*ui,14*ui,stroke);
+      p.setStyle(Paint.Style.FILL);p.setColor(active?0xD91E2732:0xC70F141C);c.drawRoundRect(rr,10*ui,10*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((active?2.2f:1.1f)*ui);
+      stroke.setColor(active?0xFFF4C542:(team==1?0x9955A8FF:0x99FF5F5F));c.drawRoundRect(rr,10*ui,10*ui,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(14*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
+      p.setTextSize(10.5f*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
       String teamLabel=r.aiEnabled?(team==1?"YOU":"GALACTIC AI"):("TEAM "+team);
-      c.drawText(teamLabel,rr.left+10*ui,rr.top+18*ui,p);
+      c.drawText(teamLabel,rr.left+8*ui,rr.top+13*ui,p);
 
       int suit=r.teamSuit[team-1];
-      String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN TABLE";
-      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(12*ui);p.setColor(Color.WHITE);
-      c.drawText(suitText,rr.right-10*ui,rr.top+18*ui,p);
+      String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN";
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(8.5f*ui);p.setColor(0xFFE7EDF5);
+      c.drawText(suitText,rr.right-8*ui,rr.top+13*ui,p);
 
       if(suit==0){
-        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11*ui);p.setColor(0xFFCBD5E1);
-        c.drawText("FIRST MADE GROUP CLAIMS",rr.centerX(),rr.top+51*ui,p);
-      }else{
-        int start=suit==1?1:9,end=suit==1?7:15;
-        float usable=Math.max(90*ui,rr.width()-28*ui);
-        float gap=usable/7f,cx=rr.left+14*ui+gap*.5f,cy=rr.top+53*ui,rad=Math.min(13*ui,gap*.30f);
-        int remaining=0;
-        for(int n=start;n<=end;n++){
-          boolean onTable=r.isBallOnTable(n);
-          if(onTable)remaining++;
-          float x=cx+(n-start)*gap;
-          if(suit==1){
-            p.setColor(onTable?0xFFE8B84C:0x443A3A3A);c.drawCircle(x,cy,rad,p);
-          }else{
-            p.setColor(onTable?0xFFF7F7F7:0x443A3A3A);c.drawCircle(x,cy,rad,p);
-            stroke.setColor(onTable?0xFFE8B84C:0x44444444);stroke.setStrokeWidth(3*ui);c.drawCircle(x,cy,rad*.72f,stroke);
-          }
-          p.setTextAlign(Paint.Align.CENTER);p.setTextSize(7.5f*ui);p.setColor(onTable?0xFF111111:0x66888888);
-          c.drawText(String.valueOf(n),x,cy+2.7f*ui,p);
-        }
-        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10*ui);p.setColor(remaining==0?0xFFF4C542:0xFFCBD5E1);
-        c.drawText(remaining==0?"8 BALL READY":remaining+" REMAINING",rr.centerX(),rr.bottom-8*ui,p);
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(9*ui);p.setColor(0xFFB8C2D0);
+        c.drawText("FIRST GROUP CLAIMS",rr.centerX(),rr.centerY()+6*ui,p);
+        return;
       }
+
+      int start=suit==1?1:9,end=suit==1?7:15;
+      ArrayList<Integer> remain=new ArrayList<>();
+      for(int n=start;n<=end;n++)if(r.isBallOnTable(n))remain.add(n);
+
+      // Seven compact spots in a 2-3-2 diamond cluster.
+      float cx=rr.centerX(),baseY=rr.top+30*ui,dx=15*ui,dy=13*ui,rad=6.2f*ui;
+      float[][] spots={
+        {-dx*.55f,0},{dx*.55f,0},
+        {-dx,dy},{0,dy},{dx,dy},
+        {-dx*.55f,dy*2},{dx*.55f,dy*2}
+      };
+      for(int i=0;i<7;i++){
+        int n=start+i;
+        boolean onTable=r.isBallOnTable(n);
+        float x=cx+spots[i][0],y=baseY+spots[i][1];
+        if(suit==1){
+          p.setColor(onTable?0xFFE8B84C:0x333A3A3A);c.drawCircle(x,y,rad,p);
+        }else{
+          p.setColor(onTable?0xFFF5F5F5:0x333A3A3A);c.drawCircle(x,y,rad,p);
+          stroke.setColor(onTable?0xFFE8B84C:0x33444444);stroke.setStrokeWidth(2.1f*ui);c.drawCircle(x,y,rad*.70f,stroke);
+        }
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(5.6f*ui);p.setColor(onTable?0xFF111111:0x55888888);
+        c.drawText(String.valueOf(n),x,y+2.0f*ui,p);
+      }
+
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(7.4f*ui);
+      p.setColor(remain.isEmpty()?0xFFF4C542:0xFFB9C4D2);
+      c.drawText(remain.isEmpty()?"8 READY":remain.size()+" LEFT",rr.right-7*ui,rr.bottom-5*ui,p);
     }
 
     void drawWinnerOverlay(Canvas c,int w,int h,float ui,GameRenderer r){
@@ -1429,37 +1443,24 @@ public class MainActivity extends Activity {
     }
 
     void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
-      float baseW=150*ui,baseH=62*ui;
-      float cx=w-95*ui;
-      float baseCy=Math.max(145*ui,lockRect.top-86*ui);
-      float travel=Math.min(145*ui,r.chargePullPx*.62f);
+      // The hilt/blade itself is rendered with the real 3D model by OpenGL.
+      // HUD only supplies the touch target, subtle track, and power readout.
+      float baseW=154*ui,baseH=76*ui;
+      float cx=w-82*ui;
+      float baseCy=Math.max(155*ui,lockRect.top-92*ui);
+      float travel=Math.min(150*ui,r.chargePullPx*.62f);
       float cy=baseCy+travel;
-      thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.5f,cx+baseW*.5f,cy+baseH*.5f);
+      thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.58f,cx+baseW*.5f,cy+baseH*.58f);
 
-      // Slim illuminated guide for a one-thumb pull-down shot control.
-      float trackTop=baseCy-baseH*.72f,trackBottom=Math.min(h-24*ui,baseCy+170*ui);
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(3*ui);
-      stroke.setColor(0x665BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
-      p.setStyle(Paint.Style.FILL);p.setColor(0x50050B14);
-      p.setShadowLayer(12*ui,0,0,0xAA5BD6FF);
-      c.drawRoundRect(new RectF(thumbHiltRect.left-8*ui,thumbHiltRect.top-7*ui,thumbHiltRect.right+8*ui,thumbHiltRect.bottom+7*ui),18*ui,18*ui,p);
-      p.clearShadowLayer();
-      stroke.setStrokeWidth(1.8f*ui);stroke.setColor(0xAA78E4FF);
-      c.drawRoundRect(new RectF(thumbHiltRect.left-8*ui,thumbHiltRect.top-7*ui,thumbHiltRect.right+8*ui,thumbHiltRect.bottom+7*ui),18*ui,18*ui,stroke);
-
-      Bitmap hb=hilts[Math.max(0,Math.min(5,r.hiltIndex))];
-      if(hb!=null){
-        RectF img=new RectF(thumbHiltRect.left+6*ui,thumbHiltRect.top+8*ui,thumbHiltRect.right-6*ui,thumbHiltRect.bottom-8*ui);
-        c.drawBitmap(hb,null,img,p);
-      }else{
-        p.setColor(0xFFE6EDF7);c.drawRoundRect(thumbHiltRect,9*ui,9*ui,p);
-      }
+      float trackTop=baseCy-62*ui,trackBottom=Math.min(h-24*ui,baseCy+174*ui);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
+      stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(11*ui);p.setColor(0xFFDDF8FF);
-      c.drawText("THUMB STRIKE",cx,trackTop-9*ui,p);
-      p.setTextSize(13*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFB8C7D8);
-      c.drawText(Math.round(r.power)+"%",cx,Math.min(h-8*ui,trackBottom+18*ui),p);
+      p.setTextSize(9.5f*ui);p.setColor(0xA9DDF8FF);
+      c.drawText("THUMB STRIKE",cx,trackTop-8*ui,p);
+      p.setTextSize(13*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFC1CDDA);
+      c.drawText(Math.round(r.power)+"%",cx,Math.min(h-8*ui,trackBottom+17*ui),p);
     }
 
     public boolean onTouchEvent(MotionEvent e){
@@ -1610,7 +1611,7 @@ public class MainActivity extends Activity {
 
       if(pullingThumbHilt){
         if(a==MotionEvent.ACTION_MOVE){
-          float pull=Math.max(0,y-thumbPullStartY);
+          float pull=Math.max(0,y-thumbPullStartY)*1.28f;
           if(r.state==GameRenderer.CHARGING){
             final float fp=pull;game.queueEvent(()->r.updateWorldCharge(fp,h));
           }
@@ -1739,7 +1740,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; MultiplayerManager net; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere,hiltCylinder,hiltBox,teamAidRing; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox,teamAidRing,thumbBladeMesh; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final ArrayList<float[]> predictorRails=new ArrayList<>();
     final float[][][] ringRadii={
@@ -1763,7 +1764,7 @@ public class MainActivity extends Activity {
     final float[][] ringTilt={{17,24},{24,32},{29,-22},{14,38},{31,16},{20,-38},{34,27}};
     final float[] ringDepth={.18f,.22f,.20f,.18f,.22f,.18f,.24f};
     int program,aPos,aUv,aNormal,uMvp,uModel,uUseTex,uColor,uTex,uLit;
-    float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
+    float aspect=16f/9f; int surfaceW=1,surfaceH=1; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
     volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
@@ -1811,7 +1812,7 @@ public class MainActivity extends Activity {
     }
 
     int shader(int type,String src){int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);return s;}
-    public void onSurfaceChanged(GL10 gl,int w,int h){GLES20.glViewport(0,0,w,h);aspect=(float)w/Math.max(1,h);}
+    public void onSurfaceChanged(GL10 gl,int w,int h){GLES20.glViewport(0,0,w,h);surfaceW=Math.max(1,w);surfaceH=Math.max(1,h);aspect=(float)w/Math.max(1,h);}
 
     public void onDrawFrame(GL10 gl){
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
@@ -1847,6 +1848,7 @@ public class MainActivity extends Activity {
         drawPlanetRing(pvCache,b);
       }
       if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
+      if(state==CHARGING&&!gameOver&&localCanControl())drawThumbStrike3D();
       if(net!=null)net.onFrame(this);
     }
 
@@ -1900,6 +1902,7 @@ public class MainActivity extends Activity {
         hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
         teamAidRing=makeRingMesh(1.58f,.13f,64);
+        thumbBladeMesh=makeThumbBladeMesh();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
@@ -1959,6 +1962,17 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
+    Mesh makeThumbBladeMesh(){
+      // Unit quad: local Y is blade length, local X is blade width.
+      float[] p={
+        -.5f,0,0,  .5f,0,0,  .5f,1,0,
+        -.5f,0,0,  .5f,1,0, -.5f,1,0
+      };
+      // AssetBundle saber texture is vertical; V runs along blade length.
+      float[] uv={0,1, 1,1, 1,0, 0,1, 1,0, 0,0};
+      return new Mesh(p,uv);
+    }
+
     float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
     float hiltFrontEmitterOffset(){
@@ -1970,6 +1984,58 @@ public class MainActivity extends Activity {
       return hiltIndex==3?(L*.515f+.58f):(L*.50f);
     }
     float hiltBackWorld(){return hiltFrontEmitterOffset()+.95f+chargePullWorld;}
+
+    void drawThumbBladeOverlay(float[] pv,float x,float emitterY,float bladeLen,int texture,float width,float alpha){
+      if(thumbBladeMesh==null||bladeLen<=.002f)return;
+      float[] M=identity();
+      android.opengl.Matrix.translateM(M,0,x,emitterY,0);
+      android.opengl.Matrix.scaleM(M,0,width,bladeLen,1f);
+      drawMesh(thumbBladeMesh,pv,M,texture,new float[]{1f,1f,1f,alpha});
+    }
+
+    void drawThumbStrike3D(){
+      int hi=Math.max(0,Math.min(5,hiltIndex));
+      Mesh authored=realHiltMeshes[hi];
+      if(authored==null)return;
+
+      // Orthographic overlay lets us reuse the exact selected authored hilt model
+      // without tying this control to the table camera.
+      float[] O=new float[16];
+      android.opengl.Matrix.orthoM(O,0,-aspect,aspect,-1f,1f,-5f,5f);
+
+      float pullNorm=Math.max(0f,Math.min(1f,power/100f));
+      float x=aspect*.815f;
+      float baseY=-.13f;
+      float hiltTravel=.42f*pullNorm;
+      float hiltY=baseY-hiltTravel;
+      float hiltScale=.34f;
+      float emitterAtRest=baseY+hiltScale*.52f;
+      float emitterY=hiltY+hiltScale*.52f;
+      float bladeLen=Math.max(0f,emitterAtRest-emitterY);
+
+      GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
+
+      // Growing blade stays connected to the moving emitter and reaches back
+      // toward its rest position, matching the physical pull-back metaphor.
+      int bladeTex=saberTextures[Math.max(0,Math.min(5,bladeIndex))];
+      if(bladeLen>.004f){
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.105f,.32f);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        drawThumbBladeOverlay(O,x,emitterY,bladeLen,bladeTex,.060f,1f);
+      }
+
+      float[] M=identity();
+      android.opengl.Matrix.translateM(M,0,x,hiltY,0);
+      android.opengl.Matrix.rotateM(M,0,90f,0,0,1);
+      android.opengl.Matrix.rotateM(M,0,-16f,0,1,0);
+      android.opengl.Matrix.rotateM(M,0,8f,1,0,0);
+      android.opengl.Matrix.scaleM(M,0,hiltScale,hiltScale,hiltScale);
+      drawLitMesh(authored,O,M,realHiltTextures[hi],new float[]{1f,1f,1f,1f});
+
+      GLES20.glDepthMask(true);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
+    }
 
     void drawTexturedHiltCore(float[] pv,float len,float radius,float y,float angle,int texture){
       float[] M=identity();
@@ -3225,17 +3291,21 @@ public class MainActivity extends Activity {
       float dx=x2-x1,dz=z2-z1,len=(float)Math.sqrt(dx*dx+dz*dz);if(len<.02f)return;
       float angle=(float)Math.toDegrees(Math.atan2(-dz,dx));
       int texture=saberTextures[idx];
-      float width=5.50f;
+      // The predictor represents the CENTER path of a pool ball. Drawing it above
+      // that height creates a perspective/parallax offset at angled camera views,
+      // which made the real ball look consistently left/right of the beam.
+      float width=3.65f;
+      final float pathY=2.22f;
 
       GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_DEPTH_TEST);
 
       // Soft halo.
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      drawTexturedBlade(texture,pv,x1,z1,len,angle,width*1.55f,.34f,2.49f);
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width*1.65f,.30f,pathY);
 
-      // Native AssetBundle texture with its baked WHITE CORE intact.
+      // Bright native saber core centered exactly on the physical ball path.
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
-      drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.0f,2.52f);
+      drawTexturedBlade(texture,pv,x1,z1,len,angle,width,1.0f,pathY);
 
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(true);
     }
