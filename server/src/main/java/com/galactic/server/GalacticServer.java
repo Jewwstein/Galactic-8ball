@@ -12,8 +12,12 @@ import org.jbox2d.collision.shapes.EdgeShape;
 import org.jbox2d.common.Vec2;
 import org.jbox2d.dynamics.*;
 
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.*;
 import java.util.concurrent.*;
@@ -22,10 +26,10 @@ public class GalacticServer {
   static final ConcurrentHashMap<String, Room> rooms=new ConcurrentHashMap<>();
   static final ConcurrentHashMap<WebSocketChannel, Client> clients=new ConcurrentHashMap<>();
   static final SecureRandom RNG=new SecureRandom();
-  static final String CODE_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   static final ScheduledExecutorService TICKER=Executors.newSingleThreadScheduledExecutor(r->{
     Thread t=new Thread(r,"galactic-physics");t.setDaemon(true);return t;
   });
+  static final UserStore USERS=new UserStore();
 
   public static void main(String[] args){
     int port=Integer.parseInt(System.getenv().getOrDefault("PORT","10000"));
@@ -37,16 +41,12 @@ public class GalacticServer {
           protected void onFullTextMessage(WebSocketChannel ch, BufferedTextMessage message){
             handle(c,message.getData());
           }
-          protected void onCloseMessage(CloseMessage cm, WebSocketChannel ch){
-            leave(c);
-          }
-          protected void onError(WebSocketChannel ch, Throwable error){
-            leave(c);
-          }
+          protected void onCloseMessage(CloseMessage cm, WebSocketChannel ch){leave(c);}
+          protected void onError(WebSocketChannel ch, Throwable error){leave(c);}
         });
-        channel.addCloseTask(ch->leave(c));
+        channel.addCloseTask(ch->{leave(c);clients.remove(ch);});
         channel.resumeReceives();
-        send(channel,"WELCOME|GALACTIC-8BALL|SERVER-AUTH");
+        send(channel,"WELCOME|GALACTIC-8BALL|SERVER-AUTH|LOBBY");
       }
     });
 
@@ -74,73 +74,179 @@ public class GalacticServer {
 
   static void handle(Client c,String msg){
     try{
-      String[] p=msg.split("\\|");
+      String[] p=msg.split("\\|",-1);
       if(p.length==0)return;
       switch(p[0]){
-        case "CREATE" -> createRoom(c);
-        case "JOIN" -> {if(p.length>1)joinRoom(c,p[1].trim().toUpperCase(Locale.US));}
-        case "LEAVE" -> leave(c);
+        case "REGISTER" -> {
+          if(p.length<3){error(c,"Missing username or password");return;}
+          String username=decode(p[1]),password=decode(p[2]);
+          UserStore.AuthResult ar=USERS.register(username,password);
+          if(!ar.ok){authFail(c,ar.message);return;}
+          authenticate(c,ar.user);
+        }
+        case "LOGIN" -> {
+          if(p.length<3){error(c,"Missing username or password");return;}
+          String username=decode(p[1]),password=decode(p[2]);
+          UserStore.AuthResult ar=USERS.login(username,password);
+          if(!ar.ok){authFail(c,ar.message);return;}
+          authenticate(c,ar.user);
+        }
+        case "AUTH" -> {
+          if(p.length<2){authFail(c,"Saved login expired");return;}
+          User u=USERS.byToken(p[1]);
+          if(u==null){authFail(c,"Saved login expired");return;}
+          authenticate(c,u);
+        }
+        case "LOGOUT" -> {
+          leave(c);c.username=null;c.authToken=null;
+          send(c.channel,"LOGGED_OUT");
+        }
+        case "LOBBY" -> {
+          if(!requireAuth(c))return;
+          sendLobby(c);
+        }
+        case "CREATE_ROOM" -> {
+          if(!requireAuth(c))return;
+          if(p.length<2){error(c,"Room name required");return;}
+          createRoom(c,decode(p[1]));
+        }
+        case "JOIN_ROOM" -> {
+          if(!requireAuth(c))return;
+          if(p.length<2){error(c,"Room unavailable");return;}
+          joinRoom(c,p[1]);
+        }
+        case "LEAVE_ROOM" -> {
+          if(!requireAuth(c))return;
+          leaveRoomOnly(c,true);
+        }
         case "PING" -> send(c.channel,"PONG");
         case "CMD" -> {
+          if(!requireAuth(c))return;
           Room r=roomFor(c);
           if(r!=null)r.command(c,p);
         }
       }
     }catch(Exception e){
-      send(c.channel,"ERROR|BAD_MESSAGE");
+      error(c,"Bad message");
     }
   }
 
-  static Room roomFor(Client c){return c.roomCode==null?null:rooms.get(c.roomCode);}
-
-  static void createRoom(Client c){
-    leave(c);
-    String code;
-    do{code=randomCode();}while(rooms.containsKey(code));
-    Room room=new Room(code);
-    rooms.put(code,room);
-    room.player1=c;c.roomCode=code;c.player=1;
-    send(c.channel,"ROOM|"+code+"|1");
-    send(c.channel,room.snapshot());
+  static void authenticate(Client c,User u){
+    c.username=u.username;c.authToken=u.token;
+    send(c.channel,"AUTH_OK|"+encode(u.username)+"|"+u.token);
+    sendLobby(c);
   }
 
-  static void joinRoom(Client c,String code){
-    Room room=rooms.get(code);
-    if(room==null){send(c.channel,"ERROR|ROOM_NOT_FOUND");return;}
+  static boolean requireAuth(Client c){
+    if(c.username!=null&&!c.username.isEmpty())return true;
+    error(c,"Please log in first");
+    return false;
+  }
+
+  static void authFail(Client c,String reason){send(c.channel,"AUTH_FAIL|"+encode(reason));}
+  static void error(Client c,String reason){send(c.channel,"ERROR|"+encode(reason));}
+
+  static Room roomFor(Client c){return c.roomId==null?null:rooms.get(c.roomId);}
+
+  static void createRoom(Client c,String rawName){
+    String name=sanitizeRoomName(rawName);
+    if(name.isEmpty()){error(c,"Room name required");return;}
+    leaveRoomOnly(c,false);
+    String id=UUID.randomUUID().toString();
+    Room room=new Room(id,name,c.username);
+    rooms.put(id,room);
+    room.player1=c;c.roomId=id;c.player=1;
+    send(c.channel,"ROOM_JOINED|"+id+"|"+encode(name)+"|1");
+    send(c.channel,room.snapshot());
+    broadcastLobby();
+  }
+
+  static void joinRoom(Client c,String id){
+    Room room=rooms.get(id);
+    if(room==null){error(c,"Room no longer exists");return;}
     synchronized(room){
       if(room.player2!=null&&room.player2.channel.isOpen()){
-        send(c.channel,"ERROR|ROOM_FULL");return;
+        error(c,"Room is full");return;
       }
-      leave(c);
-      room.player2=c;c.roomCode=code;c.player=2;
-      send(c.channel,"ROOM|"+code+"|2");
-      if(room.player1!=null)send(room.player1.channel,"PLAYER_JOINED|2");
+      leaveRoomOnly(c,false);
+      room.player2=c;c.roomId=id;c.player=2;
+      send(c.channel,"ROOM_JOINED|"+id+"|"+encode(room.name)+"|2");
+      if(room.player1!=null)send(room.player1.channel,"PLAYER_JOINED|"+encode(c.username));
       send(c.channel,room.snapshot());
     }
+    broadcastLobby();
   }
 
   static void leave(Client c){
-    String code=c.roomCode;
-    c.roomCode=null;c.player=0;
-    if(code==null)return;
-    Room r=rooms.get(code);
-    if(r==null)return;
-    synchronized(r){
-      if(r.player1==c)r.player1=null;
-      if(r.player2==c)r.player2=null;
-      if(r.player1==null&&r.player2==null){
-        rooms.remove(code);
-      }else{
-        Client survivor=r.player1!=null?r.player1:r.player2;
-        if(survivor!=null)send(survivor.channel,"PLAYER_LEFT");
-      }
-    }
+    leaveRoomOnly(c,false);
   }
 
-  static String randomCode(){
-    StringBuilder s=new StringBuilder(6);
-    for(int i=0;i<6;i++)s.append(CODE_CHARS.charAt(RNG.nextInt(CODE_CHARS.length())));
-    return s.toString();
+  static void leaveRoomOnly(Client c,boolean notifySelf){
+    String id=c.roomId;
+    c.roomId=null;c.player=0;
+    if(id==null){
+      if(notifySelf)send(c.channel,"ROOM_LEFT");
+      return;
+    }
+    Room r=rooms.get(id);
+    if(r==null){
+      if(notifySelf)send(c.channel,"ROOM_LEFT");
+      return;
+    }
+    synchronized(r){
+      if(r.player1==c){
+        Client guest=r.player2;
+        r.player1=null;r.player2=null;
+        rooms.remove(id);
+        if(guest!=null){
+          guest.roomId=null;guest.player=0;
+          send(guest.channel,"ROOM_CLOSED|"+encode("Room owner left"));
+        }
+      }else if(r.player2==c){
+        r.player2=null;
+        if(r.player1!=null)send(r.player1.channel,"PLAYER_LEFT|"+encode(c.username==null?"Player 2":c.username));
+      }
+    }
+    if(notifySelf)send(c.channel,"ROOM_LEFT");
+    broadcastLobby();
+  }
+
+  static String sanitizeRoomName(String s){
+    if(s==null)return "";
+    s=s.trim().replaceAll("\\s+"," ");
+    if(s.length()>28)s=s.substring(0,28);
+    return s.replace("|","");
+  }
+
+  static void sendLobby(Client c){
+    send(c.channel,lobbyMessage());
+  }
+
+  static void broadcastLobby(){
+    String msg=lobbyMessage();
+    for(Client c:clients.values())if(c.username!=null)send(c.channel,msg);
+  }
+
+  static String lobbyMessage(){
+    ArrayList<Room> list=new ArrayList<>(rooms.values());
+    list.sort(Comparator.comparingLong(r->r.createdAt));
+    StringBuilder sb=new StringBuilder("LOBBY|");
+    for(Room r:list){
+      int count=(r.player1!=null?1:0)+(r.player2!=null?1:0);
+      sb.append(r.id).append(',').append(encode(r.name)).append(',').append(encode(r.owner)).append(',').append(count).append(",2;");
+    }
+    return sb.toString();
+  }
+
+  static String encode(String s){
+    if(s==null)s="";
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+  }
+
+  static String decode(String s){
+    if(s==null||s.isEmpty())return "";
+    try{return new String(Base64.getUrlDecoder().decode(s),StandardCharsets.UTF_8);}
+    catch(Exception e){return "";}
   }
 
   static void send(WebSocketChannel ch,String msg){
@@ -150,9 +256,117 @@ public class GalacticServer {
 
   static class Client{
     final WebSocketChannel channel;
-    volatile String roomCode;
+    volatile String roomId;
     volatile int player;
+    volatile String username;
+    volatile String authToken;
     Client(WebSocketChannel c){channel=c;}
+  }
+
+  static class User{
+    String username,salt,hash,token;
+    User(String u,String s,String h,String t){username=u;salt=s;hash=h;token=t;}
+  }
+
+  static class UserStore{
+    final HashMap<String,User> users=new HashMap<>();
+    final Path file;
+
+    UserStore(){
+      String dir=System.getenv().getOrDefault("DATA_DIR","data");
+      file=Paths.get(dir,"users.db");
+      load();
+    }
+
+    static class AuthResult{
+      final boolean ok;final String message;final User user;
+      AuthResult(boolean o,String m,User u){ok=o;message=m;user=u;}
+    }
+
+    synchronized AuthResult register(String rawUser,String password){
+      String username=normalizeUsername(rawUser);
+      if(username==null)return new AuthResult(false,"Username must be 3-18 letters, numbers, or underscores",null);
+      if(password==null||password.length()<6)return new AuthResult(false,"Password must be at least 6 characters",null);
+      String key=username.toLowerCase(Locale.US);
+      if(users.containsKey(key))return new AuthResult(false,"Username already exists",null);
+      try{
+        byte[] salt=new byte[16];RNG.nextBytes(salt);
+        byte[] hash=pbkdf(password.toCharArray(),salt);
+        String token=randomToken();
+        User u=new User(username,b64(salt),b64(hash),token);
+        users.put(key,u);save();
+        return new AuthResult(true,"OK",u);
+      }catch(Exception e){
+        return new AuthResult(false,"Could not create account",null);
+      }
+    }
+
+    synchronized AuthResult login(String rawUser,String password){
+      String username=normalizeUsername(rawUser);
+      if(username==null)return new AuthResult(false,"Invalid username or password",null);
+      User u=users.get(username.toLowerCase(Locale.US));
+      if(u==null)return new AuthResult(false,"Invalid username or password",null);
+      try{
+        byte[] got=pbkdf(password.toCharArray(),Base64.getUrlDecoder().decode(u.salt));
+        byte[] expected=Base64.getUrlDecoder().decode(u.hash);
+        if(!MessageDigest.isEqual(got,expected))return new AuthResult(false,"Invalid username or password",null);
+        u.token=randomToken();save();
+        return new AuthResult(true,"OK",u);
+      }catch(Exception e){
+        return new AuthResult(false,"Invalid username or password",null);
+      }
+    }
+
+    synchronized User byToken(String token){
+      if(token==null||token.isEmpty())return null;
+      for(User u:users.values())if(token.equals(u.token))return u;
+      return null;
+    }
+
+    String normalizeUsername(String s){
+      if(s==null)return null;
+      s=s.trim();
+      return s.matches("[A-Za-z0-9_]{3,18}")?s:null;
+    }
+
+    byte[] pbkdf(char[] password,byte[] salt)throws Exception{
+      PBEKeySpec spec=new PBEKeySpec(password,salt,120000,256);
+      try{return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();}
+      finally{spec.clearPassword();}
+    }
+
+    String randomToken(){
+      byte[] b=new byte[32];RNG.nextBytes(b);return b64(b);
+    }
+
+    String b64(byte[] b){return Base64.getUrlEncoder().withoutPadding().encodeToString(b);}
+
+    synchronized void load(){
+      try{
+        if(!Files.exists(file))return;
+        for(String line:Files.readAllLines(file,StandardCharsets.UTF_8)){
+          String[] p=line.split("\\t",-1);
+          if(p.length<4)continue;
+          String username=decode(p[0]);
+          if(username.isEmpty())continue;
+          users.put(username.toLowerCase(Locale.US),new User(username,p[1],p[2],p[3]));
+        }
+        System.out.println("Loaded "+users.size()+" Galactic accounts from "+file);
+      }catch(Exception e){
+        System.err.println("User database load failed: "+e.getMessage());
+      }
+    }
+
+    synchronized void save()throws IOException{
+      Files.createDirectories(file.getParent());
+      Path tmp=file.resolveSibling(file.getFileName()+".tmp");
+      ArrayList<String> lines=new ArrayList<>();
+      for(User u:users.values())lines.add(encode(u.username)+"\t"+u.salt+"\t"+u.hash+"\t"+u.token);
+      Collections.sort(lines);
+      Files.write(tmp,lines,StandardCharsets.UTF_8,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING);
+      try{Files.move(tmp,file,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);}
+      catch(AtomicMoveNotSupportedException e){Files.move(tmp,file,StandardCopyOption.REPLACE_EXISTING);}
+    }
   }
 
   static class Ball{
@@ -170,7 +384,8 @@ public class GalacticServer {
     static final float STOP_SPEED=.20f,ROLL_DECEL_FAST=1.60f,ROLL_DECEL_SLOW=5.25f;
     static final float R=1.192f,PHYS_R=1.1900001f,MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
 
-    final String code;
+    final String id,name,owner;
+    final long createdAt=System.currentTimeMillis();
     Client player1,player2;
     final ArrayList<Ball> balls=new ArrayList<>();
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
@@ -182,7 +397,7 @@ public class GalacticServer {
     String ruleMessage="BREAK • TEAM 1";
     int tickCounter=0;
 
-    Room(String c){code=c;resetRack();}
+    Room(String id,String name,String owner){this.id=id;this.name=name;this.owner=owner;resetRack();}
 
     synchronized void tick(){
       if(state==ROLLING){
@@ -205,7 +420,7 @@ public class GalacticServer {
       if(c.player<=0)return;
       String op=p.length>1?p[1]:"";
       boolean admin="RACK".equals(op)||"SHOOTER".equals(op)||"TEAM".equals(op);
-      if(!admin&&c.player!=activeShooter){send(c.channel,"ERROR|NOT_ACTIVE_SHOOTER");return;}
+      if(!admin&&c.player!=activeShooter){error(c,"Not active shooter");return;}
       try{
         switch(op){
           case "AIM" -> {if(p.length>2&&state==AIMING)setAim(Float.parseFloat(p[2]));}
