@@ -577,13 +577,51 @@ public class MainActivity extends Activity {
   }
 
   static class Mesh {
-    FloatBuffer pos,uv; int count;
+    FloatBuffer pos,uv,norm; int count;
     Mesh(float[] p,float[] t){
       count=p.length/3;
       ByteBuffer bp=ByteBuffer.allocateDirect(p.length*4).order(ByteOrder.nativeOrder());
       pos=bp.asFloatBuffer(); pos.put(p).position(0);
       ByteBuffer bt=ByteBuffer.allocateDirect(t.length*4).order(ByteOrder.nativeOrder());
       uv=bt.asFloatBuffer(); uv.put(t).position(0);
+
+      float[] n=buildSmoothNormals(p);
+      ByteBuffer bn=ByteBuffer.allocateDirect(n.length*4).order(ByteOrder.nativeOrder());
+      norm=bn.asFloatBuffer(); norm.put(n).position(0);
+    }
+
+    static String key(float x,float y,float z){
+      return Math.round(x*10000f)+":"+Math.round(y*10000f)+":"+Math.round(z*10000f);
+    }
+
+    static float[] buildSmoothNormals(float[] p){
+      HashMap<String,float[]> sums=new HashMap<>();
+      int verts=p.length/3;
+      for(int i=0;i+8<p.length;i+=9){
+        float ax=p[i],ay=p[i+1],az=p[i+2];
+        float bx=p[i+3],by=p[i+4],bz=p[i+5];
+        float cx=p[i+6],cy=p[i+7],cz=p[i+8];
+        float ux=bx-ax,uy=by-ay,uz=bz-az;
+        float vx=cx-ax,vy=cy-ay,vz=cz-az;
+        float nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+        float nl=(float)Math.sqrt(nx*nx+ny*ny+nz*nz);
+        if(nl<1e-8f){nx=0;ny=1;nz=0;}else{nx/=nl;ny/=nl;nz/=nl;}
+        for(int k=0;k<3;k++){
+          int j=i+k*3;String q=key(p[j],p[j+1],p[j+2]);
+          float[] a=sums.get(q);
+          if(a==null){a=new float[]{0,0,0};sums.put(q,a);}
+          a[0]+=nx;a[1]+=ny;a[2]+=nz;
+        }
+      }
+      float[] out=new float[verts*3];
+      for(int v=0;v<verts;v++){
+        int j=v*3;float[] a=sums.get(key(p[j],p[j+1],p[j+2]));
+        float nx=a==null?0:a[0],ny=a==null?1:a[1],nz=a==null?0:a[2];
+        float nl=(float)Math.sqrt(nx*nx+ny*ny+nz*nz);
+        if(nl<1e-8f){nx=0;ny=1;nz=0;nl=1;}
+        out[j]=nx/nl;out[j+1]=ny/nl;out[j+2]=nz/nl;
+      }
+      return out;
     }
   }
 
@@ -625,7 +663,7 @@ public class MainActivity extends Activity {
     };
     final float[][] ringTilt={{17,24},{24,32},{29,-22},{14,38},{31,16},{20,-38},{34,27}};
     final float[] ringDepth={.18f,.22f,.20f,.18f,.22f,.18f,.24f};
-    int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
+    int program,aPos,aUv,aNormal,uMvp,uModel,uUseTex,uColor,uTex,uLit;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
@@ -659,13 +697,13 @@ public class MainActivity extends Activity {
       GLES20.glClearColor(0f,0f,0f,0f);
       GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_BLEND);
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
-      String vs="attribute vec3 aPos;attribute vec2 aUv;uniform mat4 uMvp;varying vec2 vUv;void main(){gl_Position=uMvp*vec4(aPos,1.0);vUv=vec2(aUv.x,1.0-aUv.y);}";
-      String fs="precision mediump float;varying vec2 vUv;uniform sampler2D uTex;uniform float uUseTex;uniform vec4 uColor;void main(){vec4 c=uColor;if(uUseTex>0.5)c*=texture2D(uTex,vUv);if(c.a<0.015)discard;gl_FragColor=c;}";
+      String vs="attribute vec3 aPos;attribute vec2 aUv;attribute vec3 aNormal;uniform mat4 uMvp;uniform mat4 uModel;varying vec2 vUv;varying vec3 vNormal;void main(){gl_Position=uMvp*vec4(aPos,1.0);vUv=vec2(aUv.x,1.0-aUv.y);vNormal=normalize(mat3(uModel)*aNormal);}";
+      String fs="precision mediump float;varying vec2 vUv;varying vec3 vNormal;uniform sampler2D uTex;uniform float uUseTex;uniform float uLit;uniform vec4 uColor;void main(){vec4 c=uColor;if(uUseTex>0.5)c*=texture2D(uTex,vUv);if(c.a<0.015)discard;if(uLit>0.5){vec3 n=normalize(vNormal);vec3 l=normalize(vec3(0.35,0.82,0.46));float d=max(dot(n,l),0.0);float s=pow(max(dot(n,normalize(vec3(-0.18,0.94,0.29))),0.0),22.0);float edge=pow(1.0-abs(n.y),2.0);c.rgb=c.rgb*(0.58+0.58*d)+vec3(s*0.34)+vec3(edge*0.035);}gl_FragColor=c;}";
       program=GLES20.glCreateProgram();int sv=shader(GLES20.GL_VERTEX_SHADER,vs),sf=shader(GLES20.GL_FRAGMENT_SHADER,fs);
       GLES20.glAttachShader(program,sv);GLES20.glAttachShader(program,sf);GLES20.glLinkProgram(program);
-      aPos=GLES20.glGetAttribLocation(program,"aPos");aUv=GLES20.glGetAttribLocation(program,"aUv");
-      uMvp=GLES20.glGetUniformLocation(program,"uMvp");uUseTex=GLES20.glGetUniformLocation(program,"uUseTex");
-      uColor=GLES20.glGetUniformLocation(program,"uColor");uTex=GLES20.glGetUniformLocation(program,"uTex");
+      aPos=GLES20.glGetAttribLocation(program,"aPos");aUv=GLES20.glGetAttribLocation(program,"aUv");aNormal=GLES20.glGetAttribLocation(program,"aNormal");
+      uMvp=GLES20.glGetUniformLocation(program,"uMvp");uModel=GLES20.glGetUniformLocation(program,"uModel");uUseTex=GLES20.glGetUniformLocation(program,"uUseTex");
+      uColor=GLES20.glGetUniformLocation(program,"uColor");uTex=GLES20.glGetUniformLocation(program,"uTex");uLit=GLES20.glGetUniformLocation(program,"uLit");
       loadAssets();resetRack();last=System.nanoTime();
     }
 
@@ -717,13 +755,24 @@ public class MainActivity extends Activity {
       };
     }
 
-    void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
+    void drawMeshInternal(Mesh m,float[] pv,float[] model,int texture,float[] color,boolean lit){
       if(m==null)return;float[] mvp=new float[16];android.opengl.Matrix.multiplyMM(mvp,0,pv,0,model,0);
-      GLES20.glUniformMatrix4fv(uMvp,1,false,mvp,0);GLES20.glUniform4fv(uColor,1,color,0);GLES20.glUniform1f(uUseTex,texture!=0?1f:0f);
+      GLES20.glUniformMatrix4fv(uMvp,1,false,mvp,0);GLES20.glUniformMatrix4fv(uModel,1,false,model,0);
+      GLES20.glUniform4fv(uColor,1,color,0);GLES20.glUniform1f(uUseTex,texture!=0?1f:0f);GLES20.glUniform1f(uLit,lit?1f:0f);
       if(texture!=0){GLES20.glActiveTexture(GLES20.GL_TEXTURE0);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,texture);GLES20.glUniform1i(uTex,0);}
       GLES20.glEnableVertexAttribArray(aPos);GLES20.glVertexAttribPointer(aPos,3,GLES20.GL_FLOAT,false,0,m.pos);
       GLES20.glEnableVertexAttribArray(aUv);GLES20.glVertexAttribPointer(aUv,2,GLES20.GL_FLOAT,false,0,m.uv);
-      GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,m.count);GLES20.glDisableVertexAttribArray(aPos);GLES20.glDisableVertexAttribArray(aUv);
+      GLES20.glEnableVertexAttribArray(aNormal);GLES20.glVertexAttribPointer(aNormal,3,GLES20.GL_FLOAT,false,0,m.norm);
+      GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,m.count);
+      GLES20.glDisableVertexAttribArray(aPos);GLES20.glDisableVertexAttribArray(aUv);GLES20.glDisableVertexAttribArray(aNormal);
+    }
+
+    void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
+      drawMeshInternal(m,pv,model,texture,color,false);
+    }
+
+    void drawLitMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
+      drawMeshInternal(m,pv,model,texture,color,true);
     }
 
     void loadAssets(){
@@ -826,7 +875,7 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.translateM(M,0,cx,y,cz);
       android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
       android.opengl.Matrix.scaleM(M,0,len,radius,radius);
-      drawMesh(hiltCylinder,pv,M,0,color);
+      drawLitMesh(hiltCylinder,pv,M,0,color);
     }
 
     void drawHiltBox(float[] pv,float center,float len,float sy,float sz,float y,float z,float angle,float[] color){
@@ -837,7 +886,7 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.translateM(M,0,cx,y,cz);
       android.opengl.Matrix.rotateM(M,0,angle,0,1,0);
       android.opengl.Matrix.scaleM(M,0,len,sy,sz);
-      drawMesh(hiltBox,pv,M,0,color);
+      drawLitMesh(hiltBox,pv,M,0,color);
     }
 
     void drawWorldHilt3D(float[] pv){
@@ -858,7 +907,7 @@ public class MainActivity extends Activity {
         // preserving its true proportions, so a uniform scale keeps the authored shape.
         float L=hiltWorldLength();
         android.opengl.Matrix.scaleM(M,0,L,L,L);
-        drawMesh(authored,pv,M,realHiltTextures[hi],new float[]{1f,1f,1f,1f});
+        drawLitMesh(authored,pv,M,realHiltTextures[hi],new float[]{1f,1f,1f,1f});
 
         float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
 
@@ -866,17 +915,20 @@ public class MainActivity extends Activity {
           // The source Maul blend is slightly asymmetric at the emitter caps.
           // Add matching physical collars to BOTH ends so the double hilt reads
           // correctly from every camera angle without changing gameplay physics.
-          float e=L*.493f;
-          float[] silver={.74f,.77f,.82f,1f};
-          float[] gunmetal={.16f,.17f,.19f,1f};
-          drawHiltPart(pv, e,.34f,1.00f,y,0,angle,silver);
-          drawHiltPart(pv,-e,.34f,1.00f,y,0,angle,silver);
-          drawHiltPart(pv, e+.18f,.16f,.72f,y,0,angle,gunmetal);
-          drawHiltPart(pv,-e-.18f,.16f,.72f,y,0,angle,gunmetal);
+          float e=L*.515f;
+          float[] silver={.78f,.81f,.86f,1f};
+          float[] gunmetal={.13f,.14f,.16f,1f};
+          // Mirrored 3-piece emitter assemblies on both ends.
+          drawHiltPart(pv, e,.52f,1.14f,y,0,angle,silver);
+          drawHiltPart(pv,-e,.52f,1.14f,y,0,angle,silver);
+          drawHiltPart(pv, e+.30f,.22f,.94f,y,0,angle,gunmetal);
+          drawHiltPart(pv,-e-.30f,.22f,.94f,y,0,angle,gunmetal);
+          drawHiltPart(pv, e+.45f,.16f,.72f,y,0,angle,silver);
+          drawHiltPart(pv,-e-.45f,.16f,.72f,y,0,angle,silver);
 
           GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-          drawHiltPart(pv, e+.22f,.10f,.84f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.40f});
-          drawHiltPart(pv,-e-.22f,.10f,.84f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.40f});
+          drawHiltPart(pv, e+.51f,.10f,.80f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.46f});
+          drawHiltPart(pv,-e-.51f,.10f,.80f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.46f});
           GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
 
           // In aiming mode the cue-facing blade joins the predictor at the cue ball,
