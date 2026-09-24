@@ -124,8 +124,9 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         drawWorldShotHilt(c,w,h,ui,r);
+        drawCrosshairButton(c,lockRect,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("AIM • DOUBLE TAP TO LOCK",w*.5f,42*ui,p);
+        c.drawText("AIM • TAP LOCK",w*.5f,42*ui,p);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
@@ -255,7 +256,7 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("DOUBLE TAP TO LOCK AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
+        c.drawText("TAP LOCK TO SET AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
       } else if(r.state==GameRenderer.CHARGING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEFFFFFF);p.setTextAlign(Paint.Align.CENTER);
         c.drawText("PULL BACK • RELEASE TO STRIKE",worldHiltRect.centerX(),worldHiltRect.centerY()+worldHiltRect.height()*1.15f,p);
@@ -301,15 +302,9 @@ public class MainActivity extends Activity {
           return true;
         }
 
-        if(r.state==GameRenderer.AIMING){
-          long now=System.currentTimeMillis();
-          float ddx=x-lastAimTapX,ddy=y-lastAimTapY;
-          if(lastAimTapMs>0 && now-lastAimTapMs<=320 && ddx*ddx+ddy*ddy<Math.max(80*ui,64)*Math.max(80*ui,64)){
-            lastAimTapMs=0;
-            game.queueEvent(()->r.lockAngle());
-            return true;
-          }
-          lastAimTapMs=now;lastAimTapX=x;lastAimTapY=y;
+        if(r.state==GameRenderer.AIMING && lockRect.contains(x,y)){
+          game.queueEvent(()->r.lockAngle());
+          return true;
         }
 
         if(r.state==GameRenderer.SELECTING_ENGLISH){
@@ -394,7 +389,7 @@ public class MainActivity extends Activity {
     Mesh sphere; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     int program,aPos,aUv,uMvp,uUseTex,uColor,uTex;
     float aspect=16f/9f; long last=0; float[] pvCache=new float[16];
-    volatile float camYaw=0f,camPitch=41f,camDist=128f,camTargetX=0f,camTargetZ=0f;
+    volatile float camYaw=180f,camPitch=46f,camDist=225f,camTargetX=0f,camTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
     volatile float power=0,englishX=0,englishY=0;
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0; volatile float chargePullPx=0; boolean breakAssistArmed=true;
@@ -519,6 +514,20 @@ public class MainActivity extends Activity {
     }
 
     Mesh loadObj(String path)throws Exception{
+      String bin=path.endsWith(".obj")?path.substring(0,path.length()-4)+".meshbin":path+".meshbin";
+      try(DataInputStream in=new DataInputStream(new BufferedInputStream(ctx.getAssets().open(bin),262144))){
+        byte[] magic=new byte[4];in.readFully(magic);
+        if(magic[0]=='G'&&magic[1]=='M'&&magic[2]=='H'&&magic[3]=='1'){
+          int n=in.readInt();
+          float[] p=new float[n*3],t=new float[n*2];
+          for(int i=0;i<n;i++){
+            p[i*3]=in.readFloat();p[i*3+1]=in.readFloat();p[i*3+2]=in.readFloat();
+            t[i*2]=in.readFloat();t[i*2+1]=in.readFloat();
+          }
+          return new Mesh(p,t);
+        }
+      }catch(IOException ignored){}
+
       ArrayList<float[]> verts=new ArrayList<>(),uvs=new ArrayList<>();ArrayList<Float> po=new ArrayList<>(),to=new ArrayList<>();
       try(BufferedReader br=new BufferedReader(new InputStreamReader(ctx.getAssets().open(path)))){String l;while((l=br.readLine())!=null){
         if(l.startsWith("v ")){String[] q=l.trim().split("\\s+");verts.add(new float[]{Float.parseFloat(q[1]),Float.parseFloat(q[2]),Float.parseFloat(q[3])});}
@@ -537,7 +546,7 @@ public class MainActivity extends Activity {
     void cameraGesture(float dragX,float dragY,float pinch){
       camYaw-=dragX*.16f;
       camPitch=Math.max(18f,Math.min(78f,camPitch+dragY*.12f));
-      if(pinch>.01f)camDist=Math.max(58f,Math.min(190f,camDist/pinch));
+      if(pinch>.01f)camDist=Math.max(70f,Math.min(340f,camDist/pinch));
     }
 
     float[] worldToScreen(float x,float y,float z,int w,int h){
