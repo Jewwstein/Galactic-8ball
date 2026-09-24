@@ -1,6 +1,5 @@
 from pathlib import Path
-import UnityPy,json,io,wave
-import numpy as np
+import UnityPy,json,subprocess
 
 src=Path("app/src/main/assets/sfx_bundle/saber_sfx.unity3d")
 rawout=Path("app/src/main/res/raw")
@@ -56,8 +55,7 @@ for idx,outname in mapping.items():
     if not samples:
         raise RuntimeError(f"No decoded sample for {clipname}")
     sample_name,blob=next(iter(samples.items()))
-    # Keep the exact decoded TTS clip and encode it as Vorbis for Android.
-    # This preserves the original source far better than shipping huge PCM WAVs.
+
     wav=rawout/f"{outname}_source.wav"
     ogg=rawout/f"{outname}.ogg"
     wav.write_bytes(blob)
@@ -66,6 +64,7 @@ for idx,outname in mapping.items():
         "-i",str(wav),"-vn","-c:a","libvorbis","-q:a","4",str(ogg)
     ],check=True)
     wav.unlink()
+
     manifest.append({
         "trigger_index":idx,
         "effect_name":effect.get("Name",""),
@@ -75,3 +74,6 @@ for idx,outname in mapping.items():
         "bytes":ogg.stat().st_size
     })
     print("SFX",idx,effect.get("Name",""),"->",clipname,"->",ogg.name,ogg.stat().st_size)
+
+(rawout/"sfx_manifest.json").write_text(json.dumps(manifest,indent=2))
+print("Extracted",len(manifest),"exact v428 gameplay sounds")
