@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y -qq ffmpeg
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
-          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio
+          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio app/src/main/assets/hilt_materials
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
@@ -94,6 +94,7 @@ jobs:
           python tools/extract_balls.py
           python tools/extract_sabers.py
           python tools/extract_audio.py
+          python tools/generate_hilt_materials.py
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
           python -c 'from PIL import Image; p="app/src/main/assets/environment/sky.jpg"; im=Image.open(p).convert("RGB"); im.thumbnail((2048,2048),Image.Resampling.LANCZOS); im.save(p,quality=91,optimize=True)'
@@ -108,6 +109,7 @@ jobs:
             app/src/main/assets/extracted
             app/src/main/assets/objects
             app/src/main/assets/sabers
+            app/src/main/assets/hilt_materials
             app/src/main/res/raw
       - uses: gradle/actions/setup-gradle@v4
         with:
