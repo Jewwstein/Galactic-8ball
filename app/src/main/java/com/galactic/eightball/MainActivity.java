@@ -582,7 +582,8 @@ public class MainActivity extends Activity {
   }
 
   static class Ball{
-    float x,z,vx,vz,spin,rotX,rotZ; boolean active=true,sinking=false; int tex; Body body;
+    float x,z,vx,vz,spin; boolean active=true,sinking=false; int tex; Body body;
+    float qx=0,qy=0,qz=0,qw=1;
     float sinkT=0,sinkStartX=0,sinkStartZ=0,sinkX=0,sinkZ=0; int index=0;
     Ball(float X,float Z,int T){x=X;z=Z;tex=T;}
     float speed2(){return vx*vx+vz*vz;}
@@ -627,12 +628,13 @@ public class MainActivity extends Activity {
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
-    static final float TTS_DRAG=.68f;
+    static final float TTS_DRAG=.82f;
     static final float TTS_ANGULAR_DRAG=.45f;
     static final float TTS_STATIC_FRICTION=.40f;
     static final float TTS_DYNAMIC_FRICTION=.20f;
     static final float TTS_BOUNCINESS=1.0f;
-    static final float STOP_SPEED=.10f;
+    static final float STOP_SPEED=.16f;
+    static final float ROLL_DECEL=2.35f;
     // Visual radius is the TTS predictor radius. Collision radius is derived from
     // the exact TTS rack spacing sqrt(2.09^2+1.21^2)/2 so the rack is actually in contact.
     final float R=1.192f, PHYS_R=1.1900001f, MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
@@ -683,10 +685,25 @@ public class MainActivity extends Activity {
       for(Ball b:balls)if(b.active){
         float sinkEase=b.sinking?(1f-(1f-b.sinkT)*(1f-b.sinkT)):0f;
         float by=2.22f-2.8f*sinkEase,bs=R*(1f-.18f*sinkEase);
-        float[] M=identity();android.opengl.Matrix.translateM(M,0,b.x,by,b.z);android.opengl.Matrix.rotateM(M,0,b.rotX,1,0,0);android.opengl.Matrix.rotateM(M,0,b.rotZ,0,0,1);android.opengl.Matrix.scaleM(M,0,bs,bs,bs);drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
+        float[] T=identity();android.opengl.Matrix.translateM(T,0,b.x,by,b.z);
+        float[] Q=quatMatrix(b),M=new float[16];
+        android.opengl.Matrix.multiplyMM(M,0,T,0,Q,0);
+        android.opengl.Matrix.scaleM(M,0,bs,bs,bs);
+        drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
         drawPlanetRing(pvCache,b);
       }
       if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
+    }
+
+    float[] quatMatrix(Ball b){
+      float x=b.qx,y=b.qy,z=b.qz,w=b.qw;
+      float xx=x*x,yy=y*y,zz=z*z,xy=x*y,xz=x*z,yz=y*z,wx=w*x,wy=w*y,wz=w*z;
+      return new float[]{
+        1-2*(yy+zz), 2*(xy+wz), 2*(xz-wy), 0,
+        2*(xy-wz), 1-2*(xx+zz), 2*(yz+wx), 0,
+        2*(xz+wy), 2*(yz-wx), 1-2*(xx+yy), 0,
+        0,0,0,1
+      };
     }
 
     void drawMesh(Mesh m,float[] pv,float[] model,int texture,float[] color){
@@ -994,7 +1011,7 @@ public class MainActivity extends Activity {
 
     void createRailEdge(float x1,float z1,float x2,float z2){
       EdgeShape edge=new EdgeShape();edge.set(new Vec2(x1,z1),new Vec2(x2,z2));
-      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.78f;
+      FixtureDef fd=new FixtureDef();fd.shape=edge;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.74f;
       railBody.createFixture(fd);
     }
 
@@ -1032,7 +1049,7 @@ public class MainActivity extends Activity {
         bd.bullet=(b.index==0);bd.allowSleep=true;
         b.body=world.createBody(bd);
         CircleShape cs=new CircleShape();cs.m_radius=PHYS_R;
-        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.94f;
+        FixtureDef fd=new FixtureDef();fd.shape=cs;fd.density=density;fd.friction=TTS_DYNAMIC_FRICTION;fd.restitution=.91f;
         b.body.createFixture(fd);
         b.body.setUserData(b);
       }
@@ -1111,11 +1128,11 @@ public class MainActivity extends Activity {
 
       // Exact positions from Star Wars Galactic 8-Ball v428 / TTS.
       float[][] p={
-        {20.0f,0.0f},
-        {22.09f,-1.21f},{22.09f,1.21f},
-        {24.18f,-2.42f},{24.18f,0.0f},{24.18f,2.42f},
-        {26.27f,-3.63f},{26.27f,-1.21f},{26.27f,1.21f},{26.27f,3.63f},
-        {28.36f,-4.84f},{28.36f,-2.42f},{28.36f,0.0f},{28.36f,2.42f},{28.36f,4.84f}
+        {20.000f, 0.000f},
+        {22.090f,-1.214f},{22.092f, 1.207f},
+        {24.178f,-2.421f},{24.184f, 0.004f},{24.180f, 2.417f},
+        {26.271f,-3.635f},{26.267f,-1.205f},{26.274f, 1.216f},{26.269f, 3.626f},
+        {28.355f,-4.846f},{28.364f,-2.414f},{28.357f,-0.006f},{28.366f, 2.427f},{28.360f, 4.836f}
       };
       for(int i=0;i<15;i++){Ball nb=new Ball(p[i][0],p[i][1],tex.getOrDefault("ball"+(i+1),0));nb.index=i+1;balls.add(nb);}
       buildPhysicsWorld();
@@ -1187,7 +1204,7 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
       // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
-      float speed=power*1.65f*1.25f*.40f;
+      float speed=power*1.65f*1.25f*.62f;
       cue.spin=englishX*speed*.06f;
       sideSpin=englishX;topSpin=englishY;
       if(cue.body!=null){
@@ -1197,19 +1214,46 @@ public class MainActivity extends Activity {
       state=ROLLING;power=0;chargePullPx=0;chargePullWorld=0;chargeStartY=-1;
     }
 
+    void applyRollQuaternion(Ball b,float dx,float dz){
+      float dist=(float)Math.sqrt(dx*dx+dz*dz);if(dist<1e-6f)return;
+      float ax=-dz/dist,ay=0,az=dx/dist;
+      float half=(dist/R)*.5f;
+      float sh=(float)Math.sin(half),ch=(float)Math.cos(half);
+      float rx=ax*sh,ry=ay*sh,rz=az*sh,rw=ch;
+
+      // World-space incremental rotation: dq * current.
+      float nx=rw*b.qx + rx*b.qw + ry*b.qz - rz*b.qy;
+      float ny=rw*b.qy - rx*b.qz + ry*b.qw + rz*b.qx;
+      float nz=rw*b.qz + rx*b.qy - ry*b.qx + rz*b.qw;
+      float nw=rw*b.qw - rx*b.qx - ry*b.qy - rz*b.qz;
+      float n=(float)Math.sqrt(nx*nx+ny*ny+nz*nz+nw*nw);
+      if(n>.00001f){b.qx=nx/n;b.qy=ny/n;b.qz=nz/n;b.qw=nw/n;}
+    }
+
     void syncBodies(){
       for(Ball b:balls){
         if(!b.active||b.sinking||b.body==null)continue;
         Vec2 p=b.body.getPosition(),v=b.body.getLinearVelocity();
-        float ox=b.x,oz=b.z;b.x=p.x;b.z=p.y;b.vx=v.x;b.vz=v.y;
-        b.rotX+=(b.z-oz)/R*57.29578f;b.rotZ-=(b.x-ox)/R*57.29578f;
+        float ox=b.x,oz=b.z;
+        b.x=p.x;b.z=p.y;
+        applyRollQuaternion(b,b.x-ox,b.z-oz);
 
-        // TTS's per-ball onFixedUpdate mass self-assignment helps sleeping.
-        // Mirror that behavior with a tiny low-speed sleep threshold.
-        float sp2=v.x*v.x+v.y*v.y;
-        if(sp2<STOP_SPEED*STOP_SPEED){
-          b.body.setLinearVelocity(new Vec2(0,0));
-          b.body.setAngularVelocity(0);
+        // Add cloth-style rolling resistance. JBox2D's exponential damping alone
+        // reads visually like air-hockey sliding; this constant deceleration makes
+        // the balls roll down naturally and then come to a clean stop.
+        float sp=(float)Math.sqrt(v.x*v.x+v.y*v.y);
+        if(sp>0){
+          float ns=Math.max(0f,sp-ROLL_DECEL*FIXED_DT);
+          if(ns<STOP_SPEED){
+            b.body.setLinearVelocity(new Vec2(0,0));
+            b.body.setAngularVelocity(0);
+            b.vx=b.vz=0;
+          }else{
+            float q=ns/sp;
+            b.body.setLinearVelocity(new Vec2(v.x*q,v.y*q));
+            b.vx=v.x*q;b.vz=v.y*q;
+          }
+        }else{
           b.vx=b.vz=0;
         }
       }
