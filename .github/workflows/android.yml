@@ -28,7 +28,7 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
-          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon
+          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
@@ -58,6 +58,7 @@ jobs:
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14390376776741791003/0E400BDD1622D11AE0ED0557155F75451AA2EC4B/" -o app/src/main/assets/saber_bundles/green.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14596582609580564669/58B8AAE8B8B9C0A60ECE03E9CC1325E86498FBDD/" -o app/src/main/assets/saber_bundles/gold.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16028108133931298657/01FC4DF2406F0763F471EF6C2AD1442E69723902/" -o app/src/main/assets/saber_bundles/white.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12636175779954999148/066C5885CFDBA1210486A7C18C1347AD90AE883C/" -o app/src/main/assets/sfx_bundle/saber_sfx.unity3d
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11276006983226989350/CFB4E42B430A20C3DC6AD3959B556C3BCC51A7DA/" -o app/src/main/assets/ui/blade_dark.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/15601371395550036893/2145580FC350A1815612550D4538C26D39DC7C85/" -o app/src/main/assets/ui/blade_gold.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12320415776356535227/70C5F49BD2AC31F3FB7FAD572D434124A31AF9EE/" -o app/src/main/assets/ui/blade_purple.png
@@ -88,6 +89,7 @@ jobs:
           python tools/extract_unity.py
           python tools/extract_balls.py
           python tools/extract_sabers.py
+          python tools/extract_audio.py
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
           python -c 'from PIL import Image; p="app/src/main/assets/environment/sky.jpg"; im=Image.open(p).convert("RGB"); im.thumbnail((2048,2048),Image.Resampling.LANCZOS); im.save(p,quality=91,optimize=True)'
           python tools/obj_to_bin.py
@@ -101,6 +103,7 @@ jobs:
             app/src/main/assets/extracted
             app/src/main/assets/objects
             app/src/main/assets/sabers
+            app/src/main/assets/audio
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
