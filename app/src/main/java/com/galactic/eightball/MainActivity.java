@@ -63,8 +63,8 @@ public class MainActivity extends Activity {
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false;
-    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0;
+    boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false;
+    float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     long lastAimTapMs=0;
 
     final String[] hiltFiles={"hilt_default.png","hilt_2.png","hilt_crystal.png","hilt_double.png","hilt_classic.png","hilt_weathered.png"};
@@ -124,9 +124,8 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         drawWorldShotHilt(c,w,h,ui,r);
-        drawCrosshairButton(c,lockRect,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("AIM • TAP LOCK",w*.5f,42*ui,p);
+        c.drawText("DRAG HILT TO AIM",w*.5f,42*ui,p);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
         drawEnglish(c,w,h,ui,r);
       } else if(r.state==GameRenderer.CHARGING){
@@ -245,7 +244,7 @@ public class MainActivity extends Activity {
         float ang=(float)Math.toDegrees(Math.atan2(endY-ey,endX-ex));
         float len=(float)Math.sqrt((endX-ex)*(endX-ex)+(endY-ey)*(endY-ey));
         float aspect=(blade!=null&&blade.getHeight()>0)?((float)blade.getWidth()/blade.getHeight()):7f;
-        float thick=Math.max(18f,Math.min(h*.060f,len/Math.max(3f,aspect)));
+        float thick=Math.max(48f,Math.min(h*.085f,len*.34f));
         RectF bladeDst=new RectF(ex,ey-thick*.5f,ex+Math.max(2,len),ey+thick*.5f);
         c.save();c.rotate(ang,ex,ey);
         if(blade!=null)c.drawBitmap(blade,null,bladeDst,p);
@@ -256,7 +255,7 @@ public class MainActivity extends Activity {
 
       if(r.state==GameRenderer.AIMING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("TAP LOCK TO SET AIM",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
+        c.drawText("DRAG • RELEASE TO LOCK",worldHiltRect.centerX(),worldHiltRect.centerY()-worldHiltRect.height()*.82f,p);
       } else if(r.state==GameRenderer.CHARGING){
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(16f,h*.020f));p.setColor(0xEEFFFFFF);p.setTextAlign(Paint.Align.CENTER);
         c.drawText("PULL BACK • RELEASE TO STRIKE",worldHiltRect.centerX(),worldHiltRect.centerY()+worldHiltRect.height()*1.15f,p);
@@ -302,11 +301,6 @@ public class MainActivity extends Activity {
           return true;
         }
 
-        if(r.state==GameRenderer.AIMING && lockRect.contains(x,y)){
-          game.queueEvent(()->r.lockAngle());
-          return true;
-        }
-
         if(r.state==GameRenderer.SELECTING_ENGLISH){
           float dx=x-englishCx,dy=y-englishCy;
           if(dx*dx+dy*dy<=englishR*englishR){touchingEnglish=true;setEnglishFromTouch(x,y);return true;}
@@ -314,11 +308,41 @@ public class MainActivity extends Activity {
           if(cancelRect.contains(x,y)){game.queueEvent(()->r.cancelEnglish());return true;}
         }
 
+        if(r.state==GameRenderer.AIMING){
+          updateWorldHiltGeometry(w,h,r,0);
+          RectF hit=new RectF(worldHiltRect);
+          hit.inset(-34*ui,-34*ui);
+          if(hit.contains(x,y)){
+            aimingHilt=true;
+            aimStartFingerAngle=(float)Math.atan2(y-worldCueY,x-worldCueX);
+            aimStartWorldAngle=(float)Math.atan2(r.aimZ,r.aimX);
+            return true;
+          }
+        }
+
         if(r.state==GameRenderer.CHARGING){
           updateWorldHiltGeometry(w,h,r,r.chargePullPx);
           RectF hit=new RectF(worldHiltRect);hit.inset(-36*ui,-36*ui);
           if(hit.contains(x,y)){pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;game.queueEvent(()->r.beginWorldCharge());return true;}
         }
+      }
+
+      if(aimingHilt){
+        float fingerAngle=(float)Math.atan2(y-worldCueY,x-worldCueX);
+        float delta=fingerAngle-aimStartFingerAngle;
+        while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
+        while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
+        final float target=aimStartWorldAngle+delta;
+        if(a==MotionEvent.ACTION_MOVE){
+          game.queueEvent(()->r.setAimAngle(target));
+          return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
+          aimingHilt=false;
+          game.queueEvent(()->{r.setAimAngle(target);r.lockAngle();});
+          return true;
+        }
+        return true;
       }
 
       if(pullingHilt){
@@ -347,9 +371,6 @@ public class MainActivity extends Activity {
         if(a==MotionEvent.ACTION_MOVE)setEnglishFromTouch(x,y);
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL)touchingEnglish=false;
         return true;
-      }
-      if(r.state==GameRenderer.AIMING){
-        game.queueEvent(()->r.aimTouch(a,x,y,w,h));return true;
       }
       return true;
     }
@@ -586,6 +607,10 @@ public class MainActivity extends Activity {
       return new float[]{wa[0]+(wb[0]-wa[0])*t,wa[2]+(wb[2]-wa[2])*t};
     }
 
+    void setAimAngle(float angle){
+      float x=(float)Math.cos(angle),z=(float)Math.sin(angle);
+      aimX=desiredAimX=x;aimZ=desiredAimZ=z;
+    }
     void lockAngle(){if(state==AIMING&&allStopped()){state=SELECTING_ENGLISH;power=0;englishX=englishY=0;}}
     void setEnglish(float x,float y){englishX=Math.max(-1,Math.min(1,x));englishY=Math.max(-1,Math.min(1,y));}
     void confirmEnglish(){if(state==SELECTING_ENGLISH){state=CHARGING;power=0;chargePullPx=0;chargeStartY=-1;}}
