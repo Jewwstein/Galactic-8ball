@@ -307,10 +307,11 @@ public class MainActivity extends Activity {
 
   static class HudView extends View {
     final GameView game;
+    MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,camGesture=false,pullingHilt=false,aimingHilt=false;
@@ -364,20 +365,31 @@ public class MainActivity extends Activity {
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
       float ui=Math.max(.90f,Math.min(w/900f,h/640f));
 
-      saberMenuRect.set(28*ui,24*ui,190*ui,78*ui);
-      rackRect.set(202*ui,24*ui,352*ui,78*ui);
+      // Premium command stack lives in the lower-left so the top edge stays clean.
+      float bw=228*ui,bh=62*ui,gap=9*ui,left=22*ui,bottom=h-24*ui;
+      saberMenuRect.set(left,bottom-bh,left+bw,bottom);
+      rackRect.set(left,bottom-(bh*2+gap),left+bw,bottom-(bh+gap));
+      activeShooterRect.set(left,bottom-(bh*3+gap*2),left+bw,bottom-(bh*2+gap*2));
+      teamSwitchRect.set(left,bottom-(bh*4+gap*3),left+bw,bottom-(bh*3+gap*3));
+      multiplayerRect.set(left,bottom-(bh*5+gap*4),left+bw,bottom-(bh*4+gap*4));
       lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      drawButton(c,saberMenuRect,"SABER MENU",17*ui,0xCC10151F);
-      drawButton(c,rackRect,"NEW RACK",17*ui,0xCC3A1010);
+      drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
+      drawPremiumButton(c,rackRect,"NEW RACK","RESET TABLE",ui,0xFFFF6B55,false);
+      drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
+      drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
+      String mp=(net==null)?"OFFLINE":net.statusText();
+      if(mp.length()>22)mp=mp.substring(0,22);
+      drawPremiumButton(c,multiplayerRect,"MULTIPLAYER",mp,ui,(net!=null&&net.isConnected())?0xFF65E4A5:0xFF9CA3AF,net!=null&&net.isConnected());
+
       drawMatchHud(c,w,h,ui,r);
 
       if(r.state==GameRenderer.AIMING && !r.gameOver){
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
         p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("DRAG HILT • TAP LOCK",w*.5f,42*ui,p);
+        c.drawText(r.localCanControl()?"DRAG HILT • TAP LOCK":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
       } else if(r.gameOver){
         drawWinnerOverlay(c,w,h,ui,r);
       } else if(r.state==GameRenderer.SELECTING_ENGLISH){
@@ -400,12 +412,51 @@ public class MainActivity extends Activity {
       p.setColor(Color.WHITE);p.setTextSize(fs);p.setTextAlign(Paint.Align.CENTER);
       c.drawText(text,rr.centerX(),rr.centerY()+fs*.34f,p);
     }
+    void drawPremiumButton(Canvas c,RectF rr,String title,String sub,float ui,int accent,boolean active){
+      float rad=16*ui;
+      p.setShader(null);p.setStyle(Paint.Style.FILL);
+      p.setShadowLayer(8*ui,0,4*ui,0x99000000);
+      LinearGradient base=new LinearGradient(rr.left,rr.top,rr.left,rr.bottom,
+        active?0xEF283744:0xEA111821,active?0xF00A1018:0xED05080D,Shader.TileMode.CLAMP);
+      p.setShader(base);c.drawRoundRect(rr,rad,rad,p);
+      p.clearShadowLayer();p.setShader(null);
+
+      // Metallic bevel: bright upper edge, dark lower edge, colored energy rail.
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(0xCC8592A6);
+      c.drawRoundRect(new RectF(rr.left+1.2f*ui,rr.top+1.2f*ui,rr.right-1.2f*ui,rr.bottom-1.2f*ui),rad,rad,stroke);
+      stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0xAAFFFFFF);
+      c.drawLine(rr.left+rad,rr.top+4*ui,rr.right-rad,rr.top+4*ui,stroke);
+      stroke.setColor(0xAA000000);c.drawLine(rr.left+rad,rr.bottom-4*ui,rr.right-rad,rr.bottom-4*ui,stroke);
+
+      p.setColor(accent);p.setStyle(Paint.Style.FILL);
+      c.drawRoundRect(new RectF(rr.left+6*ui,rr.top+8*ui,rr.left+12*ui,rr.bottom-8*ui),3*ui,3*ui,p);
+      p.setColor((accent&0x00FFFFFF)|0x33000000);
+      for(int k=0;k<3;k++){
+        float yy=rr.top+(18+k*13)*ui;
+        c.drawRect(rr.left+18*ui,yy,rr.right-10*ui,yy+1*ui,p);
+      }
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
+      p.setTextSize(16*ui);p.setColor(0xFFF7FAFC);
+      c.drawText(title,rr.left+24*ui,rr.top+25*ui,p);
+      p.setTypeface(Typeface.DEFAULT);p.setTextSize(10.5f*ui);p.setColor(active?accent:0xFFB8C1CE);
+      c.drawText(sub,rr.left+24*ui,rr.bottom-12*ui,p);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(16*ui);p.setColor(accent);
+      c.drawText("›",rr.right-18*ui,rr.centerY()+5*ui,p);
+      p.setShader(null);
+    }
+
 
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       float pw=Math.min(w*.82f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
-      RectF panel=new RectF(x,y,x+pw,y+ph);
-      p.setColor(0xF010141C);p.setStyle(Paint.Style.FILL);c.drawRoundRect(panel,24,24,p);
-      stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24,24,stroke);
+      saberPanelRect.set(x,y,x+pw,y+ph);
+      RectF panel=saberPanelRect;
+      p.setStyle(Paint.Style.FILL);p.setShadowLayer(18*ui,0,8*ui,0xCC000000);
+      p.setShader(new LinearGradient(panel.left,panel.top,panel.right,panel.bottom,0xF51B2531,0xFA070A0F,Shader.TileMode.CLAMP));
+      c.drawRoundRect(panel,24*ui,24*ui,p);p.clearShadowLayer();p.setShader(null);
+      stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24*ui,24*ui,stroke);
+      stroke.setColor(0x66FFFFFF);stroke.setStrokeWidth(1.2f*ui);c.drawRoundRect(new RectF(panel.left+6*ui,panel.top+6*ui,panel.right-6*ui,panel.bottom-6*ui),18*ui,18*ui,stroke);
       p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(22*ui);p.setColor(Color.WHITE);
       c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
       p.setTextSize(14*ui);p.setColor(0xFFD1D5DB);c.drawText("HILT",x+45*ui,y+75*ui,p);c.drawText("BLADE",x+45*ui,y+235*ui,p);
@@ -426,7 +477,7 @@ public class MainActivity extends Activity {
         c.drawText(hiltNames[i],hiltChoices[i].centerX(),hiltChoices[i].bottom-9*ui,p);
         c.drawText(bladeNames[i],bladeChoices[i].centerX(),bladeChoices[i].bottom-9*ui,p);
       }
-      p.setTextSize(13*ui);p.setColor(0xFFB9C1CC);c.drawText("Tap SABER MENU again to close",w*.5f,y+ph-18*ui,p);
+      p.setTextSize(13*ui);p.setColor(0xFFB9C1CC);c.drawText("Tap anywhere outside this panel to close",w*.5f,y+ph-18*ui,p);
     }
 
     void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
@@ -638,13 +689,23 @@ public class MainActivity extends Activity {
       }
 
       if(a==MotionEvent.ACTION_DOWN){
-        if(saberMenuRect.contains(x,y)){menuOpen=!menuOpen;return true;}
-        if(rackRect.contains(x,y)){menuOpen=false;pullingHilt=false;game.queueEvent(()->r.resetRack());return true;}
+        // Saber loadout behaves like a real modal: any tap outside dismisses it.
         if(menuOpen){
+          if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
           for(int i=0;i<6;i++){
-            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.hiltIndex=k);return true;}
-            if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.bladeIndex=k);return true;}
+            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectHilt(k));return true;}
+            if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectBlade(k));return true;}
           }
+          return true;
+        }
+
+        if(saberMenuRect.contains(x,y)){menuOpen=true;invalidate();return true;}
+        if(rackRect.contains(x,y)){pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
+        if(activeShooterRect.contains(x,y)){game.queueEvent(()->r.userToggleActiveShooter());return true;}
+        if(teamSwitchRect.contains(x,y)){game.queueEvent(()->r.userSwitchTeam());return true;}
+        if(multiplayerRect.contains(x,y)){
+          Context cc=getContext();
+          if(cc instanceof MainActivity)((MainActivity)cc).showMultiplayerDialog();
           return true;
         }
 
