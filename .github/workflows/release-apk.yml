@@ -173,7 +173,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Adds a visible Exit Room control plus Android back-button room exit. Adds Easy, Normal, Hard, and Expert Galactic AI difficulty levels, plus Challenge Mode with Clean Run, Speed Run, Combo Strike, and Sith Trial objectives. Includes the permanent APK updater, full-screen swipe aiming, and current Falcon stability fixes.
+            UpdateNotes: Fixes Galactic AI entry so the match opens immediately on Normal difficulty. AI difficulty and Challenge Mode are now selected from the in-game GAME MENU, with visible Easy, Normal, Hard, Expert, and challenge controls. Keeps the Exit Room patch, updater, swipe aiming, and Falcon stability fixes.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:

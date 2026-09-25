@@ -514,7 +514,7 @@ public class MainActivity extends Activity {
     card.addView(continueButton);
 
     Button offline=homeButton("Play offline vs Galactic AI");
-    offline.setOnClickListener(v->showAiModeDialog(true));
+    offline.setOnClickListener(v->startSinglePlayer(true));
     card.addView(offline);
 
     Button login=homeButton("Log in");
@@ -631,7 +631,7 @@ public class MainActivity extends Activity {
     card.addView(create);
 
     Button ai=homeButton("Single player vs AI");
-    ai.setOnClickListener(v->showAiModeDialog(false));
+    ai.setOnClickListener(v->startSinglePlayer(false));
     card.addView(ai);
 
     Button logout=homeButton("Log out");
@@ -680,39 +680,95 @@ public class MainActivity extends Activity {
     refreshLobbyScreen();
   }
 
-  void showAiModeDialog(boolean offline){
-    final String[] modes={
-      "EASY  • relaxed aim, more mistakes",
-      "NORMAL  • balanced Galactic AI",
-      "HARD  • sharper aim and power",
-      "EXPERT  • near-perfect shot planning",
-      "CHALLENGES  • special objectives"
-    };
-    new AlertDialog.Builder(this)
-      .setTitle("GALACTIC AI")
-      .setMessage("Choose an AI difficulty or enter Challenge Mode.")
-      .setItems(modes,(d,which)->{
-        if(which>=0&&which<=3)startSinglePlayer(offline,which,0);
-        else if(which==4)showChallengeDialog(offline);
-      })
-      .setNegativeButton("CANCEL",null)
-      .show();
+  void showAiDifficultyInGame(){
+    if(game==null||game.r==null||!game.r.aiEnabled)return;
+
+    LinearLayout box=new LinearLayout(this);
+    box.setOrientation(LinearLayout.VERTICAL);
+    box.setPadding(dp(12),dp(6),dp(12),dp(6));
+    ScrollView scroll=new ScrollView(this);
+    scroll.addView(box,new ScrollView.LayoutParams(-1,-2));
+
+    AlertDialog dialog=new AlertDialog.Builder(this)
+      .setTitle("GALACTIC AI DIFFICULTY")
+      .setMessage("Current: "+game.r.aiDifficultyName()+"\n\nChoose a difficulty. This starts a fresh standard AI rack.")
+      .setView(scroll)
+      .setNegativeButton("CLOSE",null)
+      .create();
+
+    final String[] labels={"EASY","NORMAL","HARD","EXPERT"};
+    for(int i=0;i<labels.length;i++){
+      final int diff=i;
+      Button b=homeButton(labels[i]);
+      b.setOnClickListener(v->{
+        game.queueEvent(()->{
+          game.r.aiDifficulty=diff;
+          game.r.challengeMode=false;
+          game.r.challengeId=0;
+          game.r.resetRack();
+          game.r.ruleMessage="GALACTIC AI • "+game.r.aiDifficultyName()+" • YOU BREAK";
+        });
+        dialog.dismiss();
+        Toast.makeText(this,"Galactic AI difficulty: "+labels[diff],Toast.LENGTH_SHORT).show();
+      });
+      box.addView(b);
+    }
+    dialog.show();
   }
 
-  void showChallengeDialog(boolean offline){
-    final String[] challenges={
-      "CLEAN RUN\nWin without scratching the cue ball.",
-      "SPEED RUN\nWin in 8 player shots or fewer.",
-      "COMBO STRIKE\nPocket 2 or more object balls in one shot.",
-      "SITH TRIAL\nDefeat the Expert Galactic AI."
-    };
-    new AlertDialog.Builder(this)
+  void showChallengesInGame(){
+    if(game==null||game.r==null||!game.r.aiEnabled)return;
+
+    LinearLayout box=new LinearLayout(this);
+    box.setOrientation(LinearLayout.VERTICAL);
+    box.setPadding(dp(12),dp(6),dp(12),dp(6));
+    ScrollView scroll=new ScrollView(this);
+    scroll.addView(box,new ScrollView.LayoutParams(-1,-2));
+
+    AlertDialog dialog=new AlertDialog.Builder(this)
       .setTitle("GALACTIC CHALLENGES")
-      .setMessage("Pick a challenge. Challenge progress appears during the match.")
-      .setItems(challenges,(d,which)->startSinglePlayer(offline,
-        which==3?3:(which==1?2:1),which+1))
-      .setNegativeButton("BACK",(d,w)->showAiModeDialog(offline))
-      .show();
+      .setMessage("Choose a challenge. A fresh rack starts automatically.\n\n"+
+        "CLEAN RUN — Win without scratching.\n"+
+        "SPEED RUN — Win in 8 player shots or fewer.\n"+
+        "COMBO STRIKE — Pocket 2+ object balls in one shot.\n"+
+        "SITH TRIAL — Defeat the Expert Galactic AI.")
+      .setView(scroll)
+      .setNegativeButton("CLOSE",null)
+      .create();
+
+    final String[] labels={"CLEAN RUN","SPEED RUN","COMBO STRIKE","SITH TRIAL"};
+    for(int i=0;i<labels.length;i++){
+      final int challenge=i+1;
+      Button b=homeButton(labels[i]);
+      b.setOnClickListener(v->{
+        final int diff=challenge==4?3:(challenge==2?2:1);
+        game.queueEvent(()->{
+          game.r.aiDifficulty=diff;
+          game.r.challengeMode=true;
+          game.r.challengeId=challenge;
+          game.r.resetRack();
+          game.r.ruleMessage="CHALLENGE • "+game.r.challengeName();
+        });
+        dialog.dismiss();
+        Toast.makeText(this,"Challenge started: "+challengeDisplayName(challenge),Toast.LENGTH_SHORT).show();
+      });
+      box.addView(b);
+    }
+
+    Button standard=homeButton("RETURN TO STANDARD AI");
+    standard.setOnClickListener(v->{
+      game.queueEvent(()->{
+        game.r.aiDifficulty=1;
+        game.r.challengeMode=false;
+        game.r.challengeId=0;
+        game.r.resetRack();
+        game.r.ruleMessage="GALACTIC AI • NORMAL • YOU BREAK";
+      });
+      dialog.dismiss();
+      Toast.makeText(this,"Standard Normal AI started.",Toast.LENGTH_SHORT).show();
+    });
+    box.addView(standard);
+    dialog.show();
   }
 
   void startSinglePlayer(){
@@ -747,7 +803,7 @@ public class MainActivity extends Activity {
     });
     showGameScreen();
     String mode=challenge>0?("Challenge: "+challengeDisplayName(challenge)):
-      ("AI difficulty: "+new String[]{"Easy","Normal","Hard","Expert"}[diff]);
+      ("Galactic AI started on "+new String[]{"Easy","Normal","Hard","Expert"}[diff]+". Open GAME MENU to change difficulty or start a challenge.");
     Toast.makeText(this,mode,Toast.LENGTH_LONG).show();
   }
 
@@ -1917,8 +1973,13 @@ public class MainActivity extends Activity {
       String mp=(net==null)?"OFFLINE":net.statusText();if(mp.length()>22)mp=mp.substring(0,22);
       drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
       drawPremiumButton(c,rackRect,"NEW RACK","RESET TABLE",ui,0xFFFF6B55,false);
-      drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
-      drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
+      if(r.aiEnabled){
+        drawPremiumButton(c,activeShooterRect,"AI DIFFICULTY",r.aiDifficultyName(),ui,0xFFF4C542,true);
+        drawPremiumButton(c,teamSwitchRect,"CHALLENGES",r.challengeMode?r.challengeName():"SELECT CHALLENGE",ui,0xFFB88CFF,r.challengeMode);
+      }else{
+        drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
+        drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
+      }
       boolean offlineAi=r.aiEnabled&&getContext() instanceof MainActivity&&((MainActivity)getContext()).offlineSinglePlayer;
       String title=r.aiEnabled?(offlineAi?"BACK TO HOME":"BACK TO LOBBY"):(net!=null&&net.inRoom?"LEAVE MATCH":"GALACTIC LOBBY");
       String sub=r.aiEnabled?(offlineAi?"EXIT OFFLINE GAME":"EXIT SINGLE PLAYER"):mp;
@@ -2525,8 +2586,22 @@ public class MainActivity extends Activity {
           invalidate();return true;
         }
         if(sideMenuOpen&&rackRect.contains(x,y)){sideMenuOpen=false;invalidate();pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
-        if(sideMenuOpen&&activeShooterRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userToggleActiveShooter());return true;}
-        if(sideMenuOpen&&teamSwitchRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userSwitchTeam());return true;}
+        if(sideMenuOpen&&activeShooterRect.contains(x,y)){
+          sideMenuOpen=false;invalidate();
+          if(r.aiEnabled){
+            Context cc=getContext();
+            if(cc instanceof MainActivity)((MainActivity)cc).showAiDifficultyInGame();
+          }else game.queueEvent(()->r.userToggleActiveShooter());
+          return true;
+        }
+        if(sideMenuOpen&&teamSwitchRect.contains(x,y)){
+          sideMenuOpen=false;invalidate();
+          if(r.aiEnabled){
+            Context cc=getContext();
+            if(cc instanceof MainActivity)((MainActivity)cc).showChallengesInGame();
+          }else game.queueEvent(()->r.userSwitchTeam());
+          return true;
+        }
         if(sideMenuOpen&&multiplayerRect.contains(x,y)){
           sideMenuOpen=false;invalidate();
           Context cc=getContext();
