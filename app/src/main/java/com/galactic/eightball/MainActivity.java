@@ -2510,6 +2510,7 @@ public class MainActivity extends Activity {
     volatile int microAimHoldSign=0;
     boolean breakAssistArmed=true;
     Mesh dogfightXWing,dogfightTie,dogfightBolt;
+    int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
     World world; Body railBody; float physicsAccum=0f;
@@ -2652,10 +2653,12 @@ public class MainActivity extends Activity {
         teamAidRing=makeRingMesh(1.62f,.18f,64);
         teamAidSegmentRing=makeSegmentedRingMesh(2.02f,.22f,24);
         thumbBladeMesh=makeThumbBladeMesh();
-        // Lightweight procedural fighters keep the Android dogfight independent
-        // of Unity AssetBundles while preserving the TTS chase choreography.
-        dogfightXWing=makeXWingMesh();
-        dogfightTie=makeTieMesh();
+        // Use the actual Unity AssetBundle fighter meshes from the TTS project.
+        // Procedural silhouettes remain only as a defensive fallback if an asset is corrupt.
+        try{dogfightXWing=loadObj("fighters/xwing/model.obj");}catch(Exception e){dogfightXWing=makeXWingMesh();}
+        try{dogfightTie=loadObj("fighters/tie/model.obj");}catch(Exception e){dogfightTie=makeTieMesh();}
+        try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
+        try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
         dogfightBolt=makeBoxMesh();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
@@ -2750,16 +2753,16 @@ public class MainActivity extends Activity {
         float[] M=identity();android.opengl.Matrix.translateM(M,0,x,lift,z);
         android.opengl.Matrix.rotateM(M,0,dogfightYaw,0,1,0);
         android.opengl.Matrix.rotateM(M,0,(float)Math.cos(u*Math.PI*3+phase)*30f,0,0,1);
-        android.opengl.Matrix.scaleM(M,0,2.7f,.35f,1.8f);
-        drawMesh(dogfightXWing,pv,M,0,new float[]{.72f,.78f,.84f,1f});
+        android.opengl.Matrix.scaleM(M,0,8.2f,8.2f,8.2f);
+        drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         // TIE flies just ahead of each pursuer with a weaving offset.
         float td=dist+13f,ts=side+(float)Math.sin(u*Math.PI*5+phase)*2.4f;
         float tx=fx*td+sx*ts,tz=fz*td+sz*ts;
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,lift+1.2f,tz);
         android.opengl.Matrix.rotateM(T,0,dogfightYaw,0,1,0);
-        android.opengl.Matrix.scaleM(T,0,1.35f,1.9f,.55f);
-        drawMesh(dogfightTie,pv,T,0,new float[]{.22f,.24f,.28f,1f});
+        android.opengl.Matrix.scaleM(T,0,6.2f,6.2f,6.2f);
+        drawMesh(dogfightTie,pv,T,dogfightTieTex,new float[]{1f,1f,1f,1f});
 
         // Short alternating Rebel/Imperial laser bolts, like the TTS v2 pass.
         if(((int)(u*36f)+i)%3!=0){
