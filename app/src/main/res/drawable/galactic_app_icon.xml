@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- transparent outer area; launcher applies its own mask -->
+    <path
+        android:fillColor="#07101D"
+        android:pathData="M54,3 A51,51 0,1 1,54,105 A51,51 0,1 1,54,3"/>
+
+    <!-- cool blue rim -->
+    <path
+        android:fillColor="#163A5D"
+        android:pathData="M54,7 A47,47 0,1 1,54,101 A47,47 0,1 1,54,7"/>
+    <path
+        android:fillColor="#2B3038"
+        android:pathData="M54,11 A43,43 0,1 1,54,97 A43,43 0,1 1,54,11"/>
+
+    <!-- Death Star panel / trench detail -->
+    <path
+        android:strokeColor="#7E8792"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M16,54 L92,54 M54,12 L54,96 M23,33 L85,33 M24,75 L84,75"/>
+    <path
+        android:strokeColor="#4A5563"
+        android:strokeWidth="1.2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M27,18 L27,90 M40,14 L40,94 M68,14 L68,94 M81,19 L81,89"/>
+
+    <!-- superlaser dish -->
+    <path
+        android:fillColor="#10151D"
+        android:strokeColor="#9BA7B4"
+        android:strokeWidth="2"
+        android:pathData="M66,22 A13,13 0,1 1,66,48 A13,13 0,1 1,66,22"/>
+    <path
+        android:fillColor="#39FF6A"
+        android:pathData="M66,29 A6,6 0,1 1,66,41 A6,6 0,1 1,66,29"/>
+    <path
+        android:fillColor="#C8FFD3"
+        android:pathData="M66,33 A2,2 0,1 1,66,37 A2,2 0,1 1,66,33"/>
+
+    <!-- laser beam -->
+    <path
+        android:strokeColor="#113E1E"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M73,35 L103,35"/>
+    <path
+        android:strokeColor="#39FF6A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M73,35 L103,35"/>
+    <path
+        android:strokeColor="#D8FFE0"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M73,35 L103,35"/>
+
+    <!-- billiard number patch -->
+    <path
+        android:fillColor="#F2EEE5"
+        android:strokeColor="#C9C5BD"
+        android:strokeWidth="1.5"
+        android:pathData="M38,58 A15,15 0,1 1,38,88 A15,15 0,1 1,38,58"/>
+
+    <!-- stylized black 8 with ivory holes -->
+    <path
+        android:fillColor="#08090B"
+        android:pathData="M38,62 A8,8 0,1 1,38,78 A8,8 0,1 1,38,62 M38,72 A9,9 0,1 1,38,90 A9,9 0,1 1,38,72"/>
+    <path
+        android:fillColor="#F2EEE5"
+        android:pathData="M38,66 A3.2,3.2 0,1 1,38,72.4 A3.2,3.2 0,1 1,38,66 M38,77 A3.6,3.6 0,1 1,38,84.2 A3.6,3.6 0,1 1,38,77"/>
+
+    <!-- small highlight -->
+    <path
+        android:strokeColor="#D4E9FF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M27,23 C36,17 45,15 53,15"/>
+</vector>
