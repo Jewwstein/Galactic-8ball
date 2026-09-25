@@ -34,6 +34,12 @@ public class MainActivity extends Activity {
   static final String PERMANENT_APK_URL="https://github.com/Jewwstein/Galactic-8ball/releases/latest/download/Galactic-8-Ball-Latest.apk";
   static final String UPDATE_PREFS="galactic_updater";
   static final String APK_MIME="application/vnd.android.package-archive";
+  static final String REWARD_PREFS="galactic_rewards";
+  static final int BADGE_CLEAN=1<<0,BADGE_SPEED=1<<1,BADGE_COMBO=1<<2,BADGE_SITH_TRIAL=1<<3,
+    BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6;
+  static final int UNLOCK_YODA=1<<0,UNLOCK_AHSOKA=1<<1,UNLOCK_ANAKIN=1<<2,UNLOCK_NIHILUS=1<<3,
+    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_REY=1<<6;
+  static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=13;
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
@@ -696,7 +702,7 @@ public class MainActivity extends Activity {
 
     offlineSinglePlayer=offline;
     final int diff=Math.max(0,Math.min(3,difficulty));
-    final int challenge=Math.max(0,Math.min(4,challengeId));
+    final int challenge=Math.max(0,Math.min(6,challengeId));
 
     // Offline play never attempts login, room discovery, or any server action.
     // A saved account/token remains untouched so the player can go online later.
@@ -722,8 +728,69 @@ public class MainActivity extends Activity {
       case 2:return "Speed Run";
       case 3:return "Combo Strike";
       case 4:return "Sith Trial";
+      case 5:return "Jedi Victor";
+      case 6:return "Sith Victor";
       default:return "Challenge";
     }
+  }
+
+  String rewardProfileKey(){
+    String user=multiplayer==null?"":multiplayer.username;
+    if(user==null||user.trim().isEmpty())return "offline";
+    return user.trim().toLowerCase(java.util.Locale.US);
+  }
+
+  int localBadgeMask(){
+    return getSharedPreferences(REWARD_PREFS,MODE_PRIVATE).getInt("badges_"+rewardProfileKey(),0);
+  }
+
+  int localUnlockMask(){
+    return getSharedPreferences(REWARD_PREFS,MODE_PRIVATE).getInt("unlocks_"+rewardProfileKey(),0);
+  }
+
+  boolean isHiltUnlocked(int index){
+    if(index<BASE_HILT_COUNT)return true;
+    int bit=index-BASE_HILT_COUNT;
+    return bit>=0&&bit<7&&(localUnlockMask()&(1<<bit))!=0;
+  }
+
+  static boolean isJediHiltIndex(int index){
+    return index==0||index==1||index==2||index==4||index==6||index==7||index==8||index==12;
+  }
+
+  static boolean isSithHiltIndex(int index){
+    return index==3||index==5||index==9||index==11;
+  }
+
+  void awardReward(int badgeBit,int unlockBit,String badgeName,String hiltName){
+    String key=rewardProfileKey();
+    android.content.SharedPreferences p=getSharedPreferences(REWARD_PREFS,MODE_PRIVATE);
+    int oldBadges=p.getInt("badges_"+key,0),oldUnlocks=p.getInt("unlocks_"+key,0);
+    int newBadges=oldBadges|badgeBit,newUnlocks=oldUnlocks|unlockBit;
+    p.edit().putInt("badges_"+key,newBadges).putInt("unlocks_"+key,newUnlocks).apply();
+    if(multiplayer!=null)multiplayer.sendProfile();
+    if(oldBadges!=newBadges||oldUnlocks!=newUnlocks){
+      String msg="ACCOLADE UNLOCKED • "+badgeName;
+      if(hiltName!=null&&!hiltName.isEmpty())msg+="\nNew hilt: "+hiltName;
+      Toast.makeText(this,msg,Toast.LENGTH_LONG).show();
+      if(saberBezel!=null)saberBezel.pulse(0xFFF4C542,1f);
+      if(hud!=null)hud.invalidate();
+    }
+  }
+
+  void awardChallengeReward(int challengeId){
+    switch(challengeId){
+      case 1:awardReward(BADGE_CLEAN,UNLOCK_ANAKIN,"CLEAN RUN","Anakin Classic");break;
+      case 2:awardReward(BADGE_SPEED,UNLOCK_AHSOKA,"SPEED RUN","Ahsoka Fulcrum");break;
+      case 3:awardReward(BADGE_COMBO,UNLOCK_YODA,"COMBO STRIKE","Yoda");break;
+      case 4:awardReward(BADGE_SITH_TRIAL,UNLOCK_NIHILUS,"SITH TRIAL","Darth Nihilus");break;
+      case 5:awardReward(BADGE_JEDI,UNLOCK_REY,"JEDI VICTOR","Rey");break;
+      case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
+    }
+  }
+
+  void awardNormalAiWin(){
+    awardReward(BADGE_NORMAL,UNLOCK_STORMTROOPER,"GALACTIC NORMAL","Stormtrooper");
   }
 
   void showGameScreen(){
@@ -1135,6 +1202,7 @@ public class MainActivity extends Activity {
     volatile boolean socketConnected=false,connecting=false,authenticated=false,inRoom=false;
     volatile boolean hosting=false,lobbyRequested=false,pendingRegistration=false;
     volatile int localPlayer=0;
+    final int[] playerBadgeMasks={0,0},playerUnlockMasks={0,0};
     volatile String username="",roomId="",roomName="",status="OFFLINE";
     WebSocket socket;
 
@@ -1253,6 +1321,12 @@ public class MainActivity extends Activity {
       send("LEAVE_ROOM");
     }
 
+    void sendProfile(){
+      if(!authenticated)return;
+      int badges=activity.localBadgeMask(),unlocks=activity.localUnlockMask();
+      send("PROFILE|"+badges+"|"+unlocks);
+    }
+
     synchronized void connectThen(String firstMessage){
       String url=websocketUrl();
       if(socketConnected&&socket!=null){
@@ -1280,6 +1354,7 @@ public class MainActivity extends Activity {
               String token=p[2];
               saveLogin(user,token);
               authenticated=true;status="ONLINE";
+              sendProfile();
               final boolean firstCreated=pendingRegistration;
               pendingRegistration=false;
               if(hud!=null)main.post(hud::invalidate);
@@ -1304,22 +1379,32 @@ public class MainActivity extends Activity {
               roomId=p[1];roomName=unb64(p[2]);
               try{localPlayer=Integer.parseInt(p[3]);}catch(Exception ignored){}
               inRoom=true;status="IN ROOM";
+              sendProfile();
               game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;});
               toast("Joined "+roomName+" as Player "+localPlayer);
               if(hud!=null)main.post(hud::invalidate);
               main.post(activity::showGameScreen);
             }
           }else if(msg.startsWith("ROOM_LEFT")){
-            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
+            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";playerBadgeMasks[0]=playerBadgeMasks[1]=0;playerUnlockMasks[0]=playerUnlockMasks[1]=0;
             game.queueEvent(()->game.r.resetRack());
             if(hud!=null)main.post(hud::invalidate);
             main.post(activity::showLobbyScreen);
           }else if(msg.startsWith("ROOM_CLOSED")){
-            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";
+            inRoom=false;localPlayer=0;roomId="";roomName="";status="ONLINE";playerBadgeMasks[0]=playerBadgeMasks[1]=0;playerUnlockMasks[0]=playerUnlockMasks[1]=0;
             toast("The room was closed.");
             game.queueEvent(()->game.r.resetRack());
             if(hud!=null)main.post(hud::invalidate);
             main.post(activity::showLobbyScreen);
+          }else if(msg.startsWith("PROFILESTATE|")){
+            String[] p=msg.split("\\|",-1);
+            try{
+              if(p.length>1)playerBadgeMasks[0]=Integer.parseInt(p[1]);
+              if(p.length>2)playerBadgeMasks[1]=Integer.parseInt(p[2]);
+              if(p.length>3)playerUnlockMasks[0]=Integer.parseInt(p[3]);
+              if(p.length>4)playerUnlockMasks[1]=Integer.parseInt(p[4]);
+            }catch(Exception ignored){}
+            if(hud!=null)main.post(hud::invalidate);
           }else if(msg.startsWith("STATE|")){
             if(inRoom)game.queueEvent(()->game.r.applyNetworkState(msg));
           }else if(msg.startsWith("PLAYER_JOINED|")){
@@ -1328,7 +1413,7 @@ public class MainActivity extends Activity {
           }else if(msg.startsWith("PLAYER_LEFT|")){
             toast("The other player left the room.");
           }else if(msg.startsWith("LOGGED_OUT")){
-            authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";
+            authenticated=false;inRoom=false;localPlayer=0;roomId="";roomName="";playerBadgeMasks[0]=playerBadgeMasks[1]=0;playerUnlockMasks[0]=playerUnlockMasks[1]=0;
             if(hud!=null)main.post(hud::invalidate);
             main.post(activity::showHomeScreen);
           }else if(msg.startsWith("ERROR|")){
@@ -2252,6 +2337,7 @@ public class MainActivity extends Activity {
       String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN";
       p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(10.5f*ui);p.setColor(0xFFE7EDF5);
       c.drawText(suitText,rr.right-10*ui,rr.top+18*ui,p);
+      drawTeamBadges(c,rr,team,ui,r);
 
       if(suit==0){
         p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11.5f*ui);p.setColor(0xFFB8C2D0);
@@ -2289,6 +2375,60 @@ public class MainActivity extends Activity {
       p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(9.4f*ui);
       p.setColor(remain.isEmpty()?0xFFF4C542:0xFFB9C4D2);
       c.drawText(remain.isEmpty()?"8 READY":remain.size()+" LEFT",rr.right-9*ui,rr.bottom-7*ui,p);
+    }
+
+    int badgeMaskForTeam(int team,GameRenderer r){
+      if(r.aiEnabled){
+        if(team!=1)return 0;
+        return ctx instanceof MainActivity?((MainActivity)ctx).localBadgeMask():0;
+      }
+      if(net==null)return 0;
+      return net.playerBadgeMasks[Math.max(0,Math.min(1,team-1))];
+    }
+
+    int badgeAccent(int bit){
+      if(bit==BADGE_CLEAN)return 0xFF73D7FF;
+      if(bit==BADGE_SPEED)return 0xFFFFD35A;
+      if(bit==BADGE_COMBO)return 0xFF70F0A2;
+      if(bit==BADGE_SITH_TRIAL)return 0xFFFF5069;
+      if(bit==BADGE_NORMAL)return 0xFFE9EDF5;
+      if(bit==BADGE_JEDI)return 0xFF5BB9FF;
+      return 0xFFFF3D45;
+    }
+
+    String badgeGlyph(int bit){
+      if(bit==BADGE_CLEAN)return "C";
+      if(bit==BADGE_SPEED)return "S";
+      if(bit==BADGE_COMBO)return "×2";
+      if(bit==BADGE_SITH_TRIAL)return "ST";
+      if(bit==BADGE_NORMAL)return "N";
+      if(bit==BADGE_JEDI)return "J";
+      return "S";
+    }
+
+    void drawTeamBadges(Canvas c,RectF rr,int team,float ui,GameRenderer r){
+      int mask=badgeMaskForTeam(team,r);if(mask==0)return;
+      int[] bits={BADGE_CLEAN,BADGE_SPEED,BADGE_COMBO,BADGE_SITH_TRIAL,BADGE_NORMAL,BADGE_JEDI,BADGE_SITH};
+      int total=Integer.bitCount(mask),shown=0;
+      float rad=7.2f*ui,gap=4.0f*ui;
+      float x=rr.left+12*ui+rad,y=rr.bottom-10.5f*ui;
+      for(int bit:bits){
+        if((mask&bit)==0)continue;
+        if(shown>=4)break;
+        int accent=badgeAccent(bit);
+        p.setStyle(Paint.Style.FILL);
+        p.setShader(new RadialGradient(x-rad*.30f,y-rad*.34f,rad*1.2f,
+          new int[]{0xFFFFFFFF,accent,0xFF0A0E14},new float[]{0,.48f,1f},Shader.TileMode.CLAMP));
+        p.setShadowLayer(5*ui,0,0,(accent&0x00FFFFFF)|0xAA000000);c.drawCircle(x,y,rad,p);p.clearShadowLayer();p.setShader(null);
+        stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0xFFE8EDF5);c.drawCircle(x,y,rad,stroke);
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize((bit==BADGE_COMBO?5.3f:5.8f)*ui);p.setColor(0xFF071018);
+        c.drawText(badgeGlyph(bit),x,y+2.0f*ui,p);
+        x+=rad*2+gap;shown++;
+      }
+      if(total>shown){
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);p.setTextSize(7.2f*ui);p.setColor(0xFFF4C542);
+        c.drawText("+"+(total-shown),x-rad*.3f,y+2.4f*ui,p);
+      }
     }
 
     void drawWinnerOverlay(Canvas c,int w,int h,float ui,GameRenderer r){
@@ -3896,6 +4036,8 @@ public class MainActivity extends Activity {
         case 2:return "SPEED RUN";
         case 3:return "COMBO STRIKE";
         case 4:return "SITH TRIAL";
+        case 5:return "JEDI VICTOR";
+        case 6:return "SITH VICTOR";
         default:return "GALACTIC CHALLENGE";
       }
     }
@@ -3909,6 +4051,8 @@ public class MainActivity extends Activity {
         case 2:return "SPEED RUN • SHOTS "+challengePlayerShots+"/8";
         case 3:return "COMBO STRIKE • POCKET 2+ IN ONE SHOT";
         case 4:return "SITH TRIAL • DEFEAT EXPERT AI";
+        case 5:return "JEDI VICTOR • WIN WITH A JEDI HILT";
+        case 6:return "SITH VICTOR • WIN WITH A SITH HILT";
         default:return challengeName();
       }
     }
@@ -3916,8 +4060,11 @@ public class MainActivity extends Activity {
     void completeChallenge(){
       if(!challengeMode||challengeComplete||challengeFailed)return;
       challengeComplete=true;
-      new Handler(Looper.getMainLooper()).post(()->Toast.makeText(ctx,
-        "Challenge complete: "+challengeName()+"!",Toast.LENGTH_LONG).show());
+      final int rewardId=challengeId;
+      new Handler(Looper.getMainLooper()).post(()->{
+        if(ctx instanceof MainActivity)((MainActivity)ctx).awardChallengeReward(rewardId);
+        else Toast.makeText(ctx,"Challenge complete: "+challengeName()+"!",Toast.LENGTH_LONG).show();
+      });
     }
 
     void failChallenge(){
@@ -3936,6 +4083,10 @@ public class MainActivity extends Activity {
         if(challengePlayerShots<=8)completeChallenge();else failChallenge();
       }else if(challengeId==4){
         completeChallenge();
+      }else if(challengeId==5){
+        if(MainActivity.isJediHiltIndex(hiltIndex))completeChallenge();else failChallenge();
+      }else if(challengeId==6){
+        if(MainActivity.isSithHiltIndex(hiltIndex))completeChallenge();else failChallenge();
       }else if(challengeId==3){
         failChallenge();
       }
@@ -3996,6 +4147,9 @@ public class MainActivity extends Activity {
           (scratch?("SCRATCH ON 8 • TEAM "+other+" WINS"):("EARLY/ILLEGAL 8 BALL • TEAM "+other+" WINS"));
         if(sfx!=null)sfx.victory(winnerTeam==1);
         evaluateChallengeGameOver();
+        if(aiEnabled&&!challengeMode&&winnerTeam==1&&aiDifficulty==1&&ctx instanceof MainActivity){
+          new Handler(Looper.getMainLooper()).post(()->((MainActivity)ctx).awardNormalAiWin());
+        }
         ballsSunkThisShot.clear();firstContactBall=0;return;
       }
 
