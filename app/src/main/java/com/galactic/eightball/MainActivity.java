@@ -211,15 +211,32 @@ public class MainActivity extends Activity {
     iv.setAdjustViewBounds(true);
     iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
     iv.setMaxHeight(dp(230));
+
+    Bitmap logo=null;
+
+    // Prefer the HD asset, but NEVER leave the screen blank if an asset is
+    // malformed or fails to decode on a device.
     try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
       BitmapFactory.Options o=new BitmapFactory.Options();
       o.inPreferredConfig=Bitmap.Config.ARGB_8888;
       o.inScaled=false;
-      Bitmap hd=BitmapFactory.decodeStream(in,null,o);
-      if(hd!=null){
-        iv.setImageBitmap(hd);
+      Bitmap candidate=BitmapFactory.decodeStream(in,null,o);
+      if(candidate!=null && candidate.getWidth()>=600 && candidate.getHeight()>=180){
+        logo=candidate;
       }
     }catch(Exception ignored){}
+
+    // Guaranteed fallback to the original working Galactic 8-Ball artwork.
+    if(logo==null){
+      try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+        BitmapFactory.Options o=new BitmapFactory.Options();
+        o.inPreferredConfig=Bitmap.Config.ARGB_8888;
+        o.inScaled=false;
+        logo=BitmapFactory.decodeStream(in,null,o);
+      }catch(Exception ignored){}
+    }
+
+    if(logo!=null)iv.setImageBitmap(logo);
     return iv;
   }
 
