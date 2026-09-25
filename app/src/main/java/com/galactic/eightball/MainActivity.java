@@ -2729,52 +2729,65 @@ public class MainActivity extends Activity {
     }
 
     void drawDogfight(float[] pv,float dt){
+      // Persistent pocket-corner dogfights: one X-Wing and one TIE orbit each
+      // corner pocket on opposing figure-8 paths. They stay decorative/non-physical.
       dogfightClock+=dt;
-      if(!dogfightActive&&dogfightClock>=dogfightStart){
-        dogfightActive=true;dogfightClock=0f;
-        dogfightYaw=(float)((System.nanoTime()/1000000L)%360);
-      }
-      if(!dogfightActive)return;
-      float u=dogfightClock/dogfightDuration;
-      if(u>=1f){
-        dogfightActive=false;dogfightClock=0f;
-        // Match the old TTS cadence: another fly-through roughly every 45-60 sec.
-        dogfightStart=45f+(float)((System.nanoTime()/1000000L)%15000)/1000f;
-        return;
-      }
-      float a=(float)Math.toRadians(dogfightYaw),fx=(float)Math.sin(a),fz=(float)Math.cos(a);
-      float sx=(float)Math.sin(a+(float)Math.PI/2),sz=(float)Math.cos(a+(float)Math.PI/2);
-      for(int i=0;i<3;i++){
-        float phase=(float)(i*Math.PI*2/3),lane=(i-1)*6f;
-        float dist=-82f+172f*u;
-        float side=lane+(float)Math.sin(u*Math.PI*3+phase)*5.5f;
-        float lift=13f+(float)Math.sin(u*Math.PI)*8f+(float)Math.sin(u*Math.PI*4+phase)*1.4f;
-        float x=fx*dist+sx*side,z=fz*dist+sz*side;
-        float[] M=identity();android.opengl.Matrix.translateM(M,0,x,lift,z);
-        android.opengl.Matrix.rotateM(M,0,dogfightYaw,0,1,0);
-        android.opengl.Matrix.rotateM(M,0,(float)Math.cos(u*Math.PI*3+phase)*30f,0,0,1);
-        android.opengl.Matrix.scaleM(M,0,8.2f,8.2f,8.2f);
-        drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,1f,1f,1f});
+      float t=dogfightClock;
+      float[][] corners={{-40f,-19f},{40f,-19f},{-40f,19f},{40f,19f}};
+      for(int c=0;c<corners.length;c++){
+        float phase=c*1.37f;
+        float q=t*.62f+phase;
+        // Compact lemniscates around each corner, offset so ships repeatedly close.
+        float xw=corners[c][0]+5.8f*(float)Math.sin(q);
+        float zw=corners[c][1]+3.6f*(float)Math.sin(q)*(float)Math.cos(q);
+        float tq=q+(float)Math.PI;
+        float tx=corners[c][0]+5.8f*(float)Math.sin(tq);
+        float tz=corners[c][1]+3.6f*(float)Math.sin(tq)*(float)Math.cos(tq);
+        float y=5.2f+c*.12f;
 
-        // TIE flies just ahead of each pursuer with a weaving offset.
-        float td=dist+13f,ts=side+(float)Math.sin(u*Math.PI*5+phase)*2.4f;
-        float tx=fx*td+sx*ts,tz=fz*td+sz*ts;
-        float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,lift+1.2f,tz);
-        android.opengl.Matrix.rotateM(T,0,dogfightYaw,0,1,0);
-        android.opengl.Matrix.scaleM(T,0,6.2f,6.2f,6.2f);
+        // Face each ship along its own figure-8 tangent.
+        float xwd=5.8f*.62f*(float)Math.cos(q);
+        float zwd=3.6f*.62f*(float)Math.cos(2f*q);
+        float td=5.8f*.62f*(float)Math.cos(tq);
+        float tzd=3.6f*.62f*(float)Math.cos(2f*tq);
+        float xYaw=(float)Math.toDegrees(Math.atan2(xwd,zwd));
+        float tYaw=(float)Math.toDegrees(Math.atan2(td,tzd));
+
+        float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
+        android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
+        android.opengl.Matrix.scaleM(X,0,3.2f,3.2f,3.2f);
+        drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
+
+        float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
+        android.opengl.Matrix.rotateM(T,0,tYaw,0,1,0);
+        android.opengl.Matrix.scaleM(T,0,2.55f,2.55f,2.55f);
         drawMesh(dogfightTie,pv,T,dogfightTieTex,new float[]{1f,1f,1f,1f});
 
-        // Short alternating Rebel/Imperial laser bolts, like the TTS v2 pass.
-        if(((int)(u*36f)+i)%3!=0){
-          float bx=x+fx*5f,bz=z+fz*5f;
-          float[] B=identity();android.opengl.Matrix.translateM(B,0,bx,lift,bz);
-          android.opengl.Matrix.rotateM(B,0,dogfightYaw,0,1,0);
-          android.opengl.Matrix.scaleM(B,0,.12f,.12f,3.4f);
-          drawMesh(dogfightBolt,pv,B,0,new float[]{1f,.12f,.12f,1f});
-          float[] G=identity();android.opengl.Matrix.translateM(G,0,tx-fx*4f,lift+1.2f,tz-fz*4f);
-          android.opengl.Matrix.rotateM(G,0,dogfightYaw,0,1,0);
-          android.opengl.Matrix.scaleM(G,0,.12f,.12f,3.1f);
-          drawMesh(dogfightBolt,pv,G,0,new float[]{.18f,1f,.28f,1f});
+        float dx=tx-xw,dz=tz-zw,dist=(float)Math.sqrt(dx*dx+dz*dz);
+        // Only exchange fire when the ships close on one another.
+        if(dist<7.4f&&dist>.15f){
+          float ux=dx/dist,uz=dz/dist;
+          float laserYaw=(float)Math.toDegrees(Math.atan2(ux,uz));
+          int pulse=((int)(t*8f)+c)&3;
+          if(pulse!=3){
+            // Short moving bolt centered on the line between ships. Height is
+            // aligned to the ship body rather than underneath it.
+            float travel=((t*5.2f+c*.23f)%1f);
+            float bx=xw+ux*(1.15f+(dist-2.3f)*travel);
+            float bz=zw+uz*(1.15f+(dist-2.3f)*travel);
+            float[] R=identity();android.opengl.Matrix.translateM(R,0,bx,y+.08f,bz);
+            android.opengl.Matrix.rotateM(R,0,laserYaw,0,1,0);
+            android.opengl.Matrix.scaleM(R,0,.075f,.075f,.72f);
+            drawMesh(dogfightBolt,pv,R,0,new float[]{1f,.08f,.08f,1f});
+
+            float gtravel=((t*5.2f+c*.23f+.5f)%1f);
+            float gx=tx-ux*(1.0f+(dist-2.1f)*gtravel);
+            float gz=tz-uz*(1.0f+(dist-2.1f)*gtravel);
+            float[] G=identity();android.opengl.Matrix.translateM(G,0,gx,y+.23f,gz);
+            android.opengl.Matrix.rotateM(G,0,laserYaw,0,1,0);
+            android.opengl.Matrix.scaleM(G,0,.075f,.075f,.66f);
+            drawMesh(dogfightBolt,pv,G,0,new float[]{.10f,1f,.20f,1f});
+          }
         }
       }
     }
