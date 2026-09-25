@@ -81,6 +81,11 @@ public class MainActivity extends Activity {
 
     setContentView(appRoot);
     showHomeScreen();
+    // Trigger 8 is the app's signature launch/UI transition cue.
+    new Handler(Looper.getMainLooper()).postDelayed(()->{
+      if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.uiTransition();
+      if(saberBezel!=null)saberBezel.pulse(0xFF7BE8FF,1f);
+    },260);
   }
 
   int dp(float v){
@@ -445,6 +450,11 @@ public class MainActivity extends Activity {
     lobbyStatus.setText("SIGNED IN AS "+user+"\nGALACTIC NETWORK • CONNECTED");
   }
 
+  void uiTransitionFx(){
+    if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.uiTransition();
+    if(saberBezel!=null)saberBezel.pulse(0xFF63D7FF,.82f);
+  }
+
   void showHomeScreen(){
     showingTable=false;
     if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
@@ -454,6 +464,7 @@ public class MainActivity extends Activity {
   }
 
   void showLobbyScreen(){
+    uiTransitionFx();
     offlineSinglePlayer=false;
     showingTable=false;
     if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
@@ -491,6 +502,7 @@ public class MainActivity extends Activity {
   }
 
   void showGameScreen(){
+    uiTransitionFx();
     showingTable=true;
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
     if(lobbyScreen!=null)lobbyScreen.setVisibility(View.GONE);
@@ -1201,6 +1213,7 @@ public class MainActivity extends Activity {
     void deactivate(){stopHum();main.postDelayed(()->oneShot("sfx_deactivate",.78f),250);}
     void pocket(){oneShot("sfx_pocket",.82f);}
     void scratch(){oneShot("sfx_scratch",.86f);}
+    void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
 
     void stopVictory(){
       main.post(()->{
@@ -1245,6 +1258,18 @@ public class MainActivity extends Activity {
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
+    volatile long pulseUntil=0;
+    volatile int pulseColor=0xFF63D7FF;
+    volatile float pulseStrength=0f;
+    int lastState=-1,lastTeam=-1,lastActiveCount=-1;
+    boolean lastGameOver=false;
+
+    void pulse(int color,float strength){
+      pulseColor=color;
+      pulseStrength=Math.max(pulseStrength,Math.max(.15f,Math.min(1f,strength)));
+      pulseUntil=System.currentTimeMillis()+420;
+      postInvalidateOnAnimation();
+    }
 
     SaberBezelView(Context c,GameView g){
       super(c);
@@ -1322,6 +1347,14 @@ public class MainActivity extends Activity {
 
       int hi=Math.max(0,Math.min(5,game.r.hiltIndex));
       int bi=Math.max(0,Math.min(5,game.r.bladeIndex));
+
+      int active=0;
+      for(GameRenderer.Ball b:game.r.balls)if(b!=null&&b.active)active++;
+      if(lastState>=0&&game.r.state!=lastState)pulse(bladeColors[bi],.62f);
+      if(lastTeam>=0&&game.r.currentTeam!=lastTeam)pulse(game.r.currentTeam==1?0xFF55B8FF:0xFFFF6262,.78f);
+      if(lastActiveCount>=0&&active<lastActiveCount)pulse(0xFFFFC54A,.92f);
+      if(!lastGameOver&&game.r.gameOver)pulse(0xFFFFFFFF,1f);
+      lastState=game.r.state;lastTeam=game.r.currentTeam;lastActiveCount=active;lastGameOver=game.r.gameOver;
       Bitmap hilt=hilts[hi],blade=blades[bi];
       int color=bladeColors[bi];
 
@@ -1346,14 +1379,27 @@ public class MainActivity extends Activity {
       drawSaber(c,hilt,blade,w-edge-thick*.45f,edge+corner,90,sideLen,thick,color);
       drawSaber(c,hilt,blade,w-edge-thick*.45f,h-edge-corner,-90,sideLen,thick,color);
 
-      // Refresh slowly only to pick up loadout/network color changes; the bezel
-      // itself is intentionally static.
-      postInvalidateDelayed(120);
+      // Reactive energy wash: UI transitions, aim/charge state changes, pocketed
+      // balls, turn changes and match-over all briefly energize the existing bezel.
+      long now=System.currentTimeMillis();
+      if(now<pulseUntil){
+        float life=Math.max(0f,Math.min(1f,(pulseUntil-now)/420f));
+        float a=life*pulseStrength;
+        glow.setStyle(Paint.Style.STROKE);
+        glow.setStrokeWidth(Math.max(dpv(5),thick*.62f));
+        glow.setColor((pulseColor&0x00FFFFFF)|((int)(150*a)<<24));
+        glow.setShadowLayer(dpv(18)*a,0,0,(pulseColor&0x00FFFFFF)|0xDD000000);
+        RectF rr=new RectF(edge*.45f,edge*.45f,w-edge*.45f,h-edge*.45f);
+        c.drawRoundRect(rr,corner*.28f,corner*.28f,glow);
+        glow.clearShadowLayer();
+      }
+      postInvalidateDelayed(now<pulseUntil?16:120);
     }
   }
 
   static class HudView extends View {
     final GameView game;
+    final Context ctx;
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
@@ -1397,7 +1443,7 @@ public class MainActivity extends Activity {
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
 
     HudView(Context c,GameView g){
-      super(c);game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+      super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
     }
@@ -2102,6 +2148,9 @@ public class MainActivity extends Activity {
 
         if(sideMenuTabRect.contains(x,y)){
           sideMenuOpen=!sideMenuOpen;
+          if(game.r.sfx!=null)game.r.sfx.uiTransition();
+          if(ctx instanceof MainActivity&&((MainActivity)ctx).saberBezel!=null)
+            ((MainActivity)ctx).saberBezel.pulse(0xFF63D7FF,.72f);
           invalidate();
           return true;
         }
@@ -2130,7 +2179,13 @@ public class MainActivity extends Activity {
           }
         }
 
-        if(sideMenuOpen&&saberMenuRect.contains(x,y)){menuOpen=true;sideMenuOpen=false;invalidate();return true;}
+        if(sideMenuOpen&&saberMenuRect.contains(x,y)){
+          menuOpen=true;sideMenuOpen=false;
+          if(game.r.sfx!=null)game.r.sfx.uiTransition();
+          if(ctx instanceof MainActivity&&((MainActivity)ctx).saberBezel!=null)
+            ((MainActivity)ctx).saberBezel.pulse(0xFFFFC54A,.76f);
+          invalidate();return true;
+        }
         if(sideMenuOpen&&rackRect.contains(x,y)){sideMenuOpen=false;invalidate();pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
         if(sideMenuOpen&&activeShooterRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userToggleActiveShooter());return true;}
         if(sideMenuOpen&&teamSwitchRect.contains(x,y)){sideMenuOpen=false;invalidate();game.queueEvent(()->r.userSwitchTeam());return true;}
