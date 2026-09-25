@@ -100,6 +100,7 @@ jobs:
           python tools/make_launcher_icon.py
           python tools/extract_unity.py
           python tools/enhance_table_textures.py
+          python tools/enhance_falcon_texture.py
           python tools/extract_balls.py
           python tools/extract_sabers.py
           python tools/extract_audio.py
@@ -150,20 +151,21 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Prepare APK release asset
-        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7-Multiplayer-Test.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7-Falcon-Stability-Test.apk
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.7-multiplayer-test
-          target_commitish: 5a9aad9c0e3b2214c04a4b2d1866cbb8389eb2ce
-          name: Galactic 8-Ball v0.7 Multiplayer Test
+          tag_name: v0.7-falcon-stability-test
+          target_commitish: ${{ github.sha }}
+          name: Galactic 8-Ball v0.7 Falcon Stability Test
           body: |
             Galactic 8-Ball Android multiplayer test build.
             Package: com.galactic.eightball
             Version: 0.7
-            Source baseline: 5a9aad9c0e3b2214c04a4b2d1866cbb8389eb2ce
-            Includes the current 50%-larger X-Wing dogfight scale.
-          files: Galactic-8-Ball-v0.7-Multiplayer-Test.apk
+            Source baseline: ${{ github.sha }}
+            Falcon render stability pass: fixed world transform, 24-bit depth buffer, improved near-plane precision, depth bias, and enhanced darker 2K Falcon texture.
+            Preserves the approved Falcon footprint and current dogfight scale.
+          files: Galactic-8-Ball-v0.7-Falcon-Stability-Test.apk
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
