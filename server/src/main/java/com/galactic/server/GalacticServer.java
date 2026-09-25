@@ -530,7 +530,7 @@ public class GalacticServer {
             }
           }
           case "RELEASE" -> {if(state==CHARGING)releaseShot();}
-          case "HILT" -> {if(p.length>2)hiltIndex=Math.max(0,Math.min(5,Integer.parseInt(p[2])));}
+          case "HILT" -> {if(p.length>2)hiltIndex=Math.max(0,Math.min(12,Integer.parseInt(p[2])));}
           case "BLADE" -> {if(p.length>2)bladeIndex=Math.max(0,Math.min(5,Integer.parseInt(p[2])));}
           case "RACK" -> resetRack();
           case "SHOOTER" -> {activeShooter=activeShooter==1?2:1;ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";}
