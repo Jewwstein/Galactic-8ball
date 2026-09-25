@@ -126,6 +126,15 @@ public class GalacticServer {
           leaveRoomOnly(c,true);
         }
         case "PING" -> send(c.channel,"PONG");
+        case "PROFILE" -> {
+          if(!requireAuth(c))return;
+          try{
+            if(p.length>1)c.badgeMask=Math.max(0,Integer.parseInt(p[1]));
+            if(p.length>2)c.unlockMask=Math.max(0,Integer.parseInt(p[2]));
+          }catch(Exception ignored){}
+          Room r=roomFor(c);
+          if(r!=null)r.broadcast(r.profileState());
+        }
         case "CMD" -> {
           if(!requireAuth(c))return;
           Room r=roomFor(c);
@@ -164,6 +173,7 @@ public class GalacticServer {
     room.player1=c;c.roomId=id;c.player=1;
     send(c.channel,"ROOM_JOINED|"+id+"|"+encode(name)+"|1");
     send(c.channel,room.snapshot());
+    room.broadcast(room.profileState());
     broadcastLobby();
   }
 
@@ -179,6 +189,7 @@ public class GalacticServer {
       send(c.channel,"ROOM_JOINED|"+id+"|"+encode(room.name)+"|2");
       if(room.player1!=null)send(room.player1.channel,"PLAYER_JOINED|"+encode(c.username));
       send(c.channel,room.snapshot());
+      room.broadcast(room.profileState());
     }
     broadcastLobby();
   }
@@ -210,7 +221,10 @@ public class GalacticServer {
         }
       }else if(r.player2==c){
         r.player2=null;
-        if(r.player1!=null)send(r.player1.channel,"PLAYER_LEFT|"+encode(c.username==null?"Player 2":c.username));
+        if(r.player1!=null){
+          send(r.player1.channel,"PLAYER_LEFT|"+encode(c.username==null?"Player 2":c.username));
+          send(r.player1.channel,r.profileState());
+        }
       }
     }
     if(notifySelf)send(c.channel,"ROOM_LEFT");
@@ -266,6 +280,8 @@ public class GalacticServer {
     volatile int player;
     volatile String username;
     volatile String authToken;
+    volatile int badgeMask=0;
+    volatile int unlockMask=0;
     Client(WebSocketChannel c){channel=c;}
   }
 
@@ -702,6 +718,14 @@ public class GalacticServer {
           .append(b.sinkT).append(',').append(b.spin).append(';');
       }
       return sb.toString();
+    }
+
+    String profileState(){
+      int b1=player1==null?0:player1.badgeMask;
+      int b2=player2==null?0:player2.badgeMask;
+      int u1=player1==null?0:player1.unlockMask;
+      int u2=player2==null?0:player2.unlockMask;
+      return "PROFILESTATE|"+b1+"|"+b2+"|"+u1+"|"+u2;
     }
 
     void broadcast(String msg){
