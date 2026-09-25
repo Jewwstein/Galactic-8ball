@@ -1440,32 +1440,36 @@ public class MainActivity extends Activity {
       super.onDraw(c);
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
       boolean portrait=h>w;
-      float ui=portrait
-        ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
-        : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
+      float baseUi=portrait
+        ? Math.max(.82f,Math.min(1.30f,Math.min(w/430f,h/900f)))
+        : Math.max(.86f,Math.min(1.28f,Math.min(w/900f,h/500f)));
+      // Previous HUD pass was readable but too small. Scale the whole gameplay UI
+      // up as one system while the bezel-safe area keeps it off the saber frame.
+      float ui=Math.min(portrait?1.42f:1.38f,baseUi*1.14f);
 
       // Reserve a true safe area inside the lightsaber bezel. Every interactive
       // gameplay HUD now lives inside this rectangle instead of touching the screen edge.
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
 
-      float lockSize=(portrait?92:114)*ui;
+      float lockSize=(portrait?104:126)*ui;
       float lockRight=w-safeX-8*ui,lockBottom=h-safeY-10*ui;
       lockRect.set(lockRight-lockSize,lockBottom-lockSize,lockRight,lockBottom);
 
       // Portrait and landscape have independent HUD geometry instead of stretching
       // one layout until controls become oversized or tiny after rotation.
-      float tabW=(portrait?52:62)*ui,tabH=(portrait?66:78)*ui;
+      float tabW=(portrait?58:68)*ui,tabH=(portrait?74:86)*ui;
       float tabCY=portrait?h*.34f:h*.43f;
       sideMenuTabRect.set(safeX,tabCY-tabH*.5f,safeX+tabW,tabCY+tabH*.5f);
       if(sideMenuOpen){
-        float maxPanelW=Math.max(120*ui,w-safeX*2);
-        float panelW=portrait?Math.min(maxPanelW,226*ui):Math.min(maxPanelW,248*ui);
-        float itemH=(portrait?52:58)*ui,itemGap=(portrait?7:8)*ui;
-        float panelHeight=itemH*5+itemGap*4+34*ui;
+        float maxPanelW=Math.max(160*ui,w-safeX*2);
+        float panelW=portrait?Math.min(maxPanelW,286*ui):Math.min(maxPanelW,330*ui);
+        float itemH=(portrait?62:68)*ui,itemGap=(portrait?9:10)*ui;
+        float headerH=(portrait?48:52)*ui;
+        float panelHeight=headerH+itemH*5+itemGap*4+20*ui;
         float panelTop=Math.max(safeY+8*ui,h*.5f-panelHeight*.5f);
         panelTop=Math.min(panelTop,h-safeY-panelHeight);
         sideMenuPanelRect.set(safeX,panelTop,safeX+panelW,panelTop+panelHeight);
-        float bx=safeX+12*ui,by=panelTop+24*ui,bw=panelW-24*ui;
+        float bx=safeX+14*ui,by=panelTop+headerH,bw=panelW-28*ui;
         saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
         rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
         activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
@@ -1531,9 +1535,15 @@ public class MainActivity extends Activity {
     }
 
     void drawSideMenu(Canvas c,float ui,GameRenderer r){
-      p.setStyle(Paint.Style.FILL);p.setColor(0xD6070D16);p.setShadowLayer(16*ui,4*ui,0,0xBB000000);
-      c.drawRoundRect(sideMenuPanelRect,18*ui,18*ui,p);p.clearShadowLayer();
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.8f*ui);stroke.setColor(0x995BD6FF);c.drawRoundRect(sideMenuPanelRect,18*ui,18*ui,stroke);
+      p.setStyle(Paint.Style.FILL);p.setColor(0xEE070D16);p.setShadowLayer(18*ui,4*ui,0,0xCC000000);
+      c.drawRoundRect(sideMenuPanelRect,20*ui,20*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.0f*ui);stroke.setColor(0xB05BD6FF);c.drawRoundRect(sideMenuPanelRect,20*ui,20*ui,stroke);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
+      p.setTextSize(17*ui);p.setColor(0xFFF4C542);
+      c.drawText("GAME MENU",sideMenuPanelRect.left+16*ui,sideMenuPanelRect.top+29*ui,p);
+      stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0x555BD6FF);
+      c.drawLine(sideMenuPanelRect.left+14*ui,sideMenuPanelRect.top+39*ui,sideMenuPanelRect.right-14*ui,sideMenuPanelRect.top+39*ui,stroke);
 
       String mp=(net==null)?"OFFLINE":net.statusText();if(mp.length()>22)mp=mp.substring(0,22);
       drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
@@ -1582,13 +1592,13 @@ public class MainActivity extends Activity {
       }
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(15.5f*ui);p.setColor(0xFFF7FAFC);
-      c.drawText(title,rr.left+52*ui,rr.top+25*ui,p);
-      p.setTypeface(Typeface.DEFAULT);p.setTextSize(10.2f*ui);p.setColor(active?accent:0xFFB8C1CE);
-      c.drawText(sub,rr.left+52*ui,rr.bottom-12*ui,p);
+      p.setTextSize(17.5f*ui);p.setColor(0xFFF7FAFC);
+      c.drawText(title,rr.left+58*ui,rr.top+29*ui,p);
+      p.setTypeface(Typeface.DEFAULT);p.setTextSize(11.5f*ui);p.setColor(active?accent:0xFFB8C1CE);
+      c.drawText(sub,rr.left+58*ui,rr.bottom-13*ui,p);
 
-      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(16*ui);p.setColor(accent);
-      c.drawText("›",rr.right-18*ui,rr.centerY()+5*ui,p);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(19*ui);p.setColor(accent);
+      c.drawText("›",rr.right-20*ui,rr.centerY()+6*ui,p);
       p.setShader(null);
     }
 
@@ -1602,7 +1612,7 @@ public class MainActivity extends Activity {
 
     void drawCameraAnalogStick(Canvas c,int w,int h,float ui){
       boolean portrait=h>w;
-      float r=(portrait?54:60)*ui;
+      float r=(portrait?62:68)*ui;
       float cx=portrait?lockRect.centerX():lockRect.left-r-18*ui;
       float cy=portrait?lockRect.top-r-15*ui:lockRect.centerY();
       cameraStickRect.set(cx-r,cy-r,cx+r,cy+r);
@@ -1633,7 +1643,7 @@ public class MainActivity extends Activity {
       // Give the precision buttons generous, clearly separated thumb targets.
       // The empty center gap is intentional so a slightly-off tap cannot land
       // on the opposite direction button.
-      float size=(portrait?92:112)*ui;
+      float size=(portrait?104:124)*ui;
       float gap=(portrait?36:42)*ui;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
       float x=safeX+(portrait?8:10)*ui;
@@ -1643,7 +1653,7 @@ public class MainActivity extends Activity {
       microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize((portrait?10.5f:11.5f)*ui);p.setColor(0xA9D7F4FF);
+      p.setTextSize((portrait?12f:13f)*ui);p.setColor(0xA9D7F4FF);
       c.drawText("PRECISION AIM",x+size+gap*.5f,y-10*ui,p);
 
       drawMicroPolygon(c,microLeftRect,true,ui);
@@ -1702,53 +1712,71 @@ public class MainActivity extends Activity {
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
-      float availW=Math.max(160*ui,w-safeX*2),availH=Math.max(220*ui,h-safeY*2);
-      float pw=portrait?Math.min(availW,430*ui):Math.min(availW,1080*ui);
-      float ph=portrait?Math.min(availH,500*ui):Math.min(availH,430*ui);
+      float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
+      float pw=portrait?Math.min(availW,470*ui):Math.min(availW,920*ui);
+      float ph=portrait?Math.min(availH,640*ui):Math.min(availH,500*ui);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
-      p.setStyle(Paint.Style.FILL);p.setShadowLayer(18*ui,0,8*ui,0xCC000000);
-      p.setShader(new LinearGradient(panel.left,panel.top,panel.right,panel.bottom,0xF51B2531,0xFA070A0F,Shader.TileMode.CLAMP));
-      c.drawRoundRect(panel,24*ui,24*ui,p);p.clearShadowLayer();p.setShader(null);
-      stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24*ui,24*ui,stroke);
-      stroke.setColor(0x66FFFFFF);stroke.setStrokeWidth(1.2f*ui);c.drawRoundRect(new RectF(panel.left+6*ui,panel.top+6*ui,panel.right-6*ui,panel.bottom-6*ui),18*ui,18*ui,stroke);
-      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize((portrait?18:22)*ui);p.setColor(Color.WHITE);
-      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+30*ui,p);
+
+      p.setStyle(Paint.Style.FILL);p.setShadowLayer(22*ui,0,9*ui,0xD0000000);
+      p.setShader(new LinearGradient(panel.left,panel.top,panel.right,panel.bottom,0xF7243242,0xFC06090E,Shader.TileMode.CLAMP));
+      c.drawRoundRect(panel,26*ui,26*ui,p);p.clearShadowLayer();p.setShader(null);
+      stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3.2f*ui);c.drawRoundRect(panel,26*ui,26*ui,stroke);
+      stroke.setColor(0x665BD6FF);stroke.setStrokeWidth(1.3f*ui);
+      c.drawRoundRect(new RectF(panel.left+7*ui,panel.top+7*ui,panel.right-7*ui,panel.bottom-7*ui),20*ui,20*ui,stroke);
+
+      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);
+      p.setTextSize((portrait?20:24)*ui);p.setColor(Color.WHITE);
+      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
+      p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?10.5f:12)*ui);p.setColor(0xFF9FB0C4);
+      c.drawText("Choose a hilt and blade color",w*.5f,y+52*ui,p);
 
       if(portrait){
-        float gap=8*ui,cw=(pw-36*ui-gap*2)/3f,ch=72*ui;
-        p.setTextSize(12*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS",x+18*ui,y+55*ui,p);
-        float hs=y+64*ui;
+        float side=18*ui,gap=9*ui,cw=(pw-side*2-gap*2)/3f,ch=82*ui;
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS",x+side,y+78*ui,p);
+        float hs=y+88*ui;
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+18*ui+col*(cw+gap),ty=hs+row*(ch+7*ui);
+          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+8*ui);
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
         }
-        float bsY=hs+2*(ch+7*ui)+20*ui;
-        p.setTextSize(12*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("BLADES",x+18*ui,bsY,p);
-        float bstart=bsY+8*ui;
+
+        float bsY=hs+2*(ch+8*ui)+18*ui;
+        p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("BLADES",x+side,bsY,p);
+        float bstart=bsY+10*ui;
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+18*ui+col*(cw+gap),ty=bstart+row*(ch+7*ui);
+          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=bstart+row*(ch+8*ui);
           bladeChoices[i].set(lx,ty,lx+cw,ty+ch);
           drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
         }
       }else{
-        p.setTextSize(14*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("HILT",x+45*ui,y+75*ui,p);c.drawText("BLADE",x+45*ui,y+235*ui,p);
-        float gap=12*ui,cw=(pw-56*ui-gap*5)/6f;
+        // Landscape uses two large 3x2 grids side-by-side rather than six tiny cards.
+        float side=22*ui,centerGap=24*ui;
+        float sectionW=(pw-side*2-centerGap)*.5f;
+        float gap=9*ui,cw=(sectionW-gap*2)/3f,ch=88*ui;
+        float leftX=x+side,rightX=leftX+sectionW+centerGap;
+        float startY=y+88*ui;
+
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS",leftX,startY-12*ui,p);
+        c.drawText("BLADES",rightX,startY-12*ui,p);
+
         for(int i=0;i<6;i++){
-          float lx=x+28*ui+i*(cw+gap);
-          hiltChoices[i].set(lx,y+88*ui,lx+cw,y+198*ui);
-          bladeChoices[i].set(lx,y+248*ui,lx+cw,y+360*ui);
+          int col=i%3,row=i/3;
+          float ty=startY+row*(ch+10*ui);
+          float hl=leftX+col*(cw+gap),bl=rightX+col*(cw+gap);
+          hiltChoices[i].set(hl,ty,hl+cw,ty+ch);
+          bladeChoices[i].set(bl,ty,bl+cw,ty+ch);
           drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
           drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
         }
       }
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11*ui);p.setColor(0xFFB9C1CC);
-      c.drawText("Tap outside to close",w*.5f,y+ph-12*ui,p);
+
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(12*ui);p.setColor(0xFFB9C1CC);
+      c.drawText("Tap outside to close",w*.5f,y+ph-14*ui,p);
     }
 
     void drawLoadoutChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui,boolean hilt){
@@ -1758,11 +1786,11 @@ public class MainActivity extends Activity {
       stroke.setColor(selected?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(selected?2.6f*ui:1.2f*ui);c.drawRoundRect(rr,11*ui,11*ui,stroke);
       if(bmp!=null){
         RectF img;
-        if(hilt)img=new RectF(rr.left+4*ui,rr.top+13*ui,rr.right-4*ui,rr.bottom-22*ui);
-        else img=new RectF(rr.left+5*ui,rr.top+21*ui,rr.right-5*ui,rr.top+43*ui);
+        if(hilt)img=new RectF(rr.left+6*ui,rr.top+12*ui,rr.right-6*ui,rr.bottom-25*ui);
+        else img=new RectF(rr.left+7*ui,rr.top+22*ui,rr.right-7*ui,rr.top+48*ui);
         c.drawBitmap(bmp,null,img,p);
       }
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.4f*ui);p.setColor(Color.WHITE);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(9.7f*ui);p.setColor(Color.WHITE);
       c.drawText(name,rr.centerX(),rr.bottom-6*ui,p);
     }
 
@@ -1771,11 +1799,13 @@ public class MainActivity extends Activity {
       // cover useful table space at low camera angles.
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
-      float panelH=(portrait?58:70)*ui,top=safeY+(portrait?4:6)*ui;
-      float availableW=Math.max(220*ui,w-safeX*2);
-      float centerW=Math.min((portrait?88:112)*ui,availableW*(portrait?.22f:.15f));
-      float teamW=portrait?Math.max(82*ui,(availableW-centerW-10*ui)*.5f):Math.min(224*ui,(availableW-centerW-22*ui)*.5f);
-      float mid=w*.5f,leftRight=mid-centerW*.5f,rightLeft=mid+centerW*.5f;
+      float panelH=(portrait?82:94)*ui,top=safeY+(portrait?5:7)*ui;
+      float availableW=Math.max(260*ui,w-safeX*2);
+      float centerW=Math.min((portrait?104:132)*ui,availableW*(portrait?.235f:.17f));
+      float gap=(portrait?6:10)*ui;
+      float teamW=Math.max(portrait?104*ui:150*ui,(availableW-centerW-gap*2)*.5f);
+      teamW=Math.min(teamW,(availableW-centerW-gap*2)*.5f);
+      float mid=w*.5f,leftRight=mid-centerW*.5f-gap,rightLeft=mid+centerW*.5f+gap;
       RectF left=new RectF(leftRight-teamW,top,leftRight+1*ui,top+panelH);
       RectF right=new RectF(rightLeft-1*ui,top,rightLeft+teamW,top+panelH);
       RectF center=new RectF(leftRight,top,rightLeft,top+panelH);
@@ -1791,12 +1821,12 @@ public class MainActivity extends Activity {
       stroke.setColor(activeReady?0xFFF4C542:0x88778491);c.drawRoundRect(center,10*ui,10*ui,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(11.5f*ui);p.setColor(0xFFF4C542);
+      p.setTextSize(13.5f*ui);p.setColor(0xFFF4C542);
       String centerText=r.gameOver?(r.aiEnabled?(r.winnerTeam==1?"YOU WIN":"AI WINS"):("TEAM "+r.winnerTeam+" WINS")):
         (r.aiEnabled?(r.currentTeam==1?"YOUR TURN":"AI TURN"):("TEAM "+r.currentTeam+" TURN"));
-      c.drawText(centerText,center.centerX(),center.top+15*ui,p);
+      c.drawText(centerText,center.centerX(),center.top+20*ui,p);
 
-      float bx=center.centerX(),by=center.top+39*ui,br=12.5f*ui;
+      float bx=center.centerX(),by=center.top+53*ui,br=16*ui;
       if(activeReady){
         p.setShadowLayer(9*ui,0,0,0xFFF4C542);
         p.setColor(0xFF070707);c.drawCircle(bx,by,br,p);p.clearShadowLayer();
@@ -1805,13 +1835,13 @@ public class MainActivity extends Activity {
         p.setColor(0xFF070707);c.drawCircle(bx,by,br,p);
         stroke.setStrokeWidth(1.5f*ui);stroke.setColor(0xFFD8DEE7);c.drawCircle(bx,by,br,stroke);
       }
-      p.setColor(Color.WHITE);p.setTextSize(10.5f*ui);c.drawText("8",bx,by+3.7f*ui,p);
-      p.setTextSize(7.5f*ui);p.setColor(activeReady?0xFFF4C542:0xFF9FAABA);
-      c.drawText(activeReady?"READY":"8 BALL",bx,center.bottom-6*ui,p);
+      p.setColor(Color.WHITE);p.setTextSize(13*ui);c.drawText("8",bx,by+4.5f*ui,p);
+      p.setTextSize(9.2f*ui);p.setColor(activeReady?0xFFF4C542:0xFF9FAABA);
+      c.drawText(activeReady?"READY":"8 BALL",bx,center.bottom-8*ui,p);
 
       // Keep the rule message tiny and directly below the scoreboard.
-      p.setTextSize(9.5f*ui);p.setColor(0xDDDCE4EE);
-      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+panelH+11*ui,p);
+      p.setTextSize(11*ui);p.setColor(0xFFE4EAF2);
+      c.drawText(r.ruleMessage==null?"":r.ruleMessage,w*.5f,top+panelH+14*ui,p);
     }
 
     void drawTeamCard(Canvas c,RectF rr,int team,float ui,GameRenderer r){
@@ -1828,18 +1858,18 @@ public class MainActivity extends Activity {
       stroke.clearShadowLayer();
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(10.5f*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
+      p.setTextSize(13.2f*ui);p.setColor(team==1?0xFF8CC8FF:0xFFFF9B9B);
       String teamLabel=r.aiEnabled?(team==1?"YOU":"GALACTIC AI"):("TEAM "+team);
-      c.drawText(teamLabel,rr.left+8*ui,rr.top+13*ui,p);
+      c.drawText(teamLabel,rr.left+10*ui,rr.top+18*ui,p);
 
       int suit=r.teamSuit[team-1];
       String suitText=suit==1?"SOLIDS":suit==2?"STRIPES":"OPEN";
-      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(8.5f*ui);p.setColor(0xFFE7EDF5);
-      c.drawText(suitText,rr.right-8*ui,rr.top+13*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(10.5f*ui);p.setColor(0xFFE7EDF5);
+      c.drawText(suitText,rr.right-10*ui,rr.top+18*ui,p);
 
       if(suit==0){
-        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(9*ui);p.setColor(0xFFB8C2D0);
-        c.drawText("FIRST GROUP CLAIMS",rr.centerX(),rr.centerY()+6*ui,p);
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11.5f*ui);p.setColor(0xFFB8C2D0);
+        c.drawText("FIRST GROUP CLAIMS",rr.centerX(),rr.centerY()+8*ui,p);
         return;
       }
 
@@ -1848,9 +1878,9 @@ public class MainActivity extends Activity {
       for(int n=start;n<=end;n++)if(r.isBallOnTable(n))remain.add(n);
 
       // Seven compact spots in a 2-3-2 diamond cluster.
-      boolean mini=rr.height()<64*ui;
-      float cx=rr.centerX(),baseY=rr.top+(mini?25:30)*ui;
-      float dx=(mini?12.5f:15)*ui,dy=(mini?10.5f:13)*ui,rad=(mini?5.3f:6.2f)*ui;
+      boolean mini=rr.height()<78*ui;
+      float cx=rr.centerX(),baseY=rr.top+(mini?34:38)*ui;
+      float dx=(mini?15.5f:18.5f)*ui,dy=(mini?13.5f:16)*ui,rad=(mini?6.8f:7.8f)*ui;
       float[][] spots={
         {-dx*.55f,0},{dx*.55f,0},
         {-dx,dy},{0,dy},{dx,dy},
@@ -1866,13 +1896,13 @@ public class MainActivity extends Activity {
           p.setColor(onTable?0xFFF5F5F5:0x333A3A3A);c.drawCircle(x,y,rad,p);
           stroke.setColor(onTable?0xFFE8B84C:0x33444444);stroke.setStrokeWidth(2.1f*ui);c.drawCircle(x,y,rad*.70f,stroke);
         }
-        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(5.6f*ui);p.setColor(onTable?0xFF111111:0x55888888);
-        c.drawText(String.valueOf(n),x,y+2.0f*ui,p);
+        p.setTextAlign(Paint.Align.CENTER);p.setTextSize(6.8f*ui);p.setColor(onTable?0xFF111111:0x55888888);
+        c.drawText(String.valueOf(n),x,y+2.4f*ui,p);
       }
 
-      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(7.4f*ui);
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(9.4f*ui);
       p.setColor(remain.isEmpty()?0xFFF4C542:0xFFB9C4D2);
-      c.drawText(remain.isEmpty()?"8 READY":remain.size()+" LEFT",rr.right-7*ui,rr.bottom-5*ui,p);
+      c.drawText(remain.isEmpty()?"8 READY":remain.size()+" LEFT",rr.right-9*ui,rr.bottom-7*ui,p);
     }
 
     void drawWinnerOverlay(Canvas c,int w,int h,float ui,GameRenderer r){
@@ -1898,7 +1928,7 @@ public class MainActivity extends Activity {
     void drawEnglish(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
-      englishR=portrait?Math.min((w-safeX*2)*.225f,112*ui):Math.min((h-safeY*2)*.205f,145*ui);
+      englishR=portrait?Math.min((w-safeX*2)*.245f,126*ui):Math.min((h-safeY*2)*.225f,160*ui);
       englishCx=w-safeX-englishR-(portrait?28:30)*ui;
       englishCy=portrait?h*.46f:h*.43f;
       p.setColor(0xC8000000);c.drawRoundRect(new RectF(englishCx-englishR-28*ui,englishCy-englishR-54*ui,englishCx+englishR+28*ui,englishCy+englishR+126*ui),24,24,p);
@@ -1909,13 +1939,13 @@ public class MainActivity extends Activity {
       float dx=r.englishX*englishR*.82f,dy=-r.englishY*englishR*.82f;
       p.setColor(0xFF111827);c.drawCircle(englishCx+dx,englishCy+dy,13*ui,p);
       p.setColor(0xFFF4C542);c.drawCircle(englishCx+dx,englishCy+dy,7*ui,p);
-      p.setTextSize(19*ui);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(22*ui);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);
       c.drawText("ENGLISH",englishCx,englishCy-englishR-18*ui,p);
       p.setTextSize(13*ui);p.setColor(0xFFD1D5DB);
       c.drawText("Tap cue ball • top / back / left / right",englishCx,englishCy+englishR+24*ui,p);
       confirmRect.set(englishCx-englishR,englishCy+englishR+42*ui,englishCx+englishR,englishCy+englishR+92*ui);
       cancelRect.set(englishCx-englishR,englishCy+englishR+98*ui,englishCx+englishR,englishCy+englishR+137*ui);
-      drawButton(c,confirmRect,"LOCK ENGLISH",18*ui,0xDD0B3A2E);
+      drawButton(c,confirmRect,"LOCK ENGLISH",20*ui,0xDD0B3A2E);
       drawButton(c,cancelRect,"CANCEL",14*ui,0xCC3A1010);
     }
 
@@ -1997,7 +2027,7 @@ public class MainActivity extends Activity {
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
       boolean portrait=h>w;
-      float baseW=(portrait?154:198)*ui,baseH=(portrait?104:122)*ui;
+      float baseW=(portrait?170:216)*ui,baseH=(portrait?116:136)*ui;
 
       // Keep the visual hilt and its touch geometry in the same screen-space
       // lane. The previous HUD rectangle sat above part of the OpenGL hilt,
@@ -2024,9 +2054,9 @@ public class MainActivity extends Activity {
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(9.5f*ui);p.setColor(0xA9DDF8FF);
+      p.setTextSize(11.5f*ui);p.setColor(0xA9DDF8FF);
       c.drawText("THUMB STRIKE",cx,trackTop-8*ui,p);
-      p.setTextSize(13*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFC1CDDA);
+      p.setTextSize(15*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFC1CDDA);
       c.drawText(Math.round(r.power)+"%",cx,Math.min(h-safeY-4*ui,trackBottom+17*ui),p);
     }
 
