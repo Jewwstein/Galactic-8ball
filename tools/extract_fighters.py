@@ -61,6 +61,17 @@ def merge_native_objs(srcs,dst):
             faces.append(remap)
 
     if not verts: raise RuntimeError("no vertices while merging "+str(dst))
+
+    # Normalize the COMPLETE merged X-Wing as one object. This preserves every
+    # extracted mesh while matching the same overall world size as the original
+    # four-corner Android test (runtime scale 3.2).
+    mins=[min(v[i] for v in verts) for i in range(3)]
+    maxs=[max(v[i] for v in verts) for i in range(3)]
+    spans=[maxs[i]-mins[i] for i in range(3)]
+    center=[(mins[i]+maxs[i])*.5 for i in range(3)]
+    scale=max(max(spans),1e-6)
+    verts=[((v[0]-center[0])/scale,(v[1]-center[1])/scale,(v[2]-center[2])/scale) for v in verts]
+
     lines=[]
     for x,y,z in verts: lines.append(f"v {x:.7f} {y:.7f} {z:.7f}")
     for u,v in uvs: lines.append(f"vt {u:.7f} {v:.7f}")
@@ -70,11 +81,7 @@ def merge_native_objs(srcs,dst):
             parts.append(f"{vi+1}/{ti+1}" if ti is not None else f"{vi+1}")
         lines.append("f "+" ".join(parts))
     dst.write_text("\n".join(lines)+"\n")
-
-    mins=[min(v[i] for v in verts) for i in range(3)]
-    maxs=[max(v[i] for v in verts) for i in range(3)]
-    spans=[maxs[i]-mins[i] for i in range(3)]
-    print(dst,"FULL NATIVE MODEL meshes",len(srcs),"verts",len(verts),"spans",spans,"mins",mins,"maxs",maxs)
+    print(dst,"FULL MERGED NORMALIZED MODEL meshes",len(srcs),"verts",len(verts),"source spans",spans)
 
 for bundle in sorted(root.glob("*.unity3d")):
     name=bundle.stem; out=outroot/name; out.mkdir(parents=True,exist_ok=True)
