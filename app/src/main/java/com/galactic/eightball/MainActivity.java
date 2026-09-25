@@ -214,49 +214,8 @@ public class MainActivity extends Activity {
   }
 
   View galacticLogoView(){
-    ImageView iv=new ImageView(this);
-    iv.setAdjustViewBounds(true);
-    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-    iv.setMaxHeight(dp(260));
-
-    Bitmap logo=null;
-
-    // Native high-resolution PNG. Do not upscale the old 320 px preview.
-    try(InputStream in=getAssets().open("ui/galactic_logo_ultra.png")){
-      BitmapFactory.Options o=new BitmapFactory.Options();
-      o.inPreferredConfig=Bitmap.Config.ARGB_8888;
-      o.inScaled=false;
-      Bitmap candidate=BitmapFactory.decodeStream(in,null,o);
-      if(candidate!=null && candidate.getWidth()>=1200 && candidate.getHeight()>=400){
-        logo=candidate;
-      }
-    }catch(Exception ignored){}
-
-    // Older HD asset remains only as a compatibility fallback.
-    if(logo==null){
-      try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
-        BitmapFactory.Options o=new BitmapFactory.Options();
-        o.inPreferredConfig=Bitmap.Config.ARGB_8888;
-        o.inScaled=false;
-        Bitmap candidate=BitmapFactory.decodeStream(in,null,o);
-        if(candidate!=null && candidate.getWidth()>=600 && candidate.getHeight()>=180){
-          logo=candidate;
-        }
-      }catch(Exception ignored){}
-    }
-
-    // Last-resort fallback so the UI can never show a blank logo.
-    if(logo==null){
-      try(InputStream in=getAssets().open("ui/galactic_logo.png")){
-        BitmapFactory.Options o=new BitmapFactory.Options();
-        o.inPreferredConfig=Bitmap.Config.ARGB_8888;
-        o.inScaled=false;
-        logo=BitmapFactory.decodeStream(in,null,o);
-      }catch(Exception ignored){}
-    }
-
-    if(logo!=null)iv.setImageBitmap(logo);
-    return iv;
+    // Pure Canvas artwork: resolution-independent at every Android density.
+    return new GalacticLogoView(this);
   }
 
 
@@ -694,81 +653,156 @@ public class MainActivity extends Activity {
 
 
   static class GalacticLogoView extends View{
-    final Paint p=new Paint(3),stroke=new Paint(3);
-    final Path ship=new Path();
-    GalacticLogoView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.DITHER_FLAG);
+    final Paint stroke=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.DITHER_FLAG);
+    final Path clipBall=new Path();
+    final RectF tmp=new RectF();
+
+    GalacticLogoView(Context c){
+      super(c);
+      setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+      setWillNotDraw(false);
+    }
 
     protected void onMeasure(int ws,int hs){
       int w=MeasureSpec.getSize(ws);
-      int desired=(int)(w*.46f);
-      int h=resolveSize(Math.max(180,desired),hs);
+      if(w<=0)w=1080;
+      int desired=Math.max(150,(int)(w*.355f));
+      int h=resolveSize(desired,hs);
       setMeasuredDimension(w,h);
+    }
+
+    void drawOutlinedText(Canvas c,String text,float x,float y,float size,int top,int bottom,int outline,float outlineW){
+      p.setTypeface(Typeface.create("sans-serif-black",Typeface.BOLD));
+      p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(size);
+      p.setLetterSpacing(.035f);
+
+      p.setStyle(Paint.Style.STROKE);
+      p.setStrokeWidth(outlineW);
+      p.setColor(outline);
+      p.setShadowLayer(outlineW*1.8f,0,0,0xCC167DFF);
+      c.drawText(text,x,y,p);
+      p.clearShadowLayer();
+
+      p.setStyle(Paint.Style.FILL);
+      p.setShader(new LinearGradient(x,y-size,x,y+size*.20f,top,bottom,Shader.TileMode.CLAMP));
+      p.setShadowLayer(size*.035f,0,size*.025f,0xB0000000);
+      c.drawText(text,x,y,p);
+      p.clearShadowLayer();p.setShader(null);p.setLetterSpacing(0f);
     }
 
     protected void onDraw(Canvas c){
       super.onDraw(c);
-      float w=getWidth(),h=getHeight(),cx=w*.5f,cy=h*.43f;
-      float r=Math.min(w*.25f,h*.40f);
+      float w=getWidth(),h=getHeight();
+      if(w<=0||h<=0)return;
 
-      // Nebula halo.
+      final float cx=w*.205f,cy=h*.49f;
+      final float r=Math.min(h*.405f,w*.145f);
+
+      // Transparent, high-resolution space glow behind the emblem.
       p.setStyle(Paint.Style.FILL);
-      p.setShader(new RadialGradient(cx,cy,r*1.45f,
-        new int[]{0x00113866,0x66442299,0xAAE56C22,0x33193866,0x00000000},
-        new float[]{0,.43f,.66f,.82f,1f},Shader.TileMode.CLAMP));
-      c.drawCircle(cx,cy,r*1.45f,p);p.setShader(null);
+      p.setShader(new RadialGradient(w*.48f,h*.48f,w*.47f,
+        new int[]{0x66325FFF,0x332066A8,0x12020A18,0x00000000},
+        new float[]{0,.40f,.72f,1f},Shader.TileMode.CLAMP));
+      c.drawOval(new RectF(w*.02f,h*.02f,w*.98f,h*.98f),p);
+      p.setShader(null);
 
-      // Galaxy ring / metallic orbit.
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(2f,r*.035f));
-      stroke.setShader(new SweepGradient(cx,cy,new int[]{0xFF55D8FF,0xFFFFB84A,0xFF9C5CFF,0xFF55D8FF},null));
-      stroke.setShadowLayer(r*.10f,0,0,0xAA58D6FF);
-      c.save();c.scale(1f,.44f,cx,cy);c.drawCircle(cx,cy,r*1.18f,stroke);c.restore();
+      // Gold / electric-blue orbit streaks around the Death-Star 8-ball.
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);
+      stroke.setStrokeWidth(Math.max(2f,r*.045f));
+      stroke.setShader(new SweepGradient(cx,cy,new int[]{0xFF62CFFF,0xFFFFC248,0xFFFFE58E,0xFF348CFF,0xFF62CFFF},null));
+      stroke.setShadowLayer(r*.11f,0,0,0xB052B9FF);
+      c.save();c.rotate(-8,cx,cy);c.scale(1.45f,.47f,cx,cy);
+      c.drawCircle(cx,cy,r*1.02f,stroke);c.restore();
       stroke.clearShadowLayer();stroke.setShader(null);
 
-      // Glossy 8-ball.
-      p.setShader(new RadialGradient(cx-r*.23f,cy-r*.28f,r*1.02f,
-        new int[]{0xFF596170,0xFF151920,0xFF030406},new float[]{0,.35f,1f},Shader.TileMode.CLAMP));
-      p.setShadowLayer(r*.16f,0,r*.08f,0xDD000000);
-      c.drawCircle(cx,cy,r*.72f,p);p.clearShadowLayer();p.setShader(null);
+      // Death-Star sphere.
+      p.setStyle(Paint.Style.FILL);
+      p.setShader(new RadialGradient(cx-r*.28f,cy-r*.34f,r*1.08f,
+        new int[]{0xFF929AA7,0xFF3B424D,0xFF11151C,0xFF020306},
+        new float[]{0,.26f,.66f,1f},Shader.TileMode.CLAMP));
+      p.setShadowLayer(r*.17f,0,r*.07f,0xE8000000);
+      c.drawCircle(cx,cy,r,p);p.clearShadowLayer();p.setShader(null);
 
-      p.setColor(0xFFF7F8FA);c.drawCircle(cx,cy-r*.02f,r*.255f,p);
-      p.setColor(0xFF050608);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(r*.34f);
-      c.drawText("8",cx,cy+r*.095f,p);
+      // Clip detailed panel/trench line work inside the sphere.
+      clipBall.reset();clipBall.addCircle(cx,cy,r,Path.Direction.CW);
+      c.save();c.clipPath(clipBall);
+      stroke.setShadowLayer(0,0,0,0);
+      stroke.setStyle(Paint.Style.STROKE);
+      stroke.setStrokeWidth(Math.max(1f,r*.012f));
+      stroke.setColor(0x809CA7B6);
+      for(int i=-4;i<=4;i++){
+        float yy=cy+i*r*.18f;
+        c.drawLine(cx-r,yy,cx+r,yy,stroke);
+      }
+      stroke.setColor(0x596F7987);
+      for(int i=-4;i<=4;i++){
+        float xx=cx+i*r*.19f;
+        c.drawLine(xx,cy-r,xx,cy+r,stroke);
+      }
+      // Equatorial trench.
+      p.setStyle(Paint.Style.FILL);p.setColor(0xD805080D);
+      c.drawRect(cx-r,cy-r*.075f,cx+r,cy+r*.075f,p);
+      stroke.setStrokeWidth(Math.max(1.3f,r*.018f));stroke.setColor(0xA8D0D6DE);
+      c.drawLine(cx-r,cy-r*.083f,cx+r,cy-r*.083f,stroke);
+      c.drawLine(cx-r,cy+r*.083f,cx+r,cy+r*.083f,stroke);
+      c.restore();
 
-      // Small starfighter silhouette.
-      float sx=cx+r*.78f,sy=cy-r*.70f,sc=r*.22f;
-      ship.reset();
-      ship.moveTo(sx+sc*.95f,sy);
-      ship.lineTo(sx-sc*.45f,sy-sc*.18f);
-      ship.lineTo(sx-sc*.88f,sy-sc*.62f);
-      ship.lineTo(sx-sc*.18f,sy-sc*.30f);
-      ship.lineTo(sx-sc*.82f,sy+sc*.55f);
-      ship.lineTo(sx-sc*.35f,sy+sc*.20f);
-      ship.close();
-      p.setColor(0xFFE6EDF7);p.setShadowLayer(sc*.22f,0,0,0xAA55CFFF);c.drawPath(ship,p);p.clearShadowLayer();
+      // Billiard 8 patch integrated into the station.
+      float px=cx-r*.32f,py=cy+r*.25f,pr=r*.31f;
+      p.setStyle(Paint.Style.FILL);
+      p.setShader(new RadialGradient(px-pr*.25f,py-pr*.30f,pr*1.10f,
+        new int[]{0xFFFFFFFF,0xFFF1EEE5,0xFFBEB8AA},null,Shader.TileMode.CLAMP));
+      c.drawCircle(px,py,pr,p);p.setShader(null);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(1.5f,r*.018f));stroke.setColor(0xAA15181D);
+      c.drawCircle(px,py,pr,stroke);
+      p.setTypeface(Typeface.create("sans-serif-black",Typeface.BOLD));p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(pr*1.42f);p.setColor(0xFF06080B);
+      c.drawText("8",px,py+pr*.49f,p);
 
-      // Crossed saber accents.
-      float saberY=cy+r*.94f,saberL=r*.76f;
-      stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.075f);
-      stroke.setShadowLayer(r*.09f,0,0,0xE8FF3040);stroke.setColor(0xFFFF5460);
-      c.drawLine(cx-saberL*.72f,saberY+r*.20f,cx+saberL*.72f,saberY-r*.20f,stroke);
+      // Superlaser dish and green core.
+      float dx=cx+r*.45f,dy=cy-r*.33f,dr=r*.30f;
+      p.setStyle(Paint.Style.FILL);p.setColor(0xFF10151D);c.drawCircle(dx,dy,dr,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(2f,r*.025f));stroke.setColor(0xFFD5DCE5);c.drawCircle(dx,dy,dr,stroke);
+      for(int i=0;i<8;i++){
+        double a=i*Math.PI/4.0;
+        stroke.setStrokeWidth(Math.max(1f,r*.010f));stroke.setColor(0xA05A697A);
+        c.drawLine(dx,dy,dx+(float)Math.cos(a)*dr*.88f,dy+(float)Math.sin(a)*dr*.88f,stroke);
+      }
+      p.setShader(new RadialGradient(dx,dy,dr*.66f,new int[]{0xFFFFFFFF,0xFFB8FFD0,0xFF20FF62,0x5520FF62},null,Shader.TileMode.CLAMP));
+      p.setShadowLayer(dr*.38f,0,0,0xF029FF64);c.drawCircle(dx,dy,dr*.42f,p);p.clearShadowLayer();p.setShader(null);
+
+      // Laser crosses the title exactly like the Galactic table identity.
+      float beamEnd=w*.955f,beamY=h*.61f;
+      stroke.setStrokeCap(Paint.Cap.ROUND);
+      stroke.setShadowLayer(r*.10f,0,0,0xE020FF5F);stroke.setColor(0x9030FF64);stroke.setStrokeWidth(Math.max(7f,h*.060f));
+      c.drawLine(dx,dy,beamEnd,beamY,stroke);
+      stroke.setColor(0xFF45FF69);stroke.setStrokeWidth(Math.max(3.5f,h*.028f));c.drawLine(dx,dy,beamEnd,beamY,stroke);
+      stroke.setColor(0xFFF1FFF4);stroke.setStrokeWidth(Math.max(1.2f,h*.009f));c.drawLine(dx,dy,beamEnd,beamY,stroke);
       stroke.clearShadowLayer();
-      stroke.setShadowLayer(r*.09f,0,0,0xE849BFFF);stroke.setColor(0xFF74DFFF);
-      c.drawLine(cx-saberL*.72f,saberY-r*.20f,cx+saberL*.72f,saberY+r*.20f,stroke);
-      stroke.clearShadowLayer();stroke.setStrokeCap(Paint.Cap.BUTT);
 
-      // Crisp scalable title: no bitmap upscaling at any screen density.
-      p.setTypeface(Typeface.create("sans-serif-black",Typeface.BOLD));
-      p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(Math.min(w*.082f,r*.42f));
-      p.setLetterSpacing(.08f);
-      p.setShader(new LinearGradient(cx,cy+r*.44f,cx,cy+r*.83f,
-        new int[]{0xFFFFF1A7,0xFFFFC54D,0xFF9C5A10},null,Shader.TileMode.CLAMP));
-      p.setShadowLayer(r*.055f,0,r*.025f,0xFF000000);
-      c.drawText("GALACTIC 8-BALL",cx,cy+r*.72f,p);
-      p.clearShadowLayer();p.setShader(null);p.setLetterSpacing(0f);
+      // Metallic title. Canvas text remains perfectly sharp at every resolution.
+      drawOutlinedText(c,"GALACTIC",w*.665f,h*.445f,h*.285f,0xFFFFFFFF,0xFF8E99A8,0xFF07111F,Math.max(4f,h*.025f));
+      drawOutlinedText(c,"BALL",w*.675f,h*.805f,h*.345f,0xFFFFF2A0,0xFFC87908,0xFF111018,Math.max(4f,h*.026f));
+
+      // Fine blue edge rail / underline.
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);
+      stroke.setStrokeWidth(Math.max(1.6f,h*.010f));stroke.setColor(0xEE55C8FF);stroke.setShadowLayer(h*.03f,0,0,0xCC178BFF);
+      c.drawLine(w*.42f,h*.89f,w*.91f,h*.89f,stroke);stroke.clearShadowLayer();
+
+      // Small deterministic star glints for finish without any bitmap scaling.
+      p.setStyle(Paint.Style.FILL);p.setColor(0xFFF7FCFF);
+      float[][] stars={{.44f,.13f},{.58f,.18f},{.79f,.12f},{.91f,.31f},{.51f,.89f},{.84f,.90f}};
+      for(float[] s:stars){
+        float sx=w*s[0],sy=h*s[1],sr=Math.max(1.2f,h*.008f);
+        c.drawCircle(sx,sy,sr,p);
+        stroke.setStrokeWidth(Math.max(1f,h*.005f));stroke.setColor(0xBFFFFFFF);
+        c.drawLine(sx-sr*3,sy,sx+sr*3,sy,stroke);c.drawLine(sx,sy-sr*3,sx,sy+sr*3,stroke);
+      }
     }
   }
+
 
   static class GalacticOrbitView extends View{
     final Paint paint=new Paint(3),stroke=new Paint(3);
