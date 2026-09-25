@@ -1,0 +1,169 @@
+name: Publish Galactic 8-Ball APK
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - ".github/workflows/release-apk.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /home/runner/android-sdk
+      ANDROID_SDK_ROOT: /home/runner/android-sdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android command-line tools
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-tools
+          mv /tmp/android-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+      - name: Install SDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Fetch original Galactic table, planets, and Death Star
+        run: |
+          mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio app/src/main/assets/hilt_materials app/src/main/assets/fighter_bundles app/src/main/assets/fighters
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/15879369231482719879/199BF27B1185405D25BBEBEE9257F81E945F9B6D/" -o app/src/main/assets/bundles/03_Mustafar.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14718098737190180358/34B49A25B63E61C3148E001086BF0EB598E204FC/" -o app/src/main/assets/bundles/04_Coruscant.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17665742400197609247/419FEB448B808A0CF9B4E17D19B27FCE32CB8286/" -o app/src/main/assets/bundles/05_Geonosis.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14880608518692260043/3B44B6807614D2185F4C07BF071D4E94C8D1785D/" -o app/src/main/assets/bundles/06_Endor.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16993867354122895066/4A9EFC07FB3C3E7D7597DE352F126389841061F9/" -o app/src/main/assets/bundles/07_Korriban.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9403609087667725004/CA06238A29E6CD582E8D362834DA3613A44C9FDF/" -o app/src/main/assets/bundles/08_Exegol.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14305048939786586138/9AB41D75130ABDA43FB210EC4DDD7DCD60C37D5F/" -o app/src/main/assets/bundles/09_Yavin.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13603990644295211631/A6B35F17390A857E1838AB2A5C152ED69E4DC022/" -o app/src/main/assets/bundles/10_Bespin.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9942602938829926534/670762419B92366CE6AFECD0D67E168FE838153B/" -o app/src/main/assets/bundles/11_Malastare.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16121601629413341859/E8F9473CD6EFE79D3072E8BD0A2F285ECF225DA2/" -o app/src/main/assets/bundles/12_Kessel.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16030893891565470498/89B0CAD015E0A6DFCDDA81A9DB92D815F882D7E2/" -o app/src/main/assets/bundles/13_Jakku.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/11922640746717027681/3E7E3A685D08B8A6C454128DAEAA4F7422B133C8/" -o app/src/main/assets/bundles/14_Felucia.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12102627026755944649/0BD5B4C1F88FBE2C3400E58960CA9D5F38C58E5A/" -o app/src/main/assets/bundles/15_Dathomir.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18019963734976864613/033228830365C3C7DC6A809D52049D969D1BB303/" -o app/src/main/assets/bundles/00_DeathStar.unity3d
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/16592652791177328012/7952F99F19B694422DC410AB62236D57547DA00B/" -o app/src/main/assets/ui/hilt_default.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11541815155918764269/E6731AB62A972F13292D9837D076FAAAD63AC39B/" -o app/src/main/assets/ui/hilt_2.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/14809402903243454095/B801B8DBEC9866F37728D3647692CCAC6C861AA6/" -o app/src/main/assets/ui/hilt_crystal.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/14166142156015969094/7917862EB5284157EAE59FB820F182EB61499BEF/" -o app/src/main/assets/ui/hilt_double.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/10217183308198287965/2B389B21625CF09D34618AC1847A1B0A4BBF6347/" -o app/src/main/assets/ui/hilt_classic.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/10227699883064345710/4F0530A979BF4B09A213D0439D0E3126E44B13A3/" -o app/src/main/assets/ui/hilt_weathered.png
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/15527668404159951881/323B6B0EA94462AEB74FBC00B01A55BBDAC16843/" -o app/src/main/assets/saber_bundles/red.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18127488769931438563/BA3FB98F071BE232A1BFB215114C6C5E9B81BCF2/" -o app/src/main/assets/saber_bundles/blue.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16766825368139937650/5807E93674C04B5088A8E0B53F5A3DAC8C0D8DD0/" -o app/src/main/assets/saber_bundles/purple.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14390376776741791003/0E400BDD1622D11AE0ED0557155F75451AA2EC4B/" -o app/src/main/assets/saber_bundles/green.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14596582609580564669/58B8AAE8B8B9C0A60ECE03E9CC1325E86498FBDD/" -o app/src/main/assets/saber_bundles/gold.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16028108133931298657/01FC4DF2406F0763F471EF6C2AD1442E69723902/" -o app/src/main/assets/saber_bundles/white.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12636175779954999148/066C5885CFDBA1210486A7C18C1347AD90AE883C/" -o app/src/main/assets/sfx_bundle/saber_sfx.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12504035858532209098/9944B978012250401BE29457ADEA1E6BFC635801/" -o app/src/main/assets/fighter_bundles/xwing.unity3d
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/11178617744983647068/D404B7582C7124F2BEC54A8EEF5322F61760735B/" -o app/src/main/assets/fighter_bundles/tie.unity3d
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11276006983226989350/CFB4E42B430A20C3DC6AD3959B556C3BCC51A7DA/" -o app/src/main/assets/ui/blade_dark.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/15601371395550036893/2145580FC350A1815612550D4538C26D39DC7C85/" -o app/src/main/assets/ui/blade_gold.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12320415776356535227/70C5F49BD2AC31F3FB7FAD572D434124A31AF9EE/" -o app/src/main/assets/ui/blade_purple.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/18413044388287686309/11ACF45720BA8B9BB48D2BDECFAD744CC9840FAB/" -o app/src/main/assets/ui/blade_green.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/9494571780957515383/6C134CAF718A941D2B536CA1152CBE86EF2AE0A0/" -o app/src/main/assets/ui/blade_red.png
+          curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/12253231560154659811/C5D4EE438F43ED139FCA39C5BC653143187A71E6/" -o app/src/main/assets/ui/blade_blue.png
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12489902566732672122/F982242C4464A0CD14319498F3D8AA1091E3600F/" -o app/src/main/assets/environment/sky.jpg
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13646917746033826234/F87345FD33AC8DBAD61455CF0F085288447FFE3D/" -o app/src/main/assets/falcon/falcon_diffuse.png
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17965017157805881315/D503CE0E1276E8B5C009C59A494C8EF9EA814A5A/" -o app/src/main/assets/falcon/chassis_01.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16997992461173518810/33AFE7004B809B66F15559EFBED9904B6B565D98/" -o app/src/main/assets/falcon/chassis_02.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16674397479478892246/29115E2D27BD3A9C16386B9369AC632AD9DB7769/" -o app/src/main/assets/falcon/chassis_03.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12825996570221392226/8A6C5D4F25A187E437086B7F2F2A8E5E0C442ABC/" -o app/src/main/assets/falcon/chassis_04.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16042947132404434113/88E019AF3A863F190AB6D634497C90A5954D5D7C/" -o app/src/main/assets/falcon/chassis_05.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/10625304863591423267/3983ABDB38E52362F7F2E0E562258E02B1067161/" -o app/src/main/assets/falcon/chassis_06.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13702828624687405789/F3EFC11FC02B744E75DC2CDF2E32CD83438FC781/" -o app/src/main/assets/falcon/chassis_07.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13551617456302770107/A2242EB1220D11C939494849C8F5088DEBFDD9FA/" -o app/src/main/assets/falcon/chassis_08.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12778385617138784373/3060A373DA66FE67BEE9A81152B06EBB9A54970E/" -o app/src/main/assets/falcon/chassis_09.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/15086151667637913549/4C5062E0A0CED5E496749630DD0EC9B2D9928440/" -o app/src/main/assets/falcon/chassis_10.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12398662499909814570/62FFD5E680B2DE31C33BA12802AD57693FE45B49/" -o app/src/main/assets/falcon/chassis_11.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17238107269122244663/9166A75500DD247727FF1E2B06C7BFDD62FD74C4/" -o app/src/main/assets/falcon/chassis_12.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/10829498683673206498/53970916CEA0CF5EAF7B53E2C13B98916E8A92C7/" -o app/src/main/assets/falcon/chassis_13.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18065636552419750820/66E903DB480987277E1101F82FEF30628694F917/" -o app/src/main/assets/falcon/chassis_14.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12497312252648627707/35D55F36047FD22100144798BFCE87D1A4D7FCC9/" -o app/src/main/assets/falcon/chassis_15.obj
+          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13770302263070663477/9FAA634851060F90C1F67949E934ED89DC334690/" -o app/src/main/assets/falcon/chassis_16.obj
+          file app/src/main/assets/ui/*
+          test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
+          python -m pip install -q UnityPy Pillow numpy
+          python tools/make_launcher_icon.py
+          python tools/extract_unity.py
+          python tools/enhance_table_textures.py
+          python tools/extract_balls.py
+          python tools/extract_sabers.py
+          python tools/extract_audio.py
+          python tools/extract_fighters.py
+          python tools/generate_hilt_materials.py
+          mkdir -p app/src/main/assets/real_hilts
+          cat model_assets/real_hilts_256.b64.part* | base64 -d > /tmp/real_hilts_256.zip
+          unzip -q -o /tmp/real_hilts_256.zip -d app/src/main/assets/real_hilts
+          gunzip -f app/src/main/assets/real_hilts/hilt_*.meshbin.gz
+          cat model_assets/maul_hilt_slot3.b64.part* | base64 -d > /tmp/maul_hilt_slot3.zip
+          unzip -q -o /tmp/maul_hilt_slot3.zip -d app/src/main/assets/real_hilts
+          test -f app/src/main/assets/real_hilts/hilt_0.meshbin
+          test -f app/src/main/assets/real_hilts/hilt_5.webp
+          python tools/enhance_real_hilt_textures.py
+          python tools/render_hilt_thumbnails.py
+          rm -rf app/src/main/assets/sfx_bundle
+          python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
+          python -c 'from PIL import Image; p="app/src/main/assets/environment/sky.jpg"; im=Image.open(p).convert("RGB"); im.thumbnail((2048,2048),Image.Resampling.LANCZOS); im.save(p,quality=91,optimize=True)'
+          python tools/obj_to_bin.py
+          python tools/extract_collider2d.py
+          find app/src/main/assets -name '*.obj' -delete
+          sha256sum app/src/main/assets/galactic_table.unity3d app/src/main/assets/bundles/*.unity3d
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Galactic-Extracted-All-Debug
+          path: |
+            app/src/main/assets/extracted
+            app/src/main/assets/objects
+            app/src/main/assets/sabers
+            app/src/main/assets/hilt_materials
+            app/src/main/assets/real_hilts
+            app/src/main/res/raw
+      - name: Build authoritative multiplayer server
+        run: mvn -q -f server/pom.xml -DskipTests package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Galactic-Authoritative-Server
+          path: server/target/galactic-8ball-server-1.0.0.jar
+      - name: Restore stable debug signing key
+        run: base64 -d signing/galactic-stable-debug.keystore.b64 > app/galactic-stable-debug.keystore
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - run: gradle :app:assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Galactic-8-Ball-Full-Asset-Test
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Prepare APK release asset
+        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7-Multiplayer-Test.apk
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.7-multiplayer-test
+          target_commitish: 5a9aad9c0e3b2214c04a4b2d1866cbb8389eb2ce
+          name: Galactic 8-Ball v0.7 Multiplayer Test
+          body: |
+            Galactic 8-Ball Android multiplayer test build.
+            Package: com.galactic.eightball
+            Version: 0.7
+            Source baseline: 5a9aad9c0e3b2214c04a4b2d1866cbb8389eb2ce
+            Includes the current 50%-larger X-Wing dogfight scale.
+          files: Galactic-8-Ball-v0.7-Multiplayer-Test.apk
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
