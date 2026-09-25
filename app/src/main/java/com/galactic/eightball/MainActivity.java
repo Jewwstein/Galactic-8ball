@@ -29,6 +29,7 @@ import org.jbox2d.dynamics.World;
 import okhttp3.*;
 
 public class MainActivity extends Activity {
+  static final String DEFAULT_SERVER_URL="https://galactic-8ball-server.onrender.com";
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
@@ -79,27 +80,84 @@ public class MainActivity extends Activity {
   }
 
   GradientDrawable homePanel(int fill,int stroke,float radius){
-    GradientDrawable g=new GradientDrawable();
-    g.setColor(fill);
+    GradientDrawable g=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+      new int[]{Color.argb(238,10,22,45),Color.argb(232,3,7,19),Color.argb(242,1,3,10)});
     g.setCornerRadius(dp(radius));
-    if(stroke!=Color.TRANSPARENT)g.setStroke(dp(1.2f),stroke);
+    if(stroke!=Color.TRANSPARENT)g.setStroke(dp(1.4f),stroke);
     return g;
+  }
+
+  Drawable galacticPanelDrawable(int accent){
+    GradientDrawable shadow=new GradientDrawable();
+    shadow.setColor(Color.argb(150,0,0,0));shadow.setCornerRadius(dp(24));
+    GradientDrawable body=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+      new int[]{Color.argb(242,13,31,61),Color.argb(244,5,10,28),Color.argb(248,2,5,15)});
+    body.setCornerRadius(dp(22));body.setStroke(dp(1.4f),Color.argb(180,Color.red(accent),Color.green(accent),Color.blue(accent)));
+    GradientDrawable sheen=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+      new int[]{Color.argb(45,255,255,255),Color.TRANSPARENT});
+    sheen.setCornerRadius(dp(22));
+    LayerDrawable layer=new LayerDrawable(new Drawable[]{shadow,body,sheen});
+    layer.setLayerInset(0,dp(5),dp(8),0,0);
+    layer.setLayerInset(1,0,0,dp(5),dp(8));
+    layer.setLayerInset(2,dp(2),dp(2),dp(7),dp(10));
+    return layer;
+  }
+
+  Drawable galacticButtonBackground(int accent,boolean pressed){
+    int ar=Color.red(accent),ag=Color.green(accent),ab=Color.blue(accent);
+    GradientDrawable shadow=new GradientDrawable();
+    shadow.setColor(Color.argb(170,0,0,0));shadow.setCornerRadius(dp(15));
+    GradientDrawable body=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+      pressed
+        ? new int[]{Color.rgb(8,18,34),Color.rgb(18,35,55),Color.rgb(5,10,20)}
+        : new int[]{Color.rgb(31,54,81),Color.rgb(10,22,42),Color.rgb(4,9,19)});
+    body.setCornerRadius(dp(14));
+    body.setStroke(dp(1.6f),Color.argb(225,ar,ag,ab));
+    GradientDrawable shine=new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+      new int[]{Color.argb(70,255,255,255),Color.argb(8,255,255,255),Color.TRANSPARENT});
+    shine.setCornerRadius(dp(14));
+    LayerDrawable l=new LayerDrawable(new Drawable[]{shadow,body,shine});
+    l.setLayerInset(0,dp(3),dp(6),0,0);
+    l.setLayerInset(1,0,0,dp(3),dp(6));
+    l.setLayerInset(2,dp(2),dp(2),dp(5),dp(9));
+    return l;
   }
 
   Button homeButton(String label){
     Button b=new Button(this);
     b.setText(label);
-    b.setTextColor(Color.WHITE);
+    b.setTextColor(Color.rgb(238,248,255));
     b.setTextSize(16);
     b.setAllCaps(false);
     b.setGravity(Gravity.CENTER);
-    b.setPadding(dp(18),dp(12),dp(18),dp(12));
-    b.setBackground(homePanel(Color.argb(220,8,19,42),Color.rgb(34,157,255),14));
-    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));
+    b.setPadding(dp(18),dp(10),dp(18),dp(14));
+    StateListDrawable states=new StateListDrawable();
+    states.addState(new int[]{android.R.attr.state_pressed},galacticButtonBackground(Color.rgb(67,188,255),true));
+    states.addState(new int[]{},galacticButtonBackground(Color.rgb(67,188,255),false));
+    b.setBackground(states);
+    if(android.os.Build.VERSION.SDK_INT>=21)b.setElevation(dp(5));
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(60));
     lp.setMargins(0,dp(8),0,dp(8));
     b.setLayoutParams(lp);
     return b;
   }
+
+  ImageView galacticLogoView(){
+    ImageView logo=new ImageView(this);
+    logo.setAdjustViewBounds(true);
+    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    BitmapFactory.Options opt=new BitmapFactory.Options();
+    opt.inPreferredConfig=Bitmap.Config.ARGB_8888;
+    try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
+      Bitmap bm=BitmapFactory.decodeStream(in,null,opt);
+      if(bm!=null){logo.setImageBitmap(bm);return logo;}
+    }catch(Exception ignored){}
+    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+      logo.setImageBitmap(BitmapFactory.decodeStream(in,null,opt));
+    }catch(Exception ignored){}
+    return logo;
+  }
+
 
   View buildHomeScreen(){
     FrameLayout home=new FrameLayout(this);
@@ -117,6 +175,9 @@ public class MainActivity extends Activity {
     View shade=new View(this);
     shade.setBackgroundColor(Color.argb(178,0,3,13));
     home.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+    GalacticOrbitView orbit=new GalacticOrbitView(this);
+    orbit.setAlpha(.82f);
+    home.addView(orbit,new FrameLayout.LayoutParams(-1,-1));
 
     ScrollView scroll=new ScrollView(this);
     scroll.setFillViewport(true);
@@ -133,18 +194,13 @@ public class MainActivity extends Activity {
     card.setOrientation(LinearLayout.VERTICAL);
     card.setGravity(Gravity.CENTER_HORIZONTAL);
     card.setPadding(dp(24),dp(24),dp(24),dp(24));
-    card.setBackground(homePanel(Color.argb(188,2,7,20),Color.argb(150,41,162,255),22));
+    card.setBackground(galacticPanelDrawable(Color.rgb(63,181,255)));
     LinearLayout.LayoutParams cardLp=new LinearLayout.LayoutParams(-1,-2);
     cardLp.width=Math.min(dp(620),Math.max(dp(300),getResources().getDisplayMetrics().widthPixels-dp(44)));
     card.setLayoutParams(cardLp);
     outer.addView(card);
 
-    ImageView logo=new ImageView(this);
-    logo.setAdjustViewBounds(true);
-    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
-      logo.setImageBitmap(BitmapFactory.decodeStream(in));
-    }catch(Exception ignored){}
+    ImageView logo=galacticLogoView();
     LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,-2);
     logoLp.bottomMargin=dp(10);
     logo.setLayoutParams(logoLp);
@@ -171,13 +227,8 @@ public class MainActivity extends Activity {
 
     continueButton=homeButton("Continue saved login");
     continueButton.setOnClickListener(v->{
-      if(multiplayer.savedServerUrl().isEmpty()){
-        Toast.makeText(this,"Set the online server first.",Toast.LENGTH_SHORT).show();
-        showServerDialog();
-      }else{
-        multiplayer.autoConnect();
-        refreshHomeScreen();
-      }
+      multiplayer.autoConnect();
+      refreshHomeScreen();
     });
     card.addView(continueButton);
 
@@ -188,10 +239,6 @@ public class MainActivity extends Activity {
     Button create=homeButton("Create account");
     create.setOnClickListener(v->openAuthFromHome(true));
     card.addView(create);
-
-    Button server=homeButton("Server settings");
-    server.setOnClickListener(v->showServerDialog());
-    card.addView(server);
 
     TextView foot=new TextView(this);
     foot.setText("Sign in first. Authentication takes you to the Galactic lobby.");
@@ -207,31 +254,22 @@ public class MainActivity extends Activity {
 
   void openAuthFromHome(boolean register){
     if(multiplayer==null)return;
-    if(multiplayer.savedServerUrl().isEmpty()){
-      Toast.makeText(this,"Set the Render server URL first.",Toast.LENGTH_LONG).show();
-      showServerDialog();
-      return;
-    }
     showAuthDialog(register);
   }
 
   void refreshHomeScreen(){
     if(multiplayer==null||homeStatus==null)return;
-    String server=multiplayer.serverDisplay();
     String user=multiplayer.username==null?"":multiplayer.username;
-    boolean hasServer=!multiplayer.savedServerUrl().isEmpty();
     boolean hasToken=!multiplayer.savedToken().isEmpty();
 
-    if(!hasServer){
-      homeStatus.setText("ONLINE SERVER NOT SET\nTap Server settings and paste your Render URL.");
-    }else if(hasToken){
-      homeStatus.setText("SERVER: "+server+"\nSaved account: "+(user.isEmpty()?"Galactic player":user));
+    if(hasToken){
+      homeStatus.setText("GALACTIC NETWORK ONLINE\nSaved account: "+(user.isEmpty()?"Galactic player":user));
     }else{
-      homeStatus.setText("SERVER: "+server+"\nLog in or create an account to enter the Galactic lobby.");
+      homeStatus.setText("GALACTIC NETWORK ONLINE\nLog in or create an account to enter the Galactic lobby.");
     }
 
     if(continueButton!=null){
-      continueButton.setVisibility(hasServer&&hasToken?View.VISIBLE:View.GONE);
+      continueButton.setVisibility(hasToken?View.VISIBLE:View.GONE);
       if(hasToken&&!user.isEmpty())continueButton.setText("Continue as "+user);
     }
   }
@@ -252,6 +290,9 @@ public class MainActivity extends Activity {
     View shade=new View(this);
     shade.setBackgroundColor(Color.argb(184,0,3,13));
     lobby.addView(shade,new FrameLayout.LayoutParams(-1,-1));
+    GalacticOrbitView orbit=new GalacticOrbitView(this);
+    orbit.setAlpha(.78f);
+    lobby.addView(orbit,new FrameLayout.LayoutParams(-1,-1));
 
     ScrollView scroll=new ScrollView(this);
     scroll.setFillViewport(true);
@@ -267,18 +308,13 @@ public class MainActivity extends Activity {
     card.setOrientation(LinearLayout.VERTICAL);
     card.setGravity(Gravity.CENTER_HORIZONTAL);
     card.setPadding(dp(24),dp(22),dp(24),dp(24));
-    card.setBackground(homePanel(Color.argb(192,2,7,20),Color.argb(160,41,162,255),22));
+    card.setBackground(galacticPanelDrawable(Color.rgb(115,106,255)));
     LinearLayout.LayoutParams cardLp=new LinearLayout.LayoutParams(-1,-2);
     cardLp.width=Math.min(dp(620),Math.max(dp(300),getResources().getDisplayMetrics().widthPixels-dp(44)));
     outer.addView(card,cardLp);
 
-    ImageView logo=new ImageView(this);
-    logo.setAdjustViewBounds(true);
-    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
-      logo.setImageBitmap(BitmapFactory.decodeStream(in));
-    }catch(Exception ignored){}
-    LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,dp(150));
+    ImageView logo=galacticLogoView();
+    LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,dp(168));
     logoLp.bottomMargin=dp(2);
     card.addView(logo,logoLp);
 
@@ -313,10 +349,6 @@ public class MainActivity extends Activity {
     ai.setOnClickListener(v->startSinglePlayer());
     card.addView(ai);
 
-    Button server=homeButton("Server settings");
-    server.setOnClickListener(v->showServerDialog());
-    card.addView(server);
-
     Button logout=homeButton("Log out");
     logout.setOnClickListener(v->multiplayer.logout());
     card.addView(logout);
@@ -336,7 +368,7 @@ public class MainActivity extends Activity {
   void refreshLobbyScreen(){
     if(multiplayer==null||lobbyStatus==null)return;
     String user=multiplayer.username==null||multiplayer.username.isEmpty()?"Galactic player":multiplayer.username;
-    lobbyStatus.setText("SIGNED IN AS "+user+"\nSERVER: "+multiplayer.serverDisplay());
+    lobbyStatus.setText("SIGNED IN AS "+user+"\nGALACTIC NETWORK • CONNECTED");
   }
 
   void showHomeScreen(){
@@ -537,25 +569,56 @@ public class MainActivity extends Activity {
   }
 
   void showServerDialog(){
-    final EditText input=new EditText(this);
-    input.setSingleLine(true);
-    input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
-    input.setHint("https://your-server.onrender.com");
-    input.setText(multiplayer==null?"":multiplayer.savedServerUrl());
-    input.setSelection(input.getText().length());
-    input.setPadding(36,18,36,18);
-    new AlertDialog.Builder(this)
-      .setTitle("GALACTIC ONLINE SERVER")
-      .setMessage("Paste the Render service URL once. After that the app remembers it.")
-      .setView(input)
-      .setPositiveButton("SAVE",(d,w)->{
-        String url=input.getText().toString().trim();
-        multiplayer.setServerUrl(url);
-        Toast.makeText(this,"Server saved",Toast.LENGTH_SHORT).show();
-        refreshHomeScreen();
-      })
-      .setNegativeButton("CANCEL",null)
-      .show();
+    Toast.makeText(this,"Galactic Online is preconfigured.",Toast.LENGTH_SHORT).show();
+  }
+
+
+  static class GalacticOrbitView extends View{
+    final Paint paint=new Paint(3),stroke=new Paint(3);
+    final float[] starX=new float[72],starY=new float[72],starA=new float[72];
+    GalacticOrbitView(Context c){
+      super(c);setWillNotDraw(false);
+      java.util.Random r=new java.util.Random(818L);
+      for(int i=0;i<starX.length;i++){starX[i]=r.nextFloat();starY[i]=r.nextFloat();starA[i]=.22f+r.nextFloat()*.72f;}
+    }
+    protected void onDraw(Canvas c){
+      super.onDraw(c);
+      float w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
+      double t=System.nanoTime()/1_000_000_000.0;
+
+      paint.setStyle(Paint.Style.FILL);
+      for(int i=0;i<starX.length;i++){
+        float tw=(float)(.45+.55*Math.sin(t*(.7+(i%5)*.12)+i));
+        paint.setColor(Color.argb((int)(150*starA[i]*tw),180,222,255));
+        c.drawCircle(starX[i]*w,starY[i]*h,1.0f+(i%3)*.55f,paint);
+      }
+
+      float cx=w*.5f,cy=h*.48f;
+      stroke.setStyle(Paint.Style.STROKE);
+      stroke.setStrokeWidth(1.2f);
+      stroke.setColor(Color.argb(52,92,198,255));
+      RectF o1=new RectF(cx-w*.34f,cy-h*.24f,cx+w*.34f,cy+h*.24f);
+      c.drawOval(o1,stroke);
+      stroke.setColor(Color.argb(38,163,104,255));
+      RectF o2=new RectF(cx-w*.43f,cy-h*.32f,cx+w*.43f,cy+h*.32f);
+      c.drawOval(o2,stroke);
+
+      drawPlanet(c,cx+(float)Math.cos(t*.40)*w*.34f,cy+(float)Math.sin(t*.40)*h*.24f,18f,0xFF4CC9FF);
+      drawPlanet(c,cx+(float)Math.cos(t*.27+2.2)*w*.43f,cy+(float)Math.sin(t*.27+2.2)*h*.32f,12f,0xFFA26BFF);
+      drawPlanet(c,cx+(float)Math.cos(-t*.53+1.0)*w*.22f,cy+(float)Math.sin(-t*.53+1.0)*h*.15f,8f,0xFFFF675F);
+      postInvalidateOnAnimation();
+    }
+    void drawPlanet(Canvas c,float x,float y,float r,int color){
+      int rr=Color.red(color),gg=Color.green(color),bb=Color.blue(color);
+      RadialGradient g=new RadialGradient(x-r*.35f,y-r*.38f,r*1.15f,
+        new int[]{Color.rgb(Math.min(255,rr+75),Math.min(255,gg+75),Math.min(255,bb+75)),color,Color.rgb(rr/4,gg/4,bb/4)},
+        new float[]{0,.48f,1f},Shader.TileMode.CLAMP);
+      paint.setShader(g);paint.setShadowLayer(r*.7f,0,0,Color.argb(170,rr,gg,bb));
+      c.drawCircle(x,y,r,paint);paint.clearShadowLayer();paint.setShader(null);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(1.2f,r*.10f));
+      stroke.setColor(Color.argb(130,220,240,255));
+      c.drawOval(new RectF(x-r*1.45f,y-r*.34f,x+r*1.45f,y+r*.34f),stroke);
+    }
   }
 
   static class MultiplayerManager {
@@ -582,7 +645,7 @@ public class MainActivity extends Activity {
     boolean canLocalControl(int activeShooter){return !inRoom||localPlayer==activeShooter;}
 
     String savedServerUrl(){
-      return activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).getString("server_url","");
+      return DEFAULT_SERVER_URL;
     }
 
     String savedToken(){
@@ -602,30 +665,15 @@ public class MainActivity extends Activity {
     }
 
     void setServerUrl(String url){
-      String clean=url==null?"":url.trim();
-      activity.getSharedPreferences("galactic_online",Context.MODE_PRIVATE).edit().putString("server_url",clean).apply();
-      disconnectSocket();
+      // Server is intentionally baked into the app so players never configure it.
     }
 
     String serverDisplay(){
-      String q=savedServerUrl();
-      if(q==null||q.isEmpty())return "NOT SET";
-      q=q.replace("https://","").replace("http://","").replace("wss://","").replace("ws://","");
-      if(q.endsWith("/ws"))q=q.substring(0,q.length()-3);
-      return q;
+      return "galactic-8ball-server.onrender.com";
     }
 
     String websocketUrl(){
-      String q=savedServerUrl();
-      if(q==null)q="";
-      q=q.trim();
-      if(q.isEmpty())return "";
-      if(q.startsWith("https://"))q="wss://"+q.substring(8);
-      else if(q.startsWith("http://"))q="ws://"+q.substring(7);
-      else if(!q.startsWith("wss://")&&!q.startsWith("ws://"))q="wss://"+q;
-      while(q.endsWith("/"))q=q.substring(0,q.length()-1);
-      if(!q.endsWith("/ws"))q+="/ws";
-      return q;
+      return "wss://galactic-8ball-server.onrender.com/ws";
     }
 
     String statusText(){
@@ -704,12 +752,6 @@ public class MainActivity extends Activity {
 
     synchronized void connectThen(String firstMessage){
       String url=websocketUrl();
-      if(url.isEmpty()){
-        toast("Set the online server first.");
-        main.post(activity::showServerDialog);
-        return;
-      }
-
       if(socketConnected&&socket!=null){
         socket.send(firstMessage);
         return;
@@ -960,7 +1002,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
@@ -1504,14 +1546,16 @@ public class MainActivity extends Activity {
     void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
-      float baseW=188*ui,baseH=112*ui;
-      float cx=w-124*ui;
-      float baseCy=Math.max(150*ui,h*.43f);
-      float travel=Math.min(178*ui,r.chargePullPx*.68f);
+      float baseW=198*ui,baseH=122*ui;
+      float cx=w-136*ui;
+      float baseCy=Math.max(142*ui,h*.39f);
+      float maxTravel=Math.max(190*ui,h*.50f);
+      float travel=Math.min(maxTravel,r.chargePullPx);
       float cy=baseCy+travel;
       thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.58f,cx+baseW*.5f,cy+baseH*.58f);
+      thumbGrabRect.set(cx-baseW*.80f,cy-baseH*.86f,cx+baseW*.80f,cy+baseH*.86f);
 
-      float trackTop=baseCy-88*ui,trackBottom=Math.min(h-20*ui,baseCy+205*ui);
+      float trackTop=baseCy-94*ui,trackBottom=Math.min(h-16*ui,baseCy+maxTravel);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
@@ -1633,7 +1677,7 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.CHARGING){
-          if(thumbHiltRect.contains(x,y)){
+          if(thumbGrabRect.contains(x,y)){
             pullingThumbHilt=true;thumbPullStartY=y;
             game.queueEvent(()->r.beginWorldCharge());
             return true;
@@ -1690,7 +1734,7 @@ public class MainActivity extends Activity {
 
       if(pullingThumbHilt){
         if(a==MotionEvent.ACTION_MOVE){
-          float pull=Math.max(0,y-thumbPullStartY)*1.28f;
+          float pull=Math.max(0,y-thumbPullStartY);
           if(r.state==GameRenderer.CHARGING){
             final float fp=pull;game.queueEvent(()->r.updateWorldCharge(fp,h));
           }
@@ -1935,6 +1979,18 @@ public class MainActivity extends Activity {
       float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*viewDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
       android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
+
+      int skyTex=tex.getOrDefault("sky",0);
+      if(skyTex!=0&&sphere!=null){
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
+        float[] SM=identity();
+        android.opengl.Matrix.translateM(SM,0,cx,cy,cz);
+        android.opengl.Matrix.rotateM(SM,0,112f,0,1,0);
+        android.opengl.Matrix.scaleM(SM,0,138f,138f,138f);
+        drawMesh(sphere,pvCache,SM,skyTex,new float[]{1f,1f,1f,1f});
+        GLES20.glDepthMask(true);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+      }
+
       if(!falconMeshes.isEmpty()){
         float[] FM=identity();
         android.opengl.Matrix.translateM(FM,0,0f,-6.0953f,0f);
@@ -1995,6 +2051,7 @@ public class MainActivity extends Activity {
     void loadAssets(){
       try{
         tex.put("felt",loadTexture(findAsset("extracted","_Felt.png")));tex.put("wood",loadTexture(findAsset("extracted","_Wood.png")));tex.put("foot",loadTexture(findAsset("extracted","_Foot.png")));
+        try{tex.put("sky",loadTexture("environment/sky.jpg"));}catch(Exception ignored){}
         addTable("1631477688504185304_default.obj","felt",1,1,1);addTable("106991748306668190_default.obj","wood",1,1,1);
         addTable("-4426823995715296130_default.obj","wood",1,1,1);addTable("-2382927779929703425_default.obj","wood",1,1,1);
         addTable("327116407711713708_default.obj","foot",1,1,1);
@@ -2114,9 +2171,9 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.orthoM(O,0,-aspect,aspect,-1f,1f,-5f,5f);
 
       float pullNorm=Math.max(0f,Math.min(1f,power/100f));
-      float x=aspect*.735f;
-      float baseY=.07f;
-      float hiltTravel=.55f*pullNorm;
+      float x=aspect*.675f;
+      float baseY=.10f;
+      float hiltTravel=.72f*pullNorm;
       float hiltY=baseY-hiltTravel;
       float hiltScale=.54f;
       float emitterAtRest=baseY+hiltScale*.52f;
@@ -2914,8 +2971,8 @@ public class MainActivity extends Activity {
     void updateWorldChargeDirect(float pullPx,int h){
       if(state!=CHARGING)return;
       chargePullPx=pullPx;
-      chargePullWorld=pullPx/Math.max(10f,h*.030f);
-      power=Math.min(100f,pullPx/Math.max(85f,h*.18f)*100f);
+      chargePullWorld=pullPx/Math.max(10f,h*.055f);
+      power=Math.min(100f,pullPx/Math.max(120f,h*.50f)*100f);
     }
 
     void updateWorldCharge(float pullPx,int h){
@@ -3387,6 +3444,32 @@ public class MainActivity extends Activity {
       return best;
     }
 
+    float[] predictorRailBounce(float dx,float dz,float nx,float nz){
+      float vn=dx*nx+dz*nz;
+      if(vn>0f){nx=-nx;nz=-nz;vn=-vn;}
+
+      float tx=dx-vn*nx,tz=dz-vn*nz;
+      float tmag=(float)Math.sqrt(tx*tx+tz*tz);
+
+      // JBox2D mixes restitution using the larger fixture restitution (.89 here)
+      // and friction around .20. Model both instead of using a perfect mirror,
+      // which was the main reason bank guides departed from the real bounce.
+      final float restitution=.89f;
+      final float friction=.20f;
+      float normalOut=-vn*restitution;
+      float tangentOut=tmag;
+      if(tmag>.00001f){
+        float frictionLoss=friction*(1f+restitution)*(-vn);
+        tangentOut=Math.max(0f,tmag-frictionLoss);
+        tx*=tangentOut/tmag;tz*=tangentOut/tmag;
+      }
+
+      float ox=tx+normalOut*nx,oz=tz+normalOut*nz;
+      float m=(float)Math.sqrt(ox*ox+oz*oz);
+      if(m<.00001f)return new float[]{-dx,-dz};
+      return new float[]{ox/m,oz/m};
+    }
+
     void drawPredictorFreePath(float[] pv,float x,float z,float dx,float dz,int blade,int maxBanks){
       float n=(float)Math.sqrt(dx*dx+dz*dz);if(n<.0001f)return;dx/=n;dz/=n;
       for(int bank=0;bank<=maxBanks;bank++){
@@ -3406,10 +3489,8 @@ public class MainActivity extends Activity {
 
         float ex=x+dx*rail.t,ez=z+dz*rail.t;
         drawSaberSegment(pv,x,z,ex,ez,blade);
-        float dot=dx*rail.nx+dz*rail.nz;
-        dx=dx-2f*dot*rail.nx;
-        dz=dz-2f*dot*rail.nz;
-        float dl=(float)Math.sqrt(dx*dx+dz*dz);if(dl<.0001f)return;dx/=dl;dz/=dl;
+        float[] bounce=predictorRailBounce(dx,dz,rail.nx,rail.nz);
+        dx=bounce[0];dz=bounce[1];
         x=ex+dx*.08f;z=ez+dz*.08f;
         blade=predictorAltBlade(bank+3);
       }
@@ -3472,13 +3553,10 @@ public class MainActivity extends Activity {
         float ex=x+dx*rail.t,ez=z+dz*rail.t;
         drawSaberSegment(pv,x,z,ex,ez,pathBlade);
 
-        // Mirror from the real cushion/jaw surface normal. The previous predictor
-        // artificially multiplied the tangent by 2.8 and added English to banks,
-        // even though the actual physics did neither, causing large pocket errors.
-        float dot=dx*rail.nx+dz*rail.nz;
-        dx=dx-2f*dot*rail.nx;
-        dz=dz-2f*dot*rail.nz;
-        float dl=(float)Math.sqrt(dx*dx+dz*dz);if(dl<.0001f)return;dx/=dl;dz/=dl;
+        // Bounce from the exact cushion/jaw normal using the same restitution /
+        // friction behavior as the live JBox2D contact instead of a perfect mirror.
+        float[] bounce=predictorRailBounce(dx,dz,rail.nx,rail.nz);
+        dx=bounce[0];dz=bounce[1];
         x=ex+dx*.08f;z=ez+dz*.08f;
       }
     }
