@@ -2218,9 +2218,9 @@ public class MainActivity extends Activity {
           // queueEvent is asynchronous, so do the same lightweight projection on
           // the UI thread to decide whether this touch belongs to a ball.
           for(int bi=1;bi<r.balls.size();bi++){
-            Ball ob=r.balls.get(bi);if(!ob.active||ob.sinking)continue;
+            Ball ob=r.balls.get(bi);if(!ob.active||ob.sinking||!r.legalAssistBall(ob))continue;
             float[] sp=r.worldToScreen(ob.x,2.22f,ob.z,w,h);if(sp==null)continue;
-            float ddx=sp[0]-x,ddy=sp[1]-y,hitR=Math.max(28f,Math.min(w,h)*.038f);
+            float ddx=sp[0]-x,ddy=sp[1]-y,hitR=Math.max(36f,Math.min(w,h)*.050f);
             if(ddx*ddx+ddy*ddy<=hitR*hitR)return true;
           }
           updateWorldHiltGeometry(w,h,r,0);
@@ -2674,12 +2674,56 @@ public class MainActivity extends Activity {
       }catch(Exception e){e.printStackTrace();}
     }
 
-    Mesh makeXWingMesh(){
-      // Crossed tapered fuselage/wings: recognizable at fly-by scale without
-      // adding a large model asset to the APK.
-      return makeBoxMesh();
+    Mesh mergeMeshes(Mesh... parts){
+      ArrayList<Float> p=new ArrayList<>(),u=new ArrayList<>();
+      for(Mesh m:parts){
+        if(m==null)continue;
+        for(int i=0;i<m.pos.capacity();i++)p.add(m.pos.get(i));
+        for(int i=0;i<m.uv.capacity();i++)u.add(m.uv.get(i));
+      }
+      float[] pp=new float[p.size()],uu=new float[u.size()];
+      for(int i=0;i<pp.length;i++)pp[i]=p.get(i);
+      for(int i=0;i<uu.length;i++)uu[i]=u.get(i);
+      return new Mesh(pp,uu);
     }
-    Mesh makeTieMesh(){return makeBoxMesh();}
+
+    Mesh transformedBox(float cx,float cy,float cz,float sx,float sy,float sz,float rz){
+      float[] base={
+        -.5f,-.5f,-.5f, .5f,-.5f,-.5f, .5f,.5f,-.5f,  -.5f,-.5f,-.5f, .5f,.5f,-.5f, -.5f,.5f,-.5f,
+        -.5f,-.5f,.5f,  .5f,.5f,.5f,  .5f,-.5f,.5f,   -.5f,-.5f,.5f, -.5f,.5f,.5f, .5f,.5f,.5f,
+        -.5f,-.5f,-.5f,-.5f,.5f,-.5f,-.5f,.5f,.5f,   -.5f,-.5f,-.5f,-.5f,.5f,.5f,-.5f,-.5f,.5f,
+         .5f,-.5f,-.5f, .5f,-.5f,.5f, .5f,.5f,.5f,    .5f,-.5f,-.5f, .5f,.5f,.5f, .5f,.5f,-.5f,
+        -.5f,.5f,-.5f, .5f,.5f,-.5f, .5f,.5f,.5f,     -.5f,.5f,-.5f, .5f,.5f,.5f,-.5f,.5f,.5f,
+        -.5f,-.5f,-.5f, .5f,-.5f,.5f, .5f,-.5f,-.5f, -.5f,-.5f,-.5f,-.5f,-.5f,.5f,.5f,-.5f,.5f
+      };
+      float[] p=new float[base.length],uv=new float[base.length/3*2];
+      float a=(float)Math.toRadians(rz),ca=(float)Math.cos(a),sa=(float)Math.sin(a);
+      for(int i=0;i<base.length;i+=3){
+        float x=base[i]*sx,y=base[i+1]*sy,z=base[i+2]*sz;
+        p[i]=cx+x*ca-y*sa;p[i+1]=cy+x*sa+y*ca;p[i+2]=cz+z;
+      }
+      return new Mesh(p,uv);
+    }
+
+    Mesh makeXWingMesh(){
+      // Silhouette mesh: narrow fuselage plus four s-foils, replacing the old
+      // placeholder cuboid while keeping the fly-by extremely lightweight.
+      return mergeMeshes(
+        transformedBox(0,0,0,3.8f,.38f,.48f,0),
+        transformedBox(-.15f,.72f,0,3.0f,.16f,.72f,24f),
+        transformedBox(-.15f,-.72f,0,3.0f,.16f,.72f,-24f),
+        transformedBox(-.15f,.72f,0,3.0f,.16f,.72f,-24f),
+        transformedBox(-.15f,-.72f,0,3.0f,.16f,.72f,24f)
+      );
+    }
+    Mesh makeTieMesh(){
+      // Central cockpit with two tall solar panels.
+      return mergeMeshes(
+        transformedBox(0,0,0,.85f,.85f,.85f,0),
+        transformedBox(0,1.15f,0,.16f,1.55f,1.55f,0),
+        transformedBox(0,-1.15f,0,.16f,1.55f,1.55f,0)
+      );
+    }
 
     void drawDogfight(float[] pv,float dt){
       dogfightClock+=dt;
@@ -3518,9 +3562,10 @@ public class MainActivity extends Activity {
       Ball cue=balls.get(0),best=null;float bestD=Float.MAX_VALUE;
       for(int i=1;i<balls.size();i++){
         Ball b=balls.get(i);if(!b.active||b.sinking)continue;
+        if(!legalAssistBall(b))continue;
         float[] p=worldToScreen(b.x,2.22f,b.z,w,h);if(p==null)continue;
         float dx=p[0]-sx,dy=p[1]-sy,d2=dx*dx+dy*dy;
-        float hitR=Math.max(28f,Math.min(w,h)*.038f);
+        float hitR=Math.max(36f,Math.min(w,h)*.050f);
         if(d2<=hitR*hitR&&d2<bestD){best=b;bestD=d2;}
       }
       if(best==null)return false;
