@@ -35,6 +35,7 @@ public class MainActivity extends Activity {
   MultiplayerManager multiplayer;
   FrameLayout appRoot, gameRoot;
   View homeScreen, lobbyScreen;
+  SaberBezelView saberBezel;
   TextView homeStatus, lobbyStatus;
   Button continueButton;
   boolean showingTable=false;
@@ -71,6 +72,12 @@ public class MainActivity extends Activity {
 
     lobbyScreen=buildLobbyScreen();
     appRoot.addView(lobbyScreen,new FrameLayout.LayoutParams(-1,-1));
+
+    // Non-interactive saber frame shared by HOME, LOBBY and MATCH screens.
+    // It reads the live selected hilt/blade from GameRenderer, so the bezel
+    // always matches the player's currently selected saber without affecting touch.
+    saberBezel=new SaberBezelView(this,game);
+    appRoot.addView(saberBezel,new FrameLayout.LayoutParams(-1,-1));
 
     setContentView(appRoot);
     showHomeScreen();
@@ -210,23 +217,35 @@ public class MainActivity extends Activity {
     ImageView iv=new ImageView(this);
     iv.setAdjustViewBounds(true);
     iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-    iv.setMaxHeight(dp(230));
+    iv.setMaxHeight(dp(260));
 
     Bitmap logo=null;
 
-    // Prefer the HD asset, but NEVER leave the screen blank if an asset is
-    // malformed or fails to decode on a device.
-    try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
+    // Native high-resolution PNG. Do not upscale the old 320 px preview.
+    try(InputStream in=getAssets().open("ui/galactic_logo_ultra.png")){
       BitmapFactory.Options o=new BitmapFactory.Options();
       o.inPreferredConfig=Bitmap.Config.ARGB_8888;
       o.inScaled=false;
       Bitmap candidate=BitmapFactory.decodeStream(in,null,o);
-      if(candidate!=null && candidate.getWidth()>=600 && candidate.getHeight()>=180){
+      if(candidate!=null && candidate.getWidth()>=1200 && candidate.getHeight()>=400){
         logo=candidate;
       }
     }catch(Exception ignored){}
 
-    // Guaranteed fallback to the original working Galactic 8-Ball artwork.
+    // Older HD asset remains only as a compatibility fallback.
+    if(logo==null){
+      try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
+        BitmapFactory.Options o=new BitmapFactory.Options();
+        o.inPreferredConfig=Bitmap.Config.ARGB_8888;
+        o.inScaled=false;
+        Bitmap candidate=BitmapFactory.decodeStream(in,null,o);
+        if(candidate!=null && candidate.getWidth()>=600 && candidate.getHeight()>=180){
+          logo=candidate;
+        }
+      }catch(Exception ignored){}
+    }
+
+    // Last-resort fallback so the UI can never show a blank logo.
     if(logo==null){
       try(InputStream in=getAssets().open("ui/galactic_logo.png")){
         BitmapFactory.Options o=new BitmapFactory.Options();
@@ -1171,6 +1190,111 @@ public class MainActivity extends Activity {
       r=new GameRenderer(c);
       setRenderer(r);
       setRenderMode(RENDERMODE_CONTINUOUSLY);
+    }
+  }
+
+  static class SaberBezelView extends View {
+    final GameView game;
+    final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
+    final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
+    final Bitmap[] hilts=new Bitmap[6],blades=new Bitmap[6];
+    final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
+    final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
+    final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
+
+    SaberBezelView(Context c,GameView g){
+      super(c);
+      game=g;
+      setClickable(false);
+      setFocusable(false);
+      setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+      setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+      for(int i=0;i<6;i++){
+        hilts[i]=loadHorizontal(c,hiltFiles[i],false);
+        blades[i]=loadHorizontal(c,bladeFiles[i],true);
+      }
+    }
+
+    Bitmap loadHorizontal(Context c,String n,boolean trim){
+      try(InputStream in=c.getAssets().open("ui/"+n)){
+        Bitmap b=BitmapFactory.decodeStream(in);
+        if(b==null)return null;
+        if(trim){
+          int minX=b.getWidth(),minY=b.getHeight(),maxX=-1,maxY=-1;
+          int step=Math.max(1,Math.min(b.getWidth(),b.getHeight())/180);
+          for(int yy=0;yy<b.getHeight();yy+=step)for(int xx=0;xx<b.getWidth();xx+=step){
+            if(Color.alpha(b.getPixel(xx,yy))>8){
+              if(xx<minX)minX=xx;if(xx>maxX)maxX=xx;if(yy<minY)minY=yy;if(yy>maxY)maxY=yy;
+            }
+          }
+          if(maxX>=minX&&maxY>=minY){
+            int pad=4;
+            minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);
+            maxX=Math.min(b.getWidth()-1,maxX+pad);maxY=Math.min(b.getHeight()-1,maxY+pad);
+            b=Bitmap.createBitmap(b,minX,minY,maxX-minX+1,maxY-minY+1);
+          }
+        }
+        if(b.getHeight()>b.getWidth()){
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
+          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+        }
+        return b;
+      }catch(Exception e){return null;}
+    }
+
+    float dpv(float v){return v*getResources().getDisplayMetrics().density;}
+
+    void drawSaber(Canvas c,Bitmap hilt,Bitmap blade,float emitterX,float emitterY,float angle,float bladeLen,float bladeThick,int color){
+      c.save();
+      c.rotate(angle,emitterX,emitterY);
+
+      // Static color-matched energy aura behind the authored blade texture.
+      glow.setStyle(Paint.Style.FILL);
+      glow.setColor((color&0x00FFFFFF)|0x35000000);
+      glow.setShadowLayer(dpv(11),0,0,(color&0x00FFFFFF)|0xD0000000);
+      RectF aura=new RectF(emitterX-dpv(2),emitterY-bladeThick*.72f,emitterX+bladeLen,emitterY+bladeThick*.72f);
+      c.drawRoundRect(aura,bladeThick,bladeThick,glow);
+      glow.clearShadowLayer();
+
+      if(blade!=null){
+        RectF br=new RectF(emitterX-dpv(1),emitterY-bladeThick*.50f,emitterX+bladeLen,emitterY+bladeThick*.50f);
+        c.drawBitmap(blade,null,br,paint);
+      }
+
+      if(hilt!=null){
+        float hw=Math.max(dpv(58),bladeThick*5.2f);
+        float hh=Math.max(dpv(18),bladeThick*1.55f);
+        RectF hr=new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f);
+        c.drawBitmap(hilt,null,hr,paint);
+      }
+      c.restore();
+    }
+
+    protected void onDraw(Canvas c){
+      super.onDraw(c);
+      if(game==null||game.r==null)return;
+      int w=getWidth(),h=getHeight();
+      if(w<=0||h<=0)return;
+
+      int hi=Math.max(0,Math.min(5,game.r.hiltIndex));
+      int bi=Math.max(0,Math.min(5,game.r.bladeIndex));
+      Bitmap hilt=hilts[hi],blade=blades[bi];
+      int color=bladeColors[bi];
+
+      float edge=dpv(8);
+      float thick=Math.max(dpv(10),Math.min(dpv(17),Math.min(w,h)*.019f));
+      float corner=Math.max(dpv(60),thick*5.4f);
+
+      // Four real saber assemblies form the screen bezel. Hilts sit near the
+      // corners and the selected-color blades run along every screen edge.
+      drawSaber(c,hilt,blade,edge+corner,edge+thick*.45f,0,w-(edge+corner)*2,thick,color);
+      drawSaber(c,hilt,blade,w-edge-corner,h-edge-thick*.45f,180,w-(edge+corner)*2,thick,color);
+      drawSaber(c,hilt,blade,edge+thick*.45f,h-edge-corner,-90,h-(edge+corner)*2,thick,color);
+      drawSaber(c,hilt,blade,w-edge-thick*.45f,edge+corner,90,h-(edge+corner)*2,thick,color);
+
+      // Refresh slowly only to pick up loadout/network color changes; the bezel
+      // itself is intentionally static.
+      postInvalidateDelayed(120);
     }
   }
 
