@@ -214,8 +214,18 @@ public class MainActivity extends Activity {
   }
 
   View galacticLogoView(){
-    // Pure Canvas artwork: resolution-independent at every Android density.
-    return new GalacticLogoView(this);
+    ImageView iv=new ImageView(this);
+    iv.setAdjustViewBounds(true);
+    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    iv.setMaxHeight(dp(260));
+    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+      BitmapFactory.Options o=new BitmapFactory.Options();
+      o.inPreferredConfig=Bitmap.Config.ARGB_8888;
+      o.inScaled=false;
+      Bitmap logo=BitmapFactory.decodeStream(in,null,o);
+      if(logo!=null)iv.setImageBitmap(logo);
+    }catch(Exception ignored){}
+    return iv;
   }
 
 
@@ -1319,12 +1329,22 @@ public class MainActivity extends Activity {
       float thick=Math.max(dpv(10),Math.min(dpv(17),Math.min(w,h)*.019f));
       float corner=Math.max(dpv(60),thick*5.4f);
 
-      // Four real saber assemblies form the screen bezel. Hilts sit near the
-      // corners and the selected-color blades run along every screen edge.
+      // Top and bottom remain one saber each.
       drawSaber(c,hilt,blade,edge+corner,edge+thick*.45f,0,w-(edge+corner)*2,thick,color);
       drawSaber(c,hilt,blade,w-edge-corner,h-edge-thick*.45f,180,w-(edge+corner)*2,thick,color);
-      drawSaber(c,hilt,blade,edge+thick*.45f,h-edge-corner,-90,h-(edge+corner)*2,thick,color);
-      drawSaber(c,hilt,blade,w-edge-thick*.45f,edge+corner,90,h-(edge+corner)*2,thick,color);
+
+      // Split each tall side rail into TWO shorter sabers instead of one
+      // stretched blade. Opposing blades meet near the screen midpoint.
+      float sideGap=Math.max(dpv(10),thick*.85f);
+      float sideLen=Math.max(dpv(28),(h*.5f)-(edge+corner)-sideGap*.5f);
+
+      // Left side: one saber from the top down, one from the bottom up.
+      drawSaber(c,hilt,blade,edge+thick*.45f,edge+corner,90,sideLen,thick,color);
+      drawSaber(c,hilt,blade,edge+thick*.45f,h-edge-corner,-90,sideLen,thick,color);
+
+      // Right side mirrors the left.
+      drawSaber(c,hilt,blade,w-edge-thick*.45f,edge+corner,90,sideLen,thick,color);
+      drawSaber(c,hilt,blade,w-edge-thick*.45f,h-edge-corner,-90,sideLen,thick,color);
 
       // Refresh slowly only to pick up loadout/network color changes; the bezel
       // itself is intentionally static.
