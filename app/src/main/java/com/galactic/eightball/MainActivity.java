@@ -402,7 +402,7 @@ public class MainActivity extends Activity {
     };
     final String[] messages={
       "Drag the lightsaber hilt around the cue ball to rotate your shot. The glowing predictor shows the cue-ball path and the projected object-ball path.",
-      "Use the left AIM stick to rotate the hilt. Barely move it for tiny precision changes; push it farther for fast sweeping adjustments all the way around the cue ball.",
+      "Use the glowing LEFT and RIGHT aim buttons for precision. Tap for an ultra-fine adjustment; press and hold to sweep around the cue ball quickly. A held button can continue through a full 360 degrees.",
       "When your line is ready, tap LOCK. Then choose where the cue tip strikes the cue ball for English and lock that selection.",
       "Use the right CAMERA stick beside LOCK to swing around the table and change your viewing angle. Pinch with two fingers to zoom; drag with two fingers to pan the table while zoomed. After English, pull either the table hilt or the right-thumb saber to set power and release to shoot.",
       "The top HUD shows each team's remaining balls. Glowing rings on the table identify team balls. Open the side menu for your saber loadout, new rack, team controls, or to return to the Galactic Lobby."
@@ -972,8 +972,8 @@ public class MainActivity extends Activity {
     final Runnable microRepeat=new Runnable(){
       public void run(){
         if(!microHolding)return;
-        game.queueEvent(()->game.r.microAimHoldStep(3.6f));
-        uiHandler.postDelayed(this,30);
+        game.queueEvent(()->game.r.microAimHoldStep(3.15f));
+        uiHandler.postDelayed(this,32);
       }
     };
     final Runnable aimStickRepeat=new Runnable(){
@@ -1070,7 +1070,7 @@ public class MainActivity extends Activity {
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
         if(r.localCanControl()){
-          drawAimAnalogStick(c,w,h,ui);
+          drawMicroAimControls(c,w,h,ui);
           drawCameraAnalogStick(c,w,h,ui);
         }
         if(!r.localCanControl()){
@@ -1166,7 +1166,7 @@ public class MainActivity extends Activity {
     }
 
     void drawCameraAnalogStick(Canvas c,int w,int h,float ui){
-      float r=54*ui;
+      float r=60*ui;
       float cx=lockRect.left-r-18*ui,cy=lockRect.centerY();
       cameraStickRect.set(cx-r,cy-r,cx+r,cy+r);
       drawAnalogStick(c,cx,cy,r,cameraStickX,cameraStickY,"CAMERA",ui,0xFFB88CFF);
@@ -1197,7 +1197,7 @@ public class MainActivity extends Activity {
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       p.setTextSize(10.5f*ui);p.setColor(0xA9D7F4FF);
-      c.drawText("MICRO AIM",x+size+gap*.5f,y-7*ui,p);
+      c.drawText("PRECISION AIM",x+size+gap*.5f,y-7*ui,p);
 
       drawMicroPolygon(c,microLeftRect,true,ui);
       drawMicroPolygon(c,microRightRect,false,ui);
@@ -1575,11 +1575,12 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()&&!sideMenuOpen){
-          if(aimStickRect.contains(x,y)){
-            aimStickActive=true;
-            updateAimStick(x,y);
-            uiHandler.removeCallbacks(aimStickRepeat);
-            uiHandler.post(aimStickRepeat);
+          if(microLeftRect.contains(x,y)){
+            beginMicroHold(-1,w,h);
+            return true;
+          }
+          if(microRightRect.contains(x,y)){
+            beginMicroHold(1,w,h);
             return true;
           }
           if(cameraStickRect.contains(x,y)){
@@ -2792,7 +2793,7 @@ public class MainActivity extends Activity {
     void beginMicroAimHold(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       microAimHoldSign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(microAimHoldSign,.35f);
+      microAimByWorldSign(microAimHoldSign,.18f);
     }
 
     void endMicroAimHold(){
@@ -2816,7 +2817,7 @@ public class MainActivity extends Activity {
     void microAimScreen(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       int sign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(sign,.35f);
+      microAimByWorldSign(sign,.18f);
     }
 
     void microAimScreen(boolean left,int w,int h,float degrees){
