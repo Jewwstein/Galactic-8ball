@@ -90,6 +90,7 @@ jobs:
           file app/src/main/assets/ui/*
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           python -m pip install -q UnityPy Pillow numpy
+          python tools/make_launcher_icon.py
           python tools/extract_unity.py
           python tools/enhance_table_textures.py
           python tools/extract_balls.py
