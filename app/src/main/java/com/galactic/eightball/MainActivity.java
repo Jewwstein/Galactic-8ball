@@ -1986,9 +1986,12 @@ public class MainActivity extends Activity {
             float delta=fingerAngle-aimStartFingerAngle;
             while(delta>(float)Math.PI)delta-=(float)(Math.PI*2.0);
             while(delta<(float)-Math.PI)delta+=(float)(Math.PI*2.0);
-            // Precision gear remains intentionally slow for fine control.
+            // The physical hilt gets the same pocket guidance as button-hold:
+            // it slows near a clean pocket angle but never snaps or locks there.
+            // ACTION_UP is still ignored below, so lifting the finger cannot add
+            // a final accidental twitch.
             final float target=aimStartWorldAngle+delta*.42f;
-            game.queueEvent(()->r.previewAimAngle(target));
+            game.queueEvent(()->r.previewAimAngleAssisted(target));
           }
           return true;
         }
@@ -2200,7 +2203,6 @@ public class MainActivity extends Activity {
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0;
     volatile float chargePullPx=0,chargePullWorld=0;
     volatile int microAimHoldSign=0;
-    volatile long microAimAssistHoldUntil=0;
     boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -3184,50 +3186,51 @@ public class MainActivity extends Activity {
       return bestAngle;
     }
 
+    float pocketAssistScale(float forwardRad){
+      float deg=(float)Math.toDegrees(Math.max(0f,forwardRad));
+      // Strong slowdown right on the sweet spot, but never zero. Keeping a
+      // non-zero scale is what lets the player intentionally continue past it.
+      if(deg<.35f)return .08f;
+      if(deg<.75f)return .15f;
+      if(deg<1.50f)return .30f;
+      if(deg<2.50f)return .52f;
+      if(deg<4.00f)return .76f;
+      return 1f;
+    }
+
     void beginMicroAimHold(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       microAimHoldSign=screenMicroAimSign(left,w,h);
-      microAimAssistHoldUntil=0;
-      microAimByWorldSign(microAimHoldSign,.10f);
+
+      // Initial press is always a true micro tap. Aim assist never steals or
+      // snaps the first adjustment.
+      microAimByWorldSign(microAimHoldSign,.10f,false);
     }
 
     void endMicroAimHold(){
       microAimHoldSign=0;
-      microAimAssistHoldUntil=0;
     }
 
     void microAimHoldStep(float degrees){
       if(microAimHoldSign==0||!localCanControl()||state!=AIMING||gameOver)return;
-      if(System.currentTimeMillis()<microAimAssistHoldUntil)return;
-      microAimByWorldSign(microAimHoldSign,degrees);
+      microAimByWorldSign(microAimHoldSign,degrees,true);
     }
 
-    void microAimByWorldSign(int sign,float degrees){
+    void microAimByWorldSign(int sign,float degrees,boolean useAssist){
       float base=(float)Math.atan2(aimZ,aimX);
       float requested=(float)Math.toRadians(Math.max(.03f,degrees));
 
-      // FPS-style aim assist: when a legal ball/pocket ghost angle is just ahead
-      // of the rotation, progressively slow the micro control. If a normal hold
-      // step would skip over the sweet spot, land exactly on it and dwell briefly
-      // so the player has time to release the button.
-      float assistWindow=(float)Math.toRadians(4.0f);
-      float target=nearestPocketAssistAngle(base,sign,assistWindow);
-      if(!Float.isNaN(target)){
-        float d=wrapAngle(target-base);
-        float forward=sign>0?d:-d;
-        if(forward<0)forward+=(float)(Math.PI*2);
+      if(useAssist){
+        float target=nearestPocketAssistAngle(base,sign,(float)Math.toRadians(4.0f));
+        if(!Float.isNaN(target)){
+          float d=wrapAngle(target-base);
+          float forward=sign>0?d:-d;
+          if(forward<0)forward+=(float)(Math.PI*2);
 
-        if(forward<=requested*1.08f){
-          previewAimAngle(target);
-          if(degrees>.25f)microAimAssistHoldUntil=System.currentTimeMillis()+230;
-          return;
+          // Slow the continuous hold as a pocket line approaches. There is no
+          // snap, dwell, clamp, or lock. Keep holding and it will glide through.
+          requested*=pocketAssistScale(forward);
         }
-
-        float deg=(float)Math.toDegrees(forward);
-        if(deg<.70f)requested*=.16f;
-        else if(deg<1.50f)requested*=.30f;
-        else if(deg<2.75f)requested*=.52f;
-        else if(deg<4.0f)requested*=.72f;
       }
 
       float next=base+(sign<0?-requested:requested);
@@ -3237,13 +3240,65 @@ public class MainActivity extends Activity {
     void microAimScreen(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       int sign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(sign,.10f);
+
+      // Individual taps remain completely manual: exact .10-degree nudge,
+      // including when the predictor is sitting on an assisted pocket line.
+      microAimByWorldSign(sign,.10f,false);
     }
 
     void microAimScreen(boolean left,int w,int h,float degrees){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       int sign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(sign,degrees);
+      microAimByWorldSign(sign,degrees,true);
+    }
+
+    void previewAimAngleAssisted(float desiredAngle){
+      if(!localCanControl()||state!=AIMING||gameOver)return;
+
+      float current=(float)Math.atan2(aimZ,aimX);
+      float delta=wrapAngle(desiredAngle-current);
+      float mag=Math.abs(delta);
+      if(mag<.00001f){
+        previewAimAngle(desiredAngle);
+        return;
+      }
+
+      int sign=delta>=0?1:-1;
+      float target=nearestPocketAssistAngle(current,sign,(float)Math.toRadians(4.0f));
+      if(Float.isNaN(target)){
+        previewAimAngle(desiredAngle);
+        return;
+      }
+
+      float d=wrapAngle(target-current);
+      float forward=sign>0?d:-d;
+      if(forward<0)forward+=(float)(Math.PI*2);
+
+      // Only slow if the player's dragged hilt is actually moving through the
+      // candidate pocket angle. A target beyond the current finger destination
+      // should not influence the hilt at all.
+      if(forward>mag+(float)Math.toRadians(.18f)){
+        previewAimAngle(desiredAngle);
+        return;
+      }
+
+      float scale=pocketAssistScale(forward);
+      float step=delta*scale;
+
+      // Cap the near-pocket movement so a fast finger swipe cannot blast through
+      // the assist zone in a single MotionEvent. The cap is still non-zero, so
+      // continuing to drag always carries the hilt through the angle.
+      float capDeg;
+      float fdeg=(float)Math.toDegrees(forward);
+      if(fdeg<.35f)capDeg=.08f;
+      else if(fdeg<.75f)capDeg=.14f;
+      else if(fdeg<1.50f)capDeg=.28f;
+      else if(fdeg<2.50f)capDeg=.55f;
+      else capDeg=1.10f;
+      float cap=(float)Math.toRadians(capDeg);
+      if(Math.abs(step)>cap)step=Math.copySign(cap,step);
+
+      previewAimAngle(current+step);
     }
 
     void analogAim(float axis,float dt){
