@@ -3186,6 +3186,21 @@ public class MainActivity extends Activity {
       world=new World(new Vec2(0,0));
       predictorRails.clear();
       world.setContinuousPhysics(true);world.setWarmStarting(true);
+      world.setContactListener(new org.jbox2d.callbacks.ContactListener(){
+        public void beginContact(org.jbox2d.dynamics.contacts.Contact c){
+          if(state!=ROLLING||firstContactBall!=0)return;
+          Object a=c.getFixtureA().getBody().getUserData();
+          Object b=c.getFixtureB().getBody().getUserData();
+          if(a instanceof Ball&&b instanceof Ball){
+            Ball ba=(Ball)a,bb=(Ball)b;
+            if(ba.index==0&&bb.index!=0)firstContactBall=bb.index;
+            else if(bb.index==0&&ba.index!=0)firstContactBall=ba.index;
+          }
+        }
+        public void endContact(org.jbox2d.dynamics.contacts.Contact c){}
+        public void preSolve(org.jbox2d.dynamics.contacts.Contact c,org.jbox2d.collision.Manifold m){}
+        public void postSolve(org.jbox2d.dynamics.contacts.Contact c,org.jbox2d.callbacks.ContactImpulse i){}
+      });
       BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
 
       boolean loadedTableCollider=false;
@@ -3245,55 +3260,85 @@ public class MainActivity extends Activity {
       return n;
     }
 
+    int firstContactBall=0;
+    boolean ballInHand=false;
+
     void resetRules(){
       if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
       currentTeam=1;winnerTeam=0;activeShooter=1;teamSuit[0]=teamSuit[1]=0;
-      tableOpen=true;gameOver=false;ballsSunkThisShot.clear();
+      tableOpen=true;gameOver=false;ballInHand=false;firstContactBall=0;ballsSunkThisShot.clear();
       ruleMessage="BREAK • TEAM 1";
     }
 
     void recordPocket(int index){
       if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
-      if(index==8&&!gameOver){
-        winnerTeam=currentTeam;gameOver=true;
-        ruleMessage="8 BALL • TEAM "+currentTeam+" WINS";
+    }
+
+    boolean legalFirstContact(int team,int ball){
+      if(ball<=0)return false;
+      int suit=teamSuit[team-1];
+      if(tableOpen||suit==0)return ball!=8;
+      if(remainingForSuit(suit)==0)return ball==8;
+      return suitForBall(ball)==suit;
+    }
+
+    void awardBallInHand(int nextTeam,String reason){
+      currentTeam=nextTeam;activeShooter=nextTeam;ballInHand=true;
+      Ball cue=balls.isEmpty()?null:balls.get(0);
+      if(cue!=null&&!cue.active){
+        cue.active=true;cue.sinking=false;cue.x=-20f;cue.z=0f;
+        if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(cue.x,cue.z),0);cue.body.setLinearVelocity(new Vec2(0,0));}
       }
+      ruleMessage=reason+" • TEAM "+nextTeam+" BALL IN HAND";
     }
 
     void resolveShotRules(){
-      if(gameOver){ballsSunkThisShot.clear();return;}
-      boolean scratch=false,valid=false;
-      int teamIdx=currentTeam-1;
+      int shooter=currentTeam,other=shooter==1?2:1,teamIdx=shooter-1;
+      boolean scratch=ballsSunkThisShot.contains(0);
+      boolean eight=ballsSunkThisShot.contains(8);
+      int shooterSuit=teamSuit[teamIdx];
+      boolean eightReady=shooterSuit!=0&&remainingForSuit(shooterSuit)==0;
 
-      for(Integer idx:ballsSunkThisShot){
-        if(idx==0){scratch=true;continue;}
-        if(idx==8)continue;
-        int type=suitForBall(idx);
-        if(type==0)continue;
+      // The 8-ball is legal only after the shooter's entire suit is gone, and
+      // pocketing the cue ball with the 8 is always a loss.
+      if(eight){
+        boolean legal=eightReady&&!scratch&&firstContactBall==8;
+        winnerTeam=legal?shooter:other;gameOver=true;ballInHand=false;
+        ruleMessage=legal?("8 BALL • TEAM "+shooter+" WINS"):
+          (scratch?("SCRATCH ON 8 • TEAM "+other+" WINS"):("EARLY/ILLEGAL 8 BALL • TEAM "+other+" WINS"));
+        if(sfx!=null)sfx.victory(winnerTeam==1);
+        ballsSunkThisShot.clear();firstContactBall=0;return;
+      }
 
-        if(tableOpen){
-          tableOpen=false;
-          teamSuit[teamIdx]=type;
-          teamSuit[1-teamIdx]=(type==1)?2:1;
-          valid=true;
-          ruleMessage="TEAM "+currentTeam+" CLAIMED "+(type==1?"SOLIDS":"STRIPES");
-        }else if(teamSuit[teamIdx]==type){
-          valid=true;
+      boolean wrongFirst=!legalFirstContact(shooter,firstContactBall);
+      if(scratch||wrongFirst){
+        awardBallInHand(other,scratch?"SCRATCH":"FOUL • WRONG FIRST BALL");
+        ballsSunkThisShot.clear();firstContactBall=0;return;
+      }
+
+      boolean ownPocket=false;
+      // On an open table, the first legally pocketed non-8 object ball assigns suits.
+      if(tableOpen){
+        for(Integer idx:ballsSunkThisShot){
+          int type=suitForBall(idx);
+          if(type!=0){
+            tableOpen=false;teamSuit[teamIdx]=type;teamSuit[1-teamIdx]=(type==1)?2:1;
+            shooterSuit=type;ownPocket=true;break;
+          }
         }
+      }else{
+        for(Integer idx:ballsSunkThisShot)if(suitForBall(idx)==shooterSuit){ownPocket=true;break;}
       }
 
-      if(scratch){
-        currentTeam=currentTeam==1?2:1;
-        ruleMessage="SCRATCH • TEAM "+currentTeam+" TURN";
-      }else if(valid){
-        int remain=remainingForSuit(teamSuit[currentTeam-1]);
-        ruleMessage=remain==0?("TEAM "+currentTeam+" • 8 BALL READY"):("TEAM "+currentTeam+" CONTINUES");
+      ballInHand=false;
+      if(ownPocket){
+        currentTeam=shooter;activeShooter=shooter;
+        int remain=remainingForSuit(teamSuit[teamIdx]);
+        ruleMessage=remain==0?("TEAM "+shooter+" • 8 BALL READY"):("TEAM "+shooter+" CONTINUES");
       }else{
-        currentTeam=currentTeam==1?2:1;
-        ruleMessage="TEAM "+currentTeam+" TURN";
+        currentTeam=other;activeShooter=other;ruleMessage="TEAM "+other+" TURN";
       }
-      activeShooter=currentTeam;
-      ballsSunkThisShot.clear();
+      ballsSunkThisShot.clear();firstContactBall=0;
     }
 
     boolean localCanControl(){
@@ -3372,7 +3417,19 @@ public class MainActivity extends Activity {
     void aimTouch(int action,float sx,float sy,int w,int h){
       if(state!=AIMING||!allStopped())return;
       if(action==MotionEvent.ACTION_DOWN||action==MotionEvent.ACTION_MOVE||action==MotionEvent.ACTION_UP){
-        float[] q=screenToTable(sx,sy,w,h);if(q!=null){Ball cue=balls.get(0);float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}}
+        float[] q=screenToTable(sx,sy,w,h);if(q!=null){
+          Ball cue=balls.get(0);
+          if(ballInHand&&localCanControl()){
+            float nx=Math.max(-38.5f,Math.min(38.5f,q[0])),nz=Math.max(-17.5f,Math.min(17.5f,q[1]));
+            boolean clear=true;
+            for(Ball ob:balls)if(ob.index!=0&&ob.active){
+              float dx=ob.x-nx,dz=ob.z-nz;if(dx*dx+dz*dz<(PHYS_R*2.08f)*(PHYS_R*2.08f)){clear=false;break;}
+            }
+            if(clear){cue.active=true;cue.x=nx;cue.z=nz;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(nx,nz),0);cue.body.setLinearVelocity(new Vec2(0,0));}}
+            return;
+          }
+          float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}
+        }
       }
     }
 
@@ -3866,6 +3923,8 @@ public class MainActivity extends Activity {
     }
 
     void executeShot(){
+      firstContactBall=0;
+      ballInHand=false;
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
       // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
@@ -3991,7 +4050,7 @@ public class MainActivity extends Activity {
       if(b.sinking)return;
       if(sfx!=null){
         if(index==0)sfx.scratch();
-        else if(index==8)sfx.victory(false);
+        else if(index==8)sfx.pocket();
         else sfx.pocket();
       }
       recordPocket(index);
