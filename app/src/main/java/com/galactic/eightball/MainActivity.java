@@ -532,7 +532,7 @@ public class MainActivity extends Activity {
       "5 / 5  MATCH HUD"
     };
     final String[] messages={
-      "Drag the lightsaber hilt around the cue ball to rotate your shot. The glowing predictor shows the cue-ball path and the projected object-ball path.",
+      "Drag the lightsaber hilt around the cue ball, or swipe one finger left/right almost anywhere on the table, to rotate your shot. The glowing predictor updates live. The precision buttons still give ultra-fine adjustment.",
       "Use the glowing LEFT and RIGHT aim buttons for precision. Tap for an ultra-fine adjustment; press and hold to sweep around the cue ball quickly. A held button can continue through a full 360 degrees.",
       "When your line is ready, tap LOCK. Then choose where the cue tip strikes the cue ball for English and lock that selection.",
       "Use the right CAMERA stick beside LOCK to swing around the table and change your viewing angle. Pinch with two fingers to zoom; drag with two fingers to pan the table while zoomed. After English, pull either the table hilt or the right-thumb saber to set power and release to shoot.",
@@ -1413,9 +1413,11 @@ public class MainActivity extends Activity {
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
+    boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
-    float aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0;
+    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0;
     long lastAimTapMs=0;
+    int screenAimTouchSlop=8;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
     final Handler uiHandler=new Handler(Looper.getMainLooper());
     final Runnable microRepeat=new Runnable(){
@@ -1449,6 +1451,7 @@ public class MainActivity extends Activity {
 
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
+      screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
     }
@@ -2120,6 +2123,7 @@ public class MainActivity extends Activity {
       if(e.getPointerCount()>=2 || camGesture){
         if((a==MotionEvent.ACTION_POINTER_DOWN||a==MotionEvent.ACTION_DOWN) && e.getPointerCount()>=2){
           camGesture=true;pullingHilt=false;
+          screenAimCandidate=false;screenAimSwipe=false;
           endAimStick();endCameraStick();
           float x0=e.getX(0),y0=e.getY(0),x1=e.getX(1),y1=e.getY(1);
           camPrevMidX=(x0+x1)*.5f;camPrevMidY=(y0+y1)*.5f;
@@ -2266,6 +2270,46 @@ public class MainActivity extends Activity {
           RectF hit=new RectF(worldHiltRect);hit.inset(-36*ui,-36*ui);
           if(hit.contains(x,y)){pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;game.queueEvent(()->r.beginWorldCharge());return true;}
         }
+
+        // Extra aiming method: a one-finger horizontal swipe on open screen space
+        // rotates the hilt/predictor. Existing hilt drag, precision buttons and
+        // camera controls remain unchanged. The small dead zone prevents taps
+        // from nudging the shot.
+        if(!r.gameOver&&r.state==GameRenderer.AIMING&&r.localCanControl()&&!sideMenuOpen){
+          screenAimCandidate=true;screenAimSwipe=false;
+          screenAimDownX=screenAimLastX=x;screenAimDownY=y;
+          return true;
+        }
+      }
+
+      if(screenAimCandidate||screenAimSwipe){
+        if(a==MotionEvent.ACTION_MOVE&&e.getPointerCount()==1){
+          float totalDx=x-screenAimDownX,totalDy=y-screenAimDownY;
+          float slop=Math.max(screenAimTouchSlop,8f*ui);
+          if(!screenAimSwipe){
+            if(Math.abs(totalDy)>slop*2.2f&&Math.abs(totalDy)>Math.abs(totalDx)*1.35f){
+              screenAimCandidate=false;
+              return true;
+            }
+            if(Math.abs(totalDx)>=slop&&Math.abs(totalDx)>=Math.abs(totalDy)*.65f){
+              screenAimSwipe=true;
+            }else{
+              return true;
+            }
+          }
+          float dx=x-screenAimLastX;
+          screenAimLastX=x;
+          if(Math.abs(dx)>.01f){
+            final float fdx=dx;
+            game.queueEvent(()->r.swipeAimByPixels(fdx,w,h));
+          }
+          return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
+          screenAimCandidate=false;screenAimSwipe=false;
+          return true;
+        }
+        return true;
       }
 
       if(aimStickActive){
@@ -3837,6 +3881,18 @@ public class MainActivity extends Activity {
       float delta=(float)Math.toRadians(Math.signum(axis)*degPerSec*dt);
       float base=(float)Math.atan2(aimZ,aimX);
       previewAimAngle(base+delta);
+    }
+
+    void swipeAimByPixels(float dx,int w,int h){
+      if(!localCanControl()||state!=AIMING||gameOver||Math.abs(dx)<.01f)return;
+      // Normalize sensitivity to screen width so the same thumb motion feels
+      // comparable on small phones and large displays. A full-width swipe is
+      // about 200 degrees of orbit; short swipes remain precise.
+      float degrees=Math.min(48f,Math.abs(dx)/Math.max(320f,(float)w)*200f);
+      if(degrees<.025f)return;
+      int sign=screenMicroAimSign(dx<0,w,h);
+      float base=(float)Math.atan2(aimZ,aimX);
+      previewAimAngleAssisted(base+(float)Math.toRadians(sign*degrees));
     }
 
     void previewAimAngle(float angle){
