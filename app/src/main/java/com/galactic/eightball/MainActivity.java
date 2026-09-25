@@ -211,21 +211,12 @@ public class MainActivity extends Activity {
     iv.setAdjustViewBounds(true);
     iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
     iv.setMaxHeight(dp(230));
-    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+    try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
       BitmapFactory.Options o=new BitmapFactory.Options();
       o.inPreferredConfig=Bitmap.Config.ARGB_8888;
       o.inScaled=false;
-      Bitmap src=BitmapFactory.decodeStream(in,null,o);
-      if(src!=null){
-        // The original art was previously being blown up directly from its small
-        // bundled preview and looked blocky. Pre-render a filtered 4x working copy
-        // once, then let ImageView downsample from that instead of magnifying pixels.
-        int targetW=Math.max(src.getWidth(),1280);
-        int targetH=Math.max(1,Math.round(src.getHeight()*(targetW/(float)src.getWidth())));
-        Bitmap hd=Bitmap.createBitmap(targetW,targetH,Bitmap.Config.ARGB_8888);
-        Canvas cc=new Canvas(hd);
-        Paint pp=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
-        cc.drawBitmap(src,null,new RectF(0,0,targetW,targetH),pp);
+      Bitmap hd=BitmapFactory.decodeStream(in,null,o);
+      if(hd!=null){
         iv.setImageBitmap(hd);
       }
     }catch(Exception ignored){}
