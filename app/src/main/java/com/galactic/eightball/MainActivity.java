@@ -134,7 +134,7 @@ public class MainActivity extends Activity {
           String body=obj.optString("body","");
           int latestCode=parseReleaseInt(body,"VersionCode");
           String latestName=parseReleaseValue(body,"VersionName");
-          if(latestCode<=BuildConfig.VERSION_CODE)return;
+          if(latestCode<=currentAppVersionCode())return;
           if(latestName.isEmpty())latestName=obj.optString("tag_name","new build");
           final int code=latestCode;
           final String name=latestName;
@@ -142,6 +142,13 @@ public class MainActivity extends Activity {
         }catch(Exception ignored){}
       }
     });
+  }
+
+  long currentAppVersionCode(){
+    try{
+      android.content.pm.PackageInfo info=getPackageManager().getPackageInfo(getPackageName(),0);
+      return Build.VERSION.SDK_INT>=28?info.getLongVersionCode():info.versionCode;
+    }catch(Exception ignored){return -1L;}
   }
 
   int parseReleaseInt(String body,String key){
@@ -285,14 +292,6 @@ public class MainActivity extends Activity {
       p.edit().remove("install_after_permission").apply();
       maybeInstallDownloadedUpdate(id);
     }
-  }
-
-  @Override protected void onDestroy(){
-    if(updateDownloadReceiver!=null){
-      try{unregisterReceiver(updateDownloadReceiver);}catch(Exception ignored){}
-      updateDownloadReceiver=null;
-    }
-    super.onDestroy();
   }
 
   int dp(float v){
@@ -774,7 +773,11 @@ public class MainActivity extends Activity {
     dialog.show();
   }
 
-  protected void onDestroy(){
+  @Override protected void onDestroy(){
+    if(updateDownloadReceiver!=null){
+      try{unregisterReceiver(updateDownloadReceiver);}catch(Exception ignored){}
+      updateDownloadReceiver=null;
+    }
     if(multiplayer!=null)multiplayer.disconnect();
     if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.shutdown();
     super.onDestroy();
