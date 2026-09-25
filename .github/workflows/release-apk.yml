@@ -173,7 +173,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Adds the permanent APK link and in-app update checker/downloader. Also includes full-screen one-finger swipe aiming and the current Falcon render stability improvements.
+            UpdateNotes: Adds the permanent APK link and in-app update checker/downloader/installer handoff. Also includes full-screen one-finger swipe aiming and the current Falcon render stability improvements.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
