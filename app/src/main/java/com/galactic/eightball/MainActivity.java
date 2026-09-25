@@ -1404,13 +1404,21 @@ public class MainActivity extends Activity {
 
     void drawMicroAimControls(Canvas c,int w,int h,float ui){
       boolean portrait=h>w;
-      float size=(portrait?76:92)*ui,gap=(portrait?10:14)*ui,x=(portrait?12:18)*ui,y=h-size-(portrait?12:16)*ui;
+
+      // Give the precision buttons generous, clearly separated thumb targets.
+      // The empty center gap is intentional so a slightly-off tap cannot land
+      // on the opposite direction button.
+      float size=(portrait?92:112)*ui;
+      float gap=(portrait?36:42)*ui;
+      float x=(portrait?14:20)*ui;
+      float y=h-size-(portrait?14:18)*ui;
+
       microLeftRect.set(x,y,x+size,y+size);
       microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(10.5f*ui);p.setColor(0xA9D7F4FF);
-      c.drawText("PRECISION AIM",x+size+gap*.5f,y-7*ui,p);
+      p.setTextSize((portrait?10.5f:11.5f)*ui);p.setColor(0xA9D7F4FF);
+      c.drawText("PRECISION AIM",x+size+gap*.5f,y-10*ui,p);
 
       drawMicroPolygon(c,microLeftRect,true,ui);
       drawMicroPolygon(c,microRightRect,false,ui);
@@ -1453,10 +1461,11 @@ public class MainActivity extends Activity {
       c.drawPath(inner,stroke);
 
       float dir=left?-1f:1f;
+      float aw=w*.18f,ah=h*.19f,tip=w*.13f;
       Path arrow=new Path();
-      arrow.moveTo(cx+dir*15*ui,cy-15*ui);
-      arrow.lineTo(cx-dir*11*ui,cy);
-      arrow.lineTo(cx+dir*15*ui,cy+15*ui);
+      arrow.moveTo(cx+dir*aw,cy-ah);
+      arrow.lineTo(cx-dir*tip,cy);
+      arrow.lineTo(cx+dir*aw,cy+ah);
       arrow.close();
       p.setShadowLayer(12*ui,0,0,0xEE5DE6FF);
       p.setColor(0xE6DDF8FF);
