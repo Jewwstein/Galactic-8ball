@@ -16,6 +16,13 @@ jobs:
       ANDROID_SDK_ROOT: /home/runner/android-sdk
     steps:
       - uses: actions/checkout@v4
+      - name: Read app version
+        id: version
+        run: |
+          VERSION_CODE="$(grep -oP 'versionCode = \\K[0-9]+' app/build.gradle.kts)"
+          VERSION_NAME="$(grep -oP 'versionName = "\\K[^"]+' app/build.gradle.kts)"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -150,24 +157,22 @@ jobs:
           name: Galactic-8-Ball-Full-Asset-Test
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Prepare APK release asset
-        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7.1-Swipe-Aim-Test.apk
+      - name: Prepare permanent APK release asset
+        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-Latest.apk
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.7.1-swipe-aim-test
+          tag_name: v${{ steps.version.outputs.version_name }}-build${{ steps.version.outputs.version_code }}
           target_commitish: ${{ github.sha }}
-          name: Galactic 8-Ball v0.7.1 Swipe Aim Test
+          name: Galactic 8-Ball v${{ steps.version.outputs.version_name }}
           body: |
-            Galactic 8-Ball Android multiplayer test build.
+            Galactic 8-Ball Android test build.
+            VersionCode: ${{ steps.version.outputs.version_code }}
+            VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
-            Version: 0.7.1
             Source baseline: ${{ github.sha }}
-            Adds full-screen one-finger swipe aiming: swipe left/right on open screen space to rotate the hilt and predictive line.
-            Existing direct hilt dragging, precision aim buttons, two-finger pinch zoom, and two-finger camera pan remain available.
-            Includes the Falcon render stability/depth fix and enhanced darker 2K Falcon texture.
-            Preserves the approved Falcon footprint, current dogfight scale, physics, and multiplayer behavior.
-          files: Galactic-8-Ball-v0.7.1-Swipe-Aim-Test.apk
+            UpdateNotes: Adds the permanent APK link and in-app update checker/downloader. Also includes full-screen one-finger swipe aiming and the current Falcon render stability improvements.
+          files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
