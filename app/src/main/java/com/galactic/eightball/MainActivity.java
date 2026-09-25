@@ -1280,8 +1280,6 @@ public class MainActivity extends Activity {
       }
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      drawSideMenuTab(c,sideMenuTabRect,ui,sideMenuOpen);
-      if(sideMenuOpen)drawSideMenu(c,ui,r);
 
       drawMatchHud(c,w,h,ui,r);
 
@@ -1307,6 +1305,14 @@ public class MainActivity extends Activity {
         p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
         c.drawText("BALLS ROLLING",w*.5f,42*ui,p);
       }
+
+      // Navigation must remain usable after a win/loss. Draw it after every
+      // gameplay overlay so NEW RACK / BACK TO HOME is never hidden underneath
+      // the winner card.
+      drawSideMenuTab(c,sideMenuTabRect,ui,sideMenuOpen);
+      if(sideMenuOpen)drawSideMenu(c,ui,r);
+
+      // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
     }
@@ -1672,7 +1678,7 @@ public class MainActivity extends Activity {
       stroke.setColor(0xFFF4C542);stroke.setStrokeWidth(4*ui);c.drawRoundRect(box,24*ui,24*ui,stroke);
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       p.setTextSize(32*ui);p.setColor(0xFFF4C542);c.drawText("TEAM "+r.winnerTeam+" WINS",box.centerX(),box.centerY()-5*ui,p);
-      p.setTextSize(15*ui);p.setColor(Color.WHITE);c.drawText("8 BALL POCKETED • TAP NEW RACK",box.centerX(),box.centerY()+28*ui,p);
+      p.setTextSize(15*ui);p.setColor(Color.WHITE);c.drawText("8 BALL POCKETED • OPEN MENU FOR NEW RACK",box.centerX(),box.centerY()+28*ui,p);
     }
 
     void drawCrosshairButton(Canvas c,RectF rr,float ui){
@@ -2169,6 +2175,7 @@ public class MainActivity extends Activity {
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,chargeStartY=-1,sideSpin=0,topSpin=0;
     volatile float chargePullPx=0,chargePullWorld=0;
     volatile int microAimHoldSign=0;
+    volatile long microAimAssistHoldUntil=0;
     boolean breakAssistArmed=true;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -3057,56 +3064,142 @@ public class MainActivity extends Activity {
       aimX=desiredAimX=x;aimZ=desiredAimZ=z;
     }
 
+    float wrapAngle(float a){
+      while(a>(float)Math.PI)a-=(float)(Math.PI*2);
+      while(a<-(float)Math.PI)a+=(float)(Math.PI*2);
+      return a;
+    }
+
     int screenMicroAimSign(boolean left,int w,int h){
+      // LEFT/RIGHT now mean a stable rotation direction around the cue ball,
+      // not "whichever world-angle currently moves toward screen X". The old
+      // approach changed sign after the hilt crossed the projected 180-degree
+      // extremum, so the SAME button suddenly reversed direction.
       if(balls.isEmpty())return left?-1:1;
       Ball cue=balls.get(0);
-      float base=(float)Math.atan2(aimZ,aimX);
-      float probe=(float)Math.toRadians(1.0f);
-      float am=base-probe,ap=base+probe;
-      float[] pm=worldToScreen(cue.x+(float)Math.cos(am)*14f,2.22f,cue.z+(float)Math.sin(am)*14f,w,h);
-      float[] pp=worldToScreen(cue.x+(float)Math.cos(ap)*14f,2.22f,cue.z+(float)Math.sin(ap)*14f,w,h);
 
-      if(pm!=null&&pp!=null){
-        float dx=pp[0]-pm[0];
-        if(Math.abs(dx)>.12f){
-          // +1 means increasing world angle. Pick it if that screen motion is
-          // toward the requested left/right side at the START of the hold.
-          if(left)return dx<0?1:-1;
-          return dx>0?1:-1;
-        }
+      float[] c=worldToScreen(cue.x,2.22f,cue.z,w,h);
+      float[] px=worldToScreen(cue.x+8f,2.22f,cue.z,w,h);
+      float[] pz=worldToScreen(cue.x,2.22f,cue.z+8f,w,h);
+      if(c!=null&&px!=null&&pz!=null){
+        float x1=px[0]-c[0],y1=px[1]-c[1];
+        float x2=pz[0]-c[0],y2=pz[1]-c[1];
+        float cross=x1*y2-y1*x2;
 
-        // Exactly at a horizontal screen-space extremum, use the projected Y
-        // tangent only to choose a deterministic continuation direction.
-        float dy=pp[1]-pm[1];
-        if(Math.abs(dy)>.12f){
-          if(left)return dy<0?-1:1;
-          return dy<0?1:-1;
+        // In Android screen coordinates (+Y points down), positive cross means
+        // increasing world angle appears clockwise. Left button = CCW,
+        // right button = CW. This mapping depends only on camera orientation,
+        // so it does NOT flip when the aim passes 180 degrees.
+        if(Math.abs(cross)>.001f){
+          int clockwiseWorldSign=cross>0?1:-1;
+          return left?-clockwiseWorldSign:clockwiseWorldSign;
         }
       }
       return left?-1:1;
     }
 
+    boolean legalAssistBall(Ball b){
+      if(b==null||!b.active||b.sinking||b.index==0)return false;
+      int suit=(currentTeam>=1&&currentTeam<=2)?teamSuit[currentTeam-1]:0;
+      boolean eightReady=suit!=0&&remainingForSuit(suit)==0;
+      if(eightReady)return b.index==8;
+      if(b.index==8)return false;
+      return suit==0||suitForBall(b.index)==suit;
+    }
+
+    float nearestPocketAssistAngle(float current,int sign,float maxForwardRad){
+      if(balls.isEmpty())return Float.NaN;
+      Ball cue=balls.get(0);
+      if(cue==null||!cue.active)return Float.NaN;
+
+      final float[][] pockets={
+        {-42f,-21f},{0f,-21f},{42f,-21f},
+        {-42f, 21f},{0f, 21f},{42f, 21f}
+      };
+
+      float bestForward=Float.POSITIVE_INFINITY,bestAngle=Float.NaN;
+      for(int i=1;i<balls.size();i++){
+        Ball b=balls.get(i);
+        if(!legalAssistBall(b))continue;
+
+        for(float[] pocket:pockets){
+          float pdx=pocket[0]-b.x,pdz=pocket[1]-b.z;
+          float pd=(float)Math.sqrt(pdx*pdx+pdz*pdz);
+          if(pd<.001f)continue;
+          float ux=pdx/pd,uz=pdz/pd;
+
+          // Ghost-ball center for an equal-radius collision that sends the
+          // object ball toward this pocket.
+          float gx=b.x-ux*(PHYS_R*2.02f);
+          float gz=b.z-uz*(PHYS_R*2.02f);
+          float cdx=gx-cue.x,cdz=gz-cue.z;
+          float cd=(float)Math.sqrt(cdx*cdx+cdz*cdz);
+          if(cd<.001f)continue;
+
+          // Only assist shots whose cue and object-ball paths are actually open.
+          if(!aiPathClear(cue.x,cue.z,gx,gz,0,b.index))continue;
+          if(!aiPathClear(b.x,b.z,pocket[0],pocket[1],b.index,0))continue;
+
+          float a=(float)Math.atan2(cdz,cdx);
+          float d=wrapAngle(a-current);
+          float forward=sign>0?d:-d;
+          if(forward<0)forward+=(float)(Math.PI*2);
+          if(forward<=maxForwardRad&&forward<bestForward){
+            bestForward=forward;
+            bestAngle=a;
+          }
+        }
+      }
+      return bestAngle;
+    }
+
     void beginMicroAimHold(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       microAimHoldSign=screenMicroAimSign(left,w,h);
+      microAimAssistHoldUntil=0;
       microAimByWorldSign(microAimHoldSign,.10f);
     }
 
     void endMicroAimHold(){
       microAimHoldSign=0;
+      microAimAssistHoldUntil=0;
     }
 
     void microAimHoldStep(float degrees){
       if(microAimHoldSign==0||!localCanControl()||state!=AIMING||gameOver)return;
+      if(System.currentTimeMillis()<microAimAssistHoldUntil)return;
       microAimByWorldSign(microAimHoldSign,degrees);
     }
 
     void microAimByWorldSign(int sign,float degrees){
       float base=(float)Math.atan2(aimZ,aimX);
-      float step=(float)Math.toRadians(Math.max(.05f,degrees));
-      float next=base+(sign<0?-step:step);
-      // atan2/cos/sin naturally wrap through ±PI, so a held button can continue
-      // indefinitely through 360 degrees with no 180-degree clamp or oscillation.
+      float requested=(float)Math.toRadians(Math.max(.03f,degrees));
+
+      // FPS-style aim assist: when a legal ball/pocket ghost angle is just ahead
+      // of the rotation, progressively slow the micro control. If a normal hold
+      // step would skip over the sweet spot, land exactly on it and dwell briefly
+      // so the player has time to release the button.
+      float assistWindow=(float)Math.toRadians(4.0f);
+      float target=nearestPocketAssistAngle(base,sign,assistWindow);
+      if(!Float.isNaN(target)){
+        float d=wrapAngle(target-base);
+        float forward=sign>0?d:-d;
+        if(forward<0)forward+=(float)(Math.PI*2);
+
+        if(forward<=requested*1.08f){
+          previewAimAngle(target);
+          if(degrees>.25f)microAimAssistHoldUntil=System.currentTimeMillis()+230;
+          return;
+        }
+
+        float deg=(float)Math.toDegrees(forward);
+        if(deg<.70f)requested*=.16f;
+        else if(deg<1.50f)requested*=.30f;
+        else if(deg<2.75f)requested*=.52f;
+        else if(deg<4.0f)requested*=.72f;
+      }
+
+      float next=base+(sign<0?-requested:requested);
       previewAimAngle(next);
     }
 
