@@ -142,20 +142,8 @@ public class MainActivity extends Activity {
     return b;
   }
 
-  ImageView galacticLogoView(){
-    ImageView logo=new ImageView(this);
-    logo.setAdjustViewBounds(true);
-    logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-    BitmapFactory.Options opt=new BitmapFactory.Options();
-    opt.inPreferredConfig=Bitmap.Config.ARGB_8888;
-    try(InputStream in=getAssets().open("ui/galactic_logo_hd.webp")){
-      Bitmap bm=BitmapFactory.decodeStream(in,null,opt);
-      if(bm!=null){logo.setImageBitmap(bm);return logo;}
-    }catch(Exception ignored){}
-    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
-      logo.setImageBitmap(BitmapFactory.decodeStream(in,null,opt));
-    }catch(Exception ignored){}
-    return logo;
+  View galacticLogoView(){
+    return new GalacticLogoView(this);
   }
 
 
@@ -200,7 +188,7 @@ public class MainActivity extends Activity {
     card.setLayoutParams(cardLp);
     outer.addView(card);
 
-    ImageView logo=galacticLogoView();
+    View logo=galacticLogoView();
     LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,-2);
     logoLp.bottomMargin=dp(10);
     logo.setLayoutParams(logoLp);
@@ -313,7 +301,7 @@ public class MainActivity extends Activity {
     cardLp.width=Math.min(dp(620),Math.max(dp(300),getResources().getDisplayMetrics().widthPixels-dp(44)));
     outer.addView(card,cardLp);
 
-    ImageView logo=galacticLogoView();
+    View logo=galacticLogoView();
     LinearLayout.LayoutParams logoLp=new LinearLayout.LayoutParams(-1,dp(168));
     logoLp.bottomMargin=dp(2);
     card.addView(logo,logoLp);
@@ -572,6 +560,83 @@ public class MainActivity extends Activity {
     Toast.makeText(this,"Galactic Online is preconfigured.",Toast.LENGTH_SHORT).show();
   }
 
+
+  static class GalacticLogoView extends View{
+    final Paint p=new Paint(3),stroke=new Paint(3);
+    final Path ship=new Path();
+    GalacticLogoView(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+
+    protected void onMeasure(int ws,int hs){
+      int w=MeasureSpec.getSize(ws);
+      int desired=(int)(w*.46f);
+      int h=resolveSize(Math.max(180,desired),hs);
+      setMeasuredDimension(w,h);
+    }
+
+    protected void onDraw(Canvas c){
+      super.onDraw(c);
+      float w=getWidth(),h=getHeight(),cx=w*.5f,cy=h*.43f;
+      float r=Math.min(w*.25f,h*.40f);
+
+      // Nebula halo.
+      p.setStyle(Paint.Style.FILL);
+      p.setShader(new RadialGradient(cx,cy,r*1.45f,
+        new int[]{0x00113866,0x66442299,0xAAE56C22,0x33193866,0x00000000},
+        new float[]{0,.43f,.66f,.82f,1f},Shader.TileMode.CLAMP));
+      c.drawCircle(cx,cy,r*1.45f,p);p.setShader(null);
+
+      // Galaxy ring / metallic orbit.
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(2f,r*.035f));
+      stroke.setShader(new SweepGradient(cx,cy,new int[]{0xFF55D8FF,0xFFFFB84A,0xFF9C5CFF,0xFF55D8FF},null));
+      stroke.setShadowLayer(r*.10f,0,0,0xAA58D6FF);
+      c.save();c.scale(1f,.44f,cx,cy);c.drawCircle(cx,cy,r*1.18f,stroke);c.restore();
+      stroke.clearShadowLayer();stroke.setShader(null);
+
+      // Glossy 8-ball.
+      p.setShader(new RadialGradient(cx-r*.23f,cy-r*.28f,r*1.02f,
+        new int[]{0xFF596170,0xFF151920,0xFF030406},new float[]{0,.35f,1f},Shader.TileMode.CLAMP));
+      p.setShadowLayer(r*.16f,0,r*.08f,0xDD000000);
+      c.drawCircle(cx,cy,r*.72f,p);p.clearShadowLayer();p.setShader(null);
+
+      p.setColor(0xFFF7F8FA);c.drawCircle(cx,cy-r*.02f,r*.255f,p);
+      p.setColor(0xFF050608);p.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(r*.34f);
+      c.drawText("8",cx,cy+r*.095f,p);
+
+      // Small starfighter silhouette.
+      float sx=cx+r*.78f,sy=cy-r*.70f,sc=r*.22f;
+      ship.reset();
+      ship.moveTo(sx+sc*.95f,sy);
+      ship.lineTo(sx-sc*.45f,sy-sc*.18f);
+      ship.lineTo(sx-sc*.88f,sy-sc*.62f);
+      ship.lineTo(sx-sc*.18f,sy-sc*.30f);
+      ship.lineTo(sx-sc*.82f,sy+sc*.55f);
+      ship.lineTo(sx-sc*.35f,sy+sc*.20f);
+      ship.close();
+      p.setColor(0xFFE6EDF7);p.setShadowLayer(sc*.22f,0,0,0xAA55CFFF);c.drawPath(ship,p);p.clearShadowLayer();
+
+      // Crossed saber accents.
+      float saberY=cy+r*.94f,saberL=r*.76f;
+      stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.075f);
+      stroke.setShadowLayer(r*.09f,0,0,0xE8FF3040);stroke.setColor(0xFFFF5460);
+      c.drawLine(cx-saberL*.72f,saberY+r*.20f,cx+saberL*.72f,saberY-r*.20f,stroke);
+      stroke.clearShadowLayer();
+      stroke.setShadowLayer(r*.09f,0,0,0xE849BFFF);stroke.setColor(0xFF74DFFF);
+      c.drawLine(cx-saberL*.72f,saberY-r*.20f,cx+saberL*.72f,saberY+r*.20f,stroke);
+      stroke.clearShadowLayer();stroke.setStrokeCap(Paint.Cap.BUTT);
+
+      // Crisp scalable title: no bitmap upscaling at any screen density.
+      p.setTypeface(Typeface.create("sans-serif-black",Typeface.BOLD));
+      p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(Math.min(w*.082f,r*.42f));
+      p.setLetterSpacing(.08f);
+      p.setShader(new LinearGradient(cx,cy+r*.44f,cx,cy+r*.83f,
+        new int[]{0xFFFFF1A7,0xFFFFC54D,0xFF9C5A10},null,Shader.TileMode.CLAMP));
+      p.setShadowLayer(r*.055f,0,r*.025f,0xFF000000);
+      c.drawText("GALACTIC 8-BALL",cx,cy+r*.72f,p);
+      p.clearShadowLayer();p.setShader(null);p.setLetterSpacing(0f);
+    }
+  }
 
   static class GalacticOrbitView extends View{
     final Paint paint=new Paint(3),stroke=new Paint(3);
