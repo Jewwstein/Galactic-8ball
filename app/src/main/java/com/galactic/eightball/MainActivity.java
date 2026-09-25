@@ -1743,9 +1743,9 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], blades=new Bitmap[6];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
-    RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[6];
+    RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
@@ -1782,16 +1782,19 @@ public class MainActivity extends Activity {
 
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
-    final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER"};
+    final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
+      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","REY"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
 
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
+      for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
+      for(int i=0;i<8;i++)aiSubmenuRects[i]=new RectF();
       for(int i=0;i<6;i++){
         hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
-        hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();aiSubmenuRects[i]=new RectF();
+        bladeChoices[i]=new RectF();
       }
     }
 
@@ -1856,8 +1859,8 @@ public class MainActivity extends Activity {
       if(sideMenuOpen){
         float maxPanelW=Math.max(160*ui,w-safeX*2);
         float panelW=portrait?Math.min(maxPanelW,286*ui):Math.min(maxPanelW,330*ui);
-        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?6:5);
-        float itemH=(aiSubmenu==2?(portrait?54:52):(aiSubmenu==1?(portrait?58:57):(portrait?62:68)))*ui;
+        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?8:5);
+        float itemH=(aiSubmenu==2?(portrait?46:47):(aiSubmenu==1?(portrait?58:57):(portrait?62:68)))*ui;
         float itemGap=(aiSubmenu==0?(portrait?9:10):6)*ui;
         float headerH=(portrait?48:52)*ui;
         float panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+20*ui;
@@ -2002,12 +2005,14 @@ public class MainActivity extends Activity {
       }
 
       if(aiSubmenu==2){
-        drawPremiumButton(c,aiSubmenuRects[0],"CLEAN RUN","WIN WITHOUT SCRATCHING",ui,0xFF65E4A5,r.challengeMode&&r.challengeId==1);
-        drawPremiumButton(c,aiSubmenuRects[1],"SPEED RUN","WIN IN 8 SHOTS OR FEWER",ui,0xFF46C7FF,r.challengeMode&&r.challengeId==2);
-        drawPremiumButton(c,aiSubmenuRects[2],"COMBO STRIKE","POCKET 2+ IN ONE SHOT",ui,0xFFF4C542,r.challengeMode&&r.challengeId==3);
-        drawPremiumButton(c,aiSubmenuRects[3],"SITH TRIAL","DEFEAT EXPERT GALACTIC AI",ui,0xFFFF667A,r.challengeMode&&r.challengeId==4);
-        drawPremiumButton(c,aiSubmenuRects[4],"STANDARD AI","NORMAL • DISABLE CHALLENGE",ui,0xFFB88CFF,!r.challengeMode);
-        drawPremiumButton(c,aiSubmenuRects[5],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
+        drawPremiumButton(c,aiSubmenuRects[0],"CLEAN RUN","WIN CLEAN • UNLOCK ANAKIN",ui,0xFF65E4A5,r.challengeMode&&r.challengeId==1);
+        drawPremiumButton(c,aiSubmenuRects[1],"SPEED RUN","≤ 8 SHOTS • UNLOCK AHSOKA",ui,0xFF46C7FF,r.challengeMode&&r.challengeId==2);
+        drawPremiumButton(c,aiSubmenuRects[2],"COMBO STRIKE","POCKET 2+ • UNLOCK YODA",ui,0xFFF4C542,r.challengeMode&&r.challengeId==3);
+        drawPremiumButton(c,aiSubmenuRects[3],"SITH TRIAL","BEAT EXPERT • UNLOCK NIHILUS",ui,0xFFFF667A,r.challengeMode&&r.challengeId==4);
+        drawPremiumButton(c,aiSubmenuRects[4],"JEDI VICTOR","WIN WITH JEDI HILT • UNLOCK REY",ui,0xFF75C8FF,r.challengeMode&&r.challengeId==5);
+        drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
+        drawPremiumButton(c,aiSubmenuRects[6],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[7],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
         return;
       }
 
@@ -2184,8 +2189,8 @@ public class MainActivity extends Activity {
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
       float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=portrait?Math.min(availW,470*ui):Math.min(availW,920*ui);
-      float ph=portrait?Math.min(availH,640*ui):Math.min(availH,500*ui);
+      float pw=portrait?Math.min(availW,500*ui):Math.min(availW,940*ui);
+      float ph=portrait?Math.min(availH,690*ui):Math.min(availH,520*ui);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
@@ -2201,68 +2206,167 @@ public class MainActivity extends Activity {
       p.setTextSize((portrait?20:24)*ui);p.setColor(Color.WHITE);
       c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
       p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?10.5f:12)*ui);p.setColor(0xFF9FB0C4);
-      c.drawText("Choose a hilt and blade color",w*.5f,y+52*ui,p);
+      c.drawText("Challenge hilts unlock permanently for this player",w*.5f,y+52*ui,p);
+
+      MainActivity a=ctx instanceof MainActivity?(MainActivity)ctx:null;
+      for(RectF rr:hiltChoices)rr.setEmpty();
+      for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        float side=18*ui,gap=9*ui,cw=(pw-side*2-gap*2)/3f,ch=82*ui;
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS",x+side,y+78*ui,p);
-        float hs=y+88*ui;
-        for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+8*ui);
+        float side=16*ui,gap=7*ui,cw=(pw-side*2-gap*2)/3f,ch=55*ui;
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS",x+side,y+73*ui,p);
+        float hs=y+81*ui;
+        for(int i=0;i<TOTAL_HILT_COUNT;i++){
+          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+6*ui);
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
-          drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
+          boolean locked=a!=null&&!a.isHiltUnlocked(i);
+          drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-
-        float bsY=hs+2*(ch+8*ui)+18*ui;
-        p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        float bsY=hs+5*(ch+6*ui)+7*ui;
+        p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADES",x+side,bsY,p);
-        float bstart=bsY+10*ui;
+        float bstart=bsY+8*ui,bh=52*ui;
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=bstart+row*(ch+8*ui);
-          bladeChoices[i].set(lx,ty,lx+cw,ty+ch);
-          drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
+          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=bstart+row*(bh+6*ui);
+          bladeChoices[i].set(lx,ty,lx+cw,ty+bh);
+          drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
       }else{
-        // Landscape uses two large 3x2 grids side-by-side rather than six tiny cards.
-        float side=22*ui,centerGap=24*ui;
-        float sectionW=(pw-side*2-centerGap)*.5f;
-        float gap=9*ui,cw=(sectionW-gap*2)/3f,ch=88*ui;
-        float leftX=x+side,rightX=leftX+sectionW+centerGap;
-        float startY=y+88*ui;
-
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS",leftX,startY-12*ui,p);
-        c.drawText("BLADES",rightX,startY-12*ui,p);
-
+        float side=20*ui,centerGap=22*ui;
+        float hiltW=(pw-side*2-centerGap)*.60f,bladeW=(pw-side*2-centerGap)-hiltW;
+        float leftX=x+side,rightX=leftX+hiltW+centerGap,startY=y+83*ui;
+        float hgap=7*ui,hcw=(hiltW-hgap*3)/4f,hch=70*ui;
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS + REWARDS",leftX,startY-10*ui,p);
+        c.drawText("BLADES",rightX,startY-10*ui,p);
+        for(int i=0;i<TOTAL_HILT_COUNT;i++){
+          int col=i%4,row=i/4;float lx=leftX+col*(hcw+hgap),ty=startY+row*(hch+7*ui);
+          hiltChoices[i].set(lx,ty,lx+hcw,ty+hch);
+          boolean locked=a!=null&&!a.isHiltUnlocked(i);
+          drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
+        }
+        float bgap=8*ui,bcw=(bladeW-bgap*2)/3f,bch=82*ui;
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;
-          float ty=startY+row*(ch+10*ui);
-          float hl=leftX+col*(cw+gap),bl=rightX+col*(cw+gap);
-          hiltChoices[i].set(hl,ty,hl+cw,ty+ch);
-          bladeChoices[i].set(bl,ty,bl+cw,ty+ch);
-          drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
-          drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
+          int col=i%3,row=i/3;float lx=rightX+col*(bcw+bgap),ty=startY+row*(bch+9*ui);
+          bladeChoices[i].set(lx,ty,lx+bcw,ty+bch);
+          drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
       }
 
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(12*ui);p.setColor(0xFFB9C1CC);
-      c.drawText("Tap outside to close",w*.5f,y+ph-14*ui,p);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10.5f*ui);p.setColor(0xFFB9C1CC);
+      c.drawText("Locked reward hilts show their challenge source • tap outside to close",w*.5f,y+ph-11*ui,p);
     }
 
-    void drawLoadoutChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui,boolean hilt){
+    void drawBladeChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui){
       p.setShader(new LinearGradient(rr.left,rr.top,rr.left,rr.bottom,
         selected?0xCC453711:0xB519222E,selected?0xDD171108:0xC7080C12,Shader.TileMode.CLAMP));
-      c.drawRoundRect(rr,11*ui,11*ui,p);p.setShader(null);
-      stroke.setColor(selected?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(selected?2.6f*ui:1.2f*ui);c.drawRoundRect(rr,11*ui,11*ui,stroke);
+      c.drawRoundRect(rr,10*ui,10*ui,p);p.setShader(null);
+      stroke.setColor(selected?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(selected?2.4f*ui:1.1f*ui);c.drawRoundRect(rr,10*ui,10*ui,stroke);
       if(bmp!=null){
-        RectF img;
-        if(hilt)img=new RectF(rr.left+6*ui,rr.top+12*ui,rr.right-6*ui,rr.bottom-25*ui);
-        else img=new RectF(rr.left+7*ui,rr.top+22*ui,rr.right-7*ui,rr.top+48*ui);
+        RectF img=new RectF(rr.left+7*ui,rr.top+17*ui,rr.right-7*ui,rr.top+41*ui);
         c.drawBitmap(bmp,null,img,p);
       }
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(9.7f*ui);p.setColor(Color.WHITE);
-      c.drawText(name,rr.centerX(),rr.bottom-6*ui,p);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.8f*ui);p.setColor(Color.WHITE);
+      c.drawText(name,rr.centerX(),rr.bottom-5*ui,p);
+    }
+
+    int rewardHiltAccent(int index){
+      switch(index){
+        case 6:return 0xFF66E38C;
+        case 7:return 0xFFEAF8FF;
+        case 8:return 0xFF4DA8FF;
+        case 9:return 0xFFFF4052;
+        case 10:return 0xFFF2F4F7;
+        case 11:return 0xFFFF2D35;
+        case 12:return 0xFFFFD45C;
+        default:return 0xFF8DA0B5;
+      }
+    }
+
+    String rewardHiltSource(int index){
+      switch(index){
+        case 6:return "COMBO STRIKE";
+        case 7:return "SPEED RUN";
+        case 8:return "CLEAN RUN";
+        case 9:return "SITH TRIAL";
+        case 10:return "NORMAL AI WIN";
+        case 11:return "SITH VICTOR";
+        case 12:return "JEDI VICTOR";
+        default:return "";
+      }
+    }
+
+    void drawRewardHiltArt(Canvas c,RectF rr,int index,float ui){
+      float left=rr.left+7*ui,right=rr.right-7*ui,cy=rr.top+rr.height()*.43f;
+      float h=Math.max(8*ui,rr.height()*.22f);
+      int accent=rewardHiltAccent(index);
+      int body=(index==9||index==11)?0xFF25272D:(index==10?0xFFF0F2F5:0xFFB8BEC8);
+      int grip=(index==12?0xFF6B4A2C:0xFF171A20);
+      if(index==7)body=0xFFE7EDF4;
+      if(index==8)body=0xFFC7CCD3;
+
+      p.setStyle(Paint.Style.FILL);p.setShader(new LinearGradient(left,cy-h,right,cy+h,
+        new int[]{0xFFF8FAFC,body,0xFF4A505A},null,Shader.TileMode.CLAMP));
+      RectF core=new RectF(left+h*.55f,cy-h*.72f,right-h*.60f,cy+h*.72f);
+      c.drawRoundRect(core,h*.65f,h*.65f,p);p.setShader(null);
+
+      // Dark grip section.
+      float gx1=left+(right-left)*.34f,gx2=left+(right-left)*.70f;
+      p.setColor(grip);c.drawRoundRect(new RectF(gx1,cy-h*.78f,gx2,cy+h*.78f),h*.28f,h*.28f,p);
+      stroke.setStrokeWidth(Math.max(1f,ui*.8f));stroke.setColor(0xFF7D8794);
+      for(int k=0;k<5;k++){
+        float xx=gx1+(k+1)*(gx2-gx1)/6f;c.drawLine(xx,cy-h*.72f,xx,cy+h*.72f,stroke);
+      }
+
+      // Emitter and pommel collars.
+      p.setColor(body);c.drawRoundRect(new RectF(right-h*.9f,cy-h,right,cy+h),h*.30f,h*.30f,p);
+      c.drawRoundRect(new RectF(left,cy-h*.92f,left+h*.72f,cy+h*.92f),h*.30f,h*.30f,p);
+      p.setColor(accent);c.drawRect(right-h*.32f,cy-h*.74f,right-h*.15f,cy+h*.74f,p);
+      c.drawRect(left+h*.35f,cy-h*.70f,left+h*.48f,cy+h*.70f,p);
+
+      if(index==6){ // compact Yoda
+        p.setColor(0xFFEBEEF2);c.drawRoundRect(new RectF(left+(right-left)*.16f,cy-h*.9f,left+(right-left)*.30f,cy+h*.9f),h*.25f,h*.25f,p);
+      }else if(index==7){ // Fulcrum clean curved/white
+        stroke.setStrokeWidth(2.2f*ui);stroke.setColor(0xFFB9F4FF);
+        c.drawLine(left+h,cy-h*.92f,right-h,cy-h*.92f,stroke);
+      }else if(index==8){ // Anakin classic control box
+        p.setColor(0xFFC99A3A);c.drawRoundRect(new RectF(gx1,cy-h*1.18f,gx1+(gx2-gx1)*.50f,cy-h*.66f),h*.12f,h*.12f,p);
+      }else if(index==9){ // Nihilus bone plate
+        p.setColor(0xFFD8D0C2);Path bone=new Path();float mx=(gx1+gx2)*.5f;
+        bone.moveTo(mx-h*.70f,cy);bone.lineTo(mx,cy-h*.82f);bone.lineTo(mx+h*.70f,cy);bone.lineTo(mx,cy+h*.82f);bone.close();c.drawPath(bone,p);
+      }else if(index==10){ // stormtrooper panels
+        p.setColor(0xFFF4F5F7);c.drawRoundRect(new RectF(gx1-h*.25f,cy-h*.96f,gx1+h*.55f,cy+h*.96f),h*.20f,h*.20f,p);
+        p.setColor(0xFFFF3948);c.drawCircle(gx1+h*.15f,cy,h*.13f,p);
+      }else if(index==11){ // Kylo crossguard
+        p.setColor(0xFF35383E);float ex=right-h*.72f;
+        c.drawRoundRect(new RectF(ex-h*.16f,cy-h*1.65f,ex+h*.16f,cy+h*1.65f),h*.14f,h*.14f,p);
+        p.setColor(accent);c.drawRect(ex-h*.08f,cy-h*1.55f,ex+h*.08f,cy+h*1.55f,p);
+      }else if(index==12){ // Rey wrapped grip
+        stroke.setStrokeWidth(2.0f*ui);stroke.setColor(0xFFD7B37A);
+        for(int k=0;k<6;k++){float xx=gx1+k*(gx2-gx1)/6f;c.drawLine(xx,cy-h*.72f,xx+h*.30f,cy+h*.72f,stroke);}
+      }
+    }
+
+    void drawHiltChoice(Canvas c,RectF rr,int index,String name,boolean selected,boolean locked,float ui){
+      int accent=index>=BASE_HILT_COUNT?rewardHiltAccent(index):0xFFF4C542;
+      p.setShader(new LinearGradient(rr.left,rr.top,rr.left,rr.bottom,
+        selected?0xCC453711:0xB519222E,selected?0xDD171108:0xC7080C12,Shader.TileMode.CLAMP));
+      c.drawRoundRect(rr,10*ui,10*ui,p);p.setShader(null);
+      stroke.setColor(selected?accent:(locked?0x664C5562:0x667A8494));stroke.setStrokeWidth(selected?2.4f*ui:1.1f*ui);c.drawRoundRect(rr,10*ui,10*ui,stroke);
+
+      RectF art=new RectF(rr.left+4*ui,rr.top+4*ui,rr.right-4*ui,rr.bottom-17*ui);
+      if(index<BASE_HILT_COUNT&&hilts[index]!=null)c.drawBitmap(hilts[index],null,art,p);
+      else drawRewardHiltArt(c,art,index,ui);
+
+      if(locked){
+        p.setColor(0xA8000000);c.drawRoundRect(rr,10*ui,10*ui,p);
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.0f*ui);p.setColor(0xFFF5C95C);
+        c.drawText("LOCKED • "+rewardHiltSource(index),rr.centerX(),rr.centerY()+3*ui,p);
+      }else{
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.0f*ui);p.setColor(selected?accent:Color.WHITE);
+        c.drawText(name,rr.centerX(),rr.bottom-4.5f*ui,p);
+      }
     }
 
     void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
@@ -2575,6 +2679,11 @@ public class MainActivity extends Activity {
       float grabHalfH=baseH*1.34f;
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
+      if(r.hiltIndex>=BASE_HILT_COUNT){
+        RectF rewardArt=new RectF(cx-baseW*.46f,cy-baseH*.20f,cx+baseW*.46f,cy+baseH*.20f);
+        drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
+      }
+
       float trackTop=Math.max(safeY+8*ui,baseCy-baseH*1.48f),trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
@@ -2620,8 +2729,17 @@ public class MainActivity extends Activity {
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
           if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
+          for(int i=0;i<TOTAL_HILT_COUNT;i++){
+            if(hiltChoices[i].contains(x,y)){
+              final int k=i;
+              MainActivity aMain=ctx instanceof MainActivity?(MainActivity)ctx:null;
+              if(aMain!=null&&!aMain.isHiltUnlocked(k)){
+                Toast.makeText(ctx,hiltNames[k]+" unlocks from "+rewardHiltSource(k)+".",Toast.LENGTH_SHORT).show();
+              }else game.queueEvent(()->r.userSelectHilt(k));
+              return true;
+            }
+          }
           for(int i=0;i<6;i++){
-            if(hiltChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectHilt(k));return true;}
             if(bladeChoices[i].contains(x,y)){final int k=i;game.queueEvent(()->r.userSelectBlade(k));return true;}
           }
           return true;
@@ -2693,7 +2811,7 @@ public class MainActivity extends Activity {
         }
 
         if(sideMenuOpen&&aiSubmenu==2){
-          for(int i=0;i<4;i++){
+          for(int i=0;i<6;i++){
             if(aiSubmenuRects[i].contains(x,y)){
               final int challenge=i+1;
               final int diff=challenge==4?3:(challenge==2?2:1);
@@ -2706,16 +2824,16 @@ public class MainActivity extends Activity {
               return true;
             }
           }
-          if(aiSubmenuRects[4].contains(x,y)){
+          if(aiSubmenuRects[6].contains(x,y)){
             sideMenuOpen=false;aiSubmenu=0;invalidate();
             game.queueEvent(()->{
               r.aiDifficulty=1;r.challengeMode=false;r.challengeId=0;r.resetRack();
               r.ruleMessage="GALACTIC AI • NORMAL • YOU BREAK";
             });
-            Toast.makeText(ctx,"Standard Normal AI started.",Toast.LENGTH_SHORT).show();
+            Toast.makeText(ctx,"Standard Normal AI started. Beat it to unlock the Stormtrooper hilt.",Toast.LENGTH_SHORT).show();
             return true;
           }
-          if(aiSubmenuRects[5].contains(x,y)){aiSubmenu=0;invalidate();return true;}
+          if(aiSubmenuRects[7].contains(x,y)){aiSubmenu=0;invalidate();return true;}
           return true;
         }
 
@@ -3454,8 +3572,8 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f};return L[Math.max(0,Math.min(5,hiltIndex))];}
-    float hiltWorldRadius(){return hiltIndex==3?.72f:.78f;}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,10.8f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
+    float hiltWorldRadius(){return hiltIndex==3?.72f:(hiltIndex==11?.83f:.78f);}
     float hiltFrontEmitterOffset(){
       float L=hiltWorldLength();
       return hiltIndex==3?(L*.515f+.58f):(L*.50f);
@@ -3475,7 +3593,8 @@ public class MainActivity extends Activity {
     }
 
     void drawThumbStrike3D(){
-      int hi=Math.max(0,Math.min(5,hiltIndex));
+      if(hiltIndex>=BASE_HILT_COUNT)return;
+      int hi=Math.max(0,Math.min(BASE_HILT_COUNT-1,hiltIndex));
       Mesh authored=realHiltMeshes[hi];
       if(authored==null)return;
 
@@ -3557,12 +3676,79 @@ public class MainActivity extends Activity {
       drawLitMesh(hiltBox,pv,M,0,color);
     }
 
+    void drawHiltBoxYaw(float[] pv,float center,float len,float sy,float sz,float y,float angle,float yawOffset,float[] color){
+      float[] M=identity();
+      Ball cue=balls.get(0);
+      float cx=cue.x-aimX*hiltBackWorld()+aimX*center;
+      float cz=cue.z-aimZ*hiltBackWorld()+aimZ*center;
+      android.opengl.Matrix.translateM(M,0,cx,y,cz);
+      android.opengl.Matrix.rotateM(M,0,angle+yawOffset,0,1,0);
+      android.opengl.Matrix.scaleM(M,0,len,sy,sz);
+      drawLitMesh(hiltBox,pv,M,0,color);
+    }
+
+    void drawRewardHilt3D(float[] pv,float angle,float y){
+      float[] silver={.72f,.76f,.82f,1},bright={.91f,.94f,.98f,1},dark={.055f,.06f,.075f,1},black={.018f,.02f,.025f,1};
+      float[] gold={.70f,.48f,.12f,1},bone={.72f,.68f,.58f,1},white={.92f,.94f,.97f,1},brown={.30f,.18f,.10f,1};
+      float[] red={.72f,.035f,.045f,1},cyan={.25f,.78f,.92f,1};
+      float L=hiltWorldLength();
+      float[] body=silver,grip=dark,accent=bright;
+      switch(hiltIndex){
+        case 6:body=bright;grip=dark;accent=new float[]{.18f,.78f,.35f,1};break; // Yoda
+        case 7:body=white;grip=new float[]{.16f,.18f,.20f,1};accent=cyan;break; // Ahsoka
+        case 8:body=silver;grip=black;accent=gold;break; // Anakin
+        case 9:body=new float[]{.12f,.13f,.15f,1};grip=black;accent=bone;break; // Nihilus
+        case 10:body=white;grip=black;accent=red;break; // Stormtrooper
+        case 11:body=new float[]{.12f,.13f,.15f,1};grip=black;accent=red;break; // Kylo
+        case 12:body=silver;grip=brown;accent=gold;break; // Rey
+      }
+      // Multi-material procedural core gives the reward hilts true 3D presence.
+      drawHiltPart(pv,0,L*.48f,.73f,y,0,angle,grip);
+      drawHiltPart(pv,-L*.31f,L*.28f,.79f,y,0,angle,body);
+      drawHiltPart(pv,L*.31f,L*.25f,.82f,y,0,angle,body);
+      drawHiltPart(pv,L*.48f,.40f,1.00f,y,0,angle,accent);
+      drawHiltPart(pv,-L*.49f,.34f,.91f,y,0,angle,body);
+      for(int i=-2;i<=2;i++)drawHiltPart(pv,i*.72f,.09f,.78f,y,0,angle,new float[]{.68f,.71f,.76f,.62f});
+
+      if(hiltIndex==6){
+        drawHiltBox(pv,.72f,.82f,.28f,.72f,y+.67f,0,angle,new float[]{.20f,.58f,.28f,1});
+      }else if(hiltIndex==7){
+        drawHiltBox(pv,.55f,1.35f,.24f,.72f,y+.63f,0,angle,white);
+        drawHiltPart(pv,-1.7f,.12f,.90f,y,0,angle,cyan);
+      }else if(hiltIndex==8){
+        drawHiltBox(pv,-.40f,1.45f,.34f,.72f,y+.70f,0,angle,gold);
+        for(int i=0;i<5;i++)drawHiltPart(pv,-2.5f+i*.64f,.18f,.80f,y,0,angle,black);
+      }else if(hiltIndex==9){
+        drawHiltBox(pv,.35f,2.0f,.42f,.78f,y+.68f,0,angle,bone);
+        drawHiltBox(pv,.35f,.92f,.48f,.80f,y+.71f,0,angle,black);
+        drawHiltPart(pv,L*.43f,.10f,1.08f,y,0,angle,red);
+      }else if(hiltIndex==10){
+        drawHiltBox(pv,-.65f,1.65f,.42f,.78f,y+.65f,0,angle,white);
+        drawHiltBox(pv,.72f,.88f,.34f,.76f,y+.68f,0,angle,black);
+        drawHiltPart(pv,L*.42f,.10f,1.07f,y,0,angle,red);
+      }else if(hiltIndex==11){
+        float emitter=L*.44f;
+        drawHiltBoxYaw(pv,emitter-.22f,2.7f,.26f,.40f,y,angle,90f,body);
+        drawHiltBoxYaw(pv,emitter-.22f,2.25f,.12f,.28f,y,angle,90f,red);
+        drawHiltBox(pv,.2f,1.8f,.40f,.80f,y+.68f,0,angle,body);
+      }else if(hiltIndex==12){
+        for(int i=-3;i<=3;i++)drawHiltPart(pv,i*.62f,.16f,.80f,y,0,angle,(i&1)==0?brown:gold);
+        drawHiltBox(pv,.80f,.92f,.30f,.72f,y+.67f,0,angle,gold);
+      }
+
+      float[] rgb=bladeRgb[Math.max(0,Math.min(5,bladeIndex))];
+      GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
+      drawHiltPart(pv,L*.50f,.13f,1.10f,y,0,angle,new float[]{rgb[0],rgb[1],rgb[2],.48f});
+      GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
+    }
+
     void drawWorldHilt3D(float[] pv){
       if(balls.isEmpty())return;
       float angle=(float)Math.toDegrees(Math.atan2(-aimZ,aimX));
       float y=2.72f;
+      if(hiltIndex>=BASE_HILT_COUNT){drawRewardHilt3D(pv,angle,y);return;}
 
-      int hi=Math.max(0,Math.min(5,hiltIndex));
+      int hi=Math.max(0,Math.min(BASE_HILT_COUNT-1,hiltIndex));
       Mesh authored=realHiltMeshes[hi];
       if(authored!=null){
         Ball cue=balls.get(0);
@@ -4203,7 +4389,8 @@ public class MainActivity extends Activity {
     }
 
     void userSelectHilt(int k){
-      k=Math.max(0,Math.min(5,k));
+      k=Math.max(0,Math.min(TOTAL_HILT_COUNT-1,k));
+      if(ctx instanceof MainActivity&&!((MainActivity)ctx).isHiltUnlocked(k))return;
       if(net!=null&&net.isFollower()){
         if(localCanControl()){hiltIndex=k;net.send("CMD|HILT|"+k);}
         return;
@@ -4703,7 +4890,7 @@ public class MainActivity extends Activity {
         else if("BEGIN".equals(op)){beginWorldChargeDirect();}
         else if("POWER".equals(op)&&a.length>2){updateWorldChargeDirect(Float.parseFloat(a[1]),Integer.parseInt(a[2]));}
         else if("RELEASE".equals(op)){releaseWorldChargeDirect();}
-        else if("HILT".equals(op)&&a.length>1){hiltIndex=Math.max(0,Math.min(5,Integer.parseInt(a[1])));}
+        else if("HILT".equals(op)&&a.length>1){hiltIndex=Math.max(0,Math.min(TOTAL_HILT_COUNT-1,Integer.parseInt(a[1])));}
         else if("BLADE".equals(op)&&a.length>1){bladeIndex=Math.max(0,Math.min(5,Integer.parseInt(a[1])));}
         else if("RACK".equals(op)){resetRack();}
         else if("SHOOTER".equals(op)){activeShooter=activeShooter==1?2:1;ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";}
