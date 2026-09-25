@@ -123,27 +123,112 @@ public class MainActivity extends Activity {
     return l;
   }
 
+  int planetAccentFor(String label){
+    String q=label==null?"":label.toLowerCase(java.util.Locale.US);
+    if(q.contains("logout"))return Color.rgb(255,86,92);
+    if(q.contains("single")||q.contains("ai"))return Color.rgb(171,105,255);
+    if(q.contains("create"))return Color.rgb(255,184,72);
+    if(q.contains("browse")||q.contains("room"))return Color.rgb(68,210,255);
+    if(q.contains("continue"))return Color.rgb(72,224,177);
+    return Color.rgb(86,153,255);
+  }
+
+  class PlanetButton extends Button{
+    final Paint bp=new Paint(3),bs=new Paint(3);
+    final int accent;
+    final String label;
+    PlanetButton(Context c,String t,int a){
+      super(c);label=t;accent=a;
+      setText("");
+      setContentDescription(t);
+      setAllCaps(false);
+      setGravity(Gravity.CENTER_VERTICAL);
+      setPadding(0,0,0,0);
+      setBackgroundColor(Color.TRANSPARENT);
+      setWillNotDraw(false);
+      if(android.os.Build.VERSION.SDK_INT>=21)setElevation(dp(7));
+    }
+    protected void onDraw(Canvas c){
+      float w=getWidth(),h=getHeight(),press=isPressed()?2.5f:0f;
+      c.save();c.translate(0,press);
+
+      RectF body=new RectF(dp(3),dp(3),w-dp(3),h-dp(8));
+      bp.setStyle(Paint.Style.FILL);
+      bp.setShader(new LinearGradient(0,body.top,0,body.bottom,
+        isPressed()?new int[]{0xEE101C2A,0xF40A101A,0xFF03070D}:new int[]{0xF52A4058,0xF3152435,0xFF050A12},
+        null,Shader.TileMode.CLAMP));
+      bp.setShadowLayer(dp(8),0,dp(5),0xB0000000);
+      c.drawRoundRect(body,dp(22),dp(22),bp);
+      bp.clearShadowLayer();bp.setShader(null);
+
+      bs.setStyle(Paint.Style.STROKE);bs.setStrokeWidth(dp(1.5f));
+      bs.setColor((accent&0x00FFFFFF)|0xD9000000);
+      c.drawRoundRect(body,dp(22),dp(22),bs);
+      bs.setStrokeWidth(dp(.8f));bs.setColor(0x66FFFFFF);
+      c.drawRoundRect(new RectF(body.left+dp(2),body.top+dp(2),body.right-dp(2),body.bottom-dp(2)),dp(20),dp(20),bs);
+
+      float pr=Math.min(h*.33f,dp(20)),px=body.left+dp(34),py=body.centerY();
+      int ar=Color.red(accent),ag=Color.green(accent),ab=Color.blue(accent);
+      bp.setShader(new RadialGradient(px-pr*.38f,py-pr*.42f,pr*1.18f,
+        new int[]{Color.rgb(Math.min(255,ar+105),Math.min(255,ag+105),Math.min(255,ab+105)),accent,Color.rgb(Math.max(0,ar/5),Math.max(0,ag/5),Math.max(0,ab/5))},
+        new float[]{0,.50f,1f},Shader.TileMode.CLAMP));
+      bp.setShadowLayer(dp(11),0,0,(accent&0x00FFFFFF)|0xAA000000);
+      c.drawCircle(px,py,pr,bp);bp.clearShadowLayer();bp.setShader(null);
+
+      double t=System.nanoTime()/1_000_000_000.0;
+      c.save();c.rotate((float)(t*34.0)%360f,px,py);
+      bs.setStyle(Paint.Style.STROKE);bs.setStrokeWidth(dp(1.6f));bs.setColor(0xCDE8F7FF);
+      c.drawOval(new RectF(px-pr*1.58f,py-pr*.34f,px+pr*1.58f,py+pr*.34f),bs);
+      float moonA=(float)(t*1.7);
+      bp.setStyle(Paint.Style.FILL);bp.setColor(0xFFEAF8FF);
+      c.drawCircle(px+(float)Math.cos(moonA)*pr*1.48f,py+(float)Math.sin(moonA)*pr*.30f,dp(2.2f),bp);
+      c.restore();
+
+      bp.setTypeface(Typeface.create("sans-serif-medium",Typeface.BOLD));
+      bp.setTextAlign(Paint.Align.LEFT);bp.setTextSize(dp(15));
+      bp.setColor(0xFFF4F8FC);
+      c.drawText(label,body.left+dp(66),body.centerY()+dp(5),bp);
+
+      bp.setTextAlign(Paint.Align.CENTER);bp.setTextSize(dp(20));bp.setColor(accent);
+      c.drawText("›",body.right-dp(20),body.centerY()+dp(7),bp);
+
+      c.restore();
+      postInvalidateOnAnimation();
+    }
+  }
+
   Button homeButton(String label){
-    Button b=new Button(this);
-    b.setText(label);
-    b.setTextColor(Color.rgb(238,248,255));
-    b.setTextSize(16);
-    b.setAllCaps(false);
-    b.setGravity(Gravity.CENTER);
-    b.setPadding(dp(18),dp(10),dp(18),dp(14));
-    StateListDrawable states=new StateListDrawable();
-    states.addState(new int[]{android.R.attr.state_pressed},galacticButtonBackground(Color.rgb(67,188,255),true));
-    states.addState(new int[]{},galacticButtonBackground(Color.rgb(67,188,255),false));
-    b.setBackground(states);
-    if(android.os.Build.VERSION.SDK_INT>=21)b.setElevation(dp(5));
-    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(60));
-    lp.setMargins(0,dp(8),0,dp(8));
+    PlanetButton b=new PlanetButton(this,label,planetAccentFor(label));
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(66));
+    lp.setMargins(0,dp(7),0,dp(7));
     b.setLayoutParams(lp);
     return b;
   }
 
   View galacticLogoView(){
-    return new GalacticLogoView(this);
+    ImageView iv=new ImageView(this);
+    iv.setAdjustViewBounds(true);
+    iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+    iv.setMaxHeight(dp(230));
+    try(InputStream in=getAssets().open("ui/galactic_logo.png")){
+      BitmapFactory.Options o=new BitmapFactory.Options();
+      o.inPreferredConfig=Bitmap.Config.ARGB_8888;
+      o.inScaled=false;
+      Bitmap src=BitmapFactory.decodeStream(in,null,o);
+      if(src!=null){
+        // The original art was previously being blown up directly from its small
+        // bundled preview and looked blocky. Pre-render a filtered 4x working copy
+        // once, then let ImageView downsample from that instead of magnifying pixels.
+        int targetW=Math.max(src.getWidth(),1280);
+        int targetH=Math.max(1,Math.round(src.getHeight()*(targetW/(float)src.getWidth())));
+        Bitmap hd=Bitmap.createBitmap(targetW,targetH,Bitmap.Config.ARGB_8888);
+        Canvas cc=new Canvas(hd);
+        Paint pp=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
+        cc.drawBitmap(src,null,new RectF(0,0,targetW,targetH),pp);
+        iv.setImageBitmap(hd);
+      }
+    }catch(Exception ignored){}
+    return iv;
   }
 
 
@@ -1079,7 +1164,7 @@ public class MainActivity extends Activity {
     final Runnable microRepeat=new Runnable(){
       public void run(){
         if(!microHolding)return;
-        game.queueEvent(()->game.r.microAimHoldStep(3.15f));
+        game.queueEvent(()->game.r.microAimHoldStep(1.92f));
         uiHandler.postDelayed(this,32);
       }
     };
@@ -1145,16 +1230,23 @@ public class MainActivity extends Activity {
     protected void onDraw(Canvas c){
       super.onDraw(c);
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
-      float ui=Math.max(.90f,Math.min(w/900f,h/640f));
+      boolean portrait=h>w;
+      float ui=portrait
+        ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
+        : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
 
-      lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
+      if(portrait)lockRect.set(w-108*ui,h-126*ui,w-16*ui,h-34*ui);
+      else lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
 
-      // Only a compact side-menu tab stays on screen. Match controls live inside it.
-      float tabW=62*ui,tabH=78*ui;
-      sideMenuTabRect.set(12*ui,h*.43f-tabH*.5f,12*ui+tabW,h*.43f+tabH*.5f);
+      // Portrait and landscape have independent HUD geometry instead of stretching
+      // one layout until controls become oversized or tiny after rotation.
+      float tabW=(portrait?52:62)*ui,tabH=(portrait?66:78)*ui;
+      float tabCY=portrait?h*.34f:h*.43f;
+      sideMenuTabRect.set(10*ui,tabCY-tabH*.5f,10*ui+tabW,tabCY+tabH*.5f);
       if(sideMenuOpen){
-        float panelW=248*ui,itemH=58*ui,itemGap=8*ui;
-        float panelTop=Math.max(72*ui,h*.5f-(itemH*5+itemGap*4+34*ui)*.5f);
+        float panelW=(portrait?Math.min(w/ui-20,226):248)*ui;
+        float itemH=(portrait?52:58)*ui,itemGap=(portrait?7:8)*ui;
+        float panelTop=Math.max((portrait?86:72)*ui,h*.5f-(itemH*5+itemGap*4+34*ui)*.5f);
         sideMenuPanelRect.set(10*ui,panelTop,10*ui+panelW,panelTop+itemH*5+itemGap*4+34*ui);
         float bx=22*ui,by=panelTop+24*ui,bw=panelW-24*ui;
         saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
@@ -1246,19 +1338,30 @@ public class MainActivity extends Activity {
       c.drawLine(rr.left+rad,rr.top+4*ui,rr.right-rad,rr.top+4*ui,stroke);
       stroke.setColor(0xAA000000);c.drawLine(rr.left+rad,rr.bottom-4*ui,rr.right-rad,rr.bottom-4*ui,stroke);
 
-      p.setColor(accent);p.setStyle(Paint.Style.FILL);
-      c.drawRoundRect(new RectF(rr.left+6*ui,rr.top+8*ui,rr.left+12*ui,rr.bottom-8*ui),3*ui,3*ui,p);
-      p.setColor((accent&0x00FFFFFF)|0x33000000);
+      // 3D planet badge gives every submenu action a distinct Galactic control.
+      float orbR=16*ui,orbX=rr.left+25*ui,orbY=rr.centerY();
+      int ar=Color.red(accent),ag=Color.green(accent),ab=Color.blue(accent);
+      p.setShader(new RadialGradient(orbX-orbR*.35f,orbY-orbR*.38f,orbR*1.15f,
+        new int[]{Color.rgb(Math.min(255,ar+90),Math.min(255,ag+90),Math.min(255,ab+90)),accent,Color.rgb(ar/5,ag/5,ab/5)},
+        new float[]{0,.5f,1f},Shader.TileMode.CLAMP));
+      p.setShadowLayer(8*ui,0,0,(accent&0x00FFFFFF)|0x99000000);
+      c.drawCircle(orbX,orbY,orbR,p);p.clearShadowLayer();p.setShader(null);
+      c.save();c.rotate((float)((System.nanoTime()/20_000_000L)%360),orbX,orbY);
+      stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0xCCECF8FF);
+      c.drawOval(new RectF(orbX-orbR*1.48f,orbY-orbR*.28f,orbX+orbR*1.48f,orbY+orbR*.28f),stroke);
+      c.restore();
+
+      p.setColor((accent&0x00FFFFFF)|0x26000000);
       for(int k=0;k<3;k++){
         float yy=rr.top+(18+k*13)*ui;
-        c.drawRect(rr.left+18*ui,yy,rr.right-10*ui,yy+1*ui,p);
+        c.drawRect(rr.left+50*ui,yy,rr.right-10*ui,yy+1*ui,p);
       }
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(16*ui);p.setColor(0xFFF7FAFC);
-      c.drawText(title,rr.left+24*ui,rr.top+25*ui,p);
-      p.setTypeface(Typeface.DEFAULT);p.setTextSize(10.5f*ui);p.setColor(active?accent:0xFFB8C1CE);
-      c.drawText(sub,rr.left+24*ui,rr.bottom-12*ui,p);
+      p.setTextSize(15.5f*ui);p.setColor(0xFFF7FAFC);
+      c.drawText(title,rr.left+52*ui,rr.top+25*ui,p);
+      p.setTypeface(Typeface.DEFAULT);p.setTextSize(10.2f*ui);p.setColor(active?accent:0xFFB8C1CE);
+      c.drawText(sub,rr.left+52*ui,rr.bottom-12*ui,p);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(16*ui);p.setColor(accent);
       c.drawText("›",rr.right-18*ui,rr.centerY()+5*ui,p);
@@ -1273,8 +1376,10 @@ public class MainActivity extends Activity {
     }
 
     void drawCameraAnalogStick(Canvas c,int w,int h,float ui){
-      float r=60*ui;
-      float cx=lockRect.left-r-18*ui,cy=lockRect.centerY();
+      boolean portrait=h>w;
+      float r=(portrait?54:60)*ui;
+      float cx=portrait?lockRect.centerX():lockRect.left-r-18*ui;
+      float cy=portrait?lockRect.top-r-15*ui:lockRect.centerY();
       cameraStickRect.set(cx-r,cy-r,cx+r,cy+r);
       drawAnalogStick(c,cx,cy,r,cameraStickX,cameraStickY,"CAMERA",ui,0xFFB88CFF);
     }
@@ -1298,7 +1403,8 @@ public class MainActivity extends Activity {
     }
 
     void drawMicroAimControls(Canvas c,int w,int h,float ui){
-      float size=92*ui,gap=14*ui,x=18*ui,y=h-size-16*ui;
+      boolean portrait=h>w;
+      float size=(portrait?76:92)*ui,gap=(portrait?10:14)*ui,x=(portrait?12:18)*ui,y=h-size-(portrait?12:16)*ui;
       microLeftRect.set(x,y,x+size,y+size);
       microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
 
@@ -1359,7 +1465,10 @@ public class MainActivity extends Activity {
     }
 
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
-      float pw=Math.min(w*.82f,1080*ui),ph=Math.min(h*.64f,430*ui),x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
+      boolean portrait=h>w;
+      float pw=portrait?Math.min(w*.94f,430*ui):Math.min(w*.82f,1080*ui);
+      float ph=portrait?Math.min(h*.72f,500*ui):Math.min(h*.64f,430*ui);
+      float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
       p.setStyle(Paint.Style.FILL);p.setShadowLayer(18*ui,0,8*ui,0xCC000000);
@@ -1367,34 +1476,66 @@ public class MainActivity extends Activity {
       c.drawRoundRect(panel,24*ui,24*ui,p);p.clearShadowLayer();p.setShader(null);
       stroke.setColor(0xFFE4B84D);stroke.setStrokeWidth(3*ui);c.drawRoundRect(panel,24*ui,24*ui,stroke);
       stroke.setColor(0x66FFFFFF);stroke.setStrokeWidth(1.2f*ui);c.drawRoundRect(new RectF(panel.left+6*ui,panel.top+6*ui,panel.right-6*ui,panel.bottom-6*ui),18*ui,18*ui,stroke);
-      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(22*ui);p.setColor(Color.WHITE);
-      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
-      p.setTextSize(14*ui);p.setColor(0xFFD1D5DB);c.drawText("HILT",x+45*ui,y+75*ui,p);c.drawText("BLADE",x+45*ui,y+235*ui,p);
-      float gap=12*ui,cw=(pw-56*ui-gap*5)/6f;
-      for(int i=0;i<6;i++){
-        float lx=x+28*ui+i*(cw+gap);
-        hiltChoices[i].set(lx,y+88*ui,lx+cw,y+198*ui);
-        bladeChoices[i].set(lx,y+248*ui,lx+cw,y+360*ui);
-        int hb=(i==r.hiltIndex)?0xCC5B4514:0xAA171C25;
-        int bb=(i==r.bladeIndex)?0xCC5B4514:0xAA171C25;
-        p.setColor(hb);c.drawRoundRect(hiltChoices[i],12,12,p);
-        p.setColor(bb);c.drawRoundRect(bladeChoices[i],12,12,p);
-        stroke.setColor(i==r.hiltIndex?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(i==r.hiltIndex?3*ui:1.5f*ui);c.drawRoundRect(hiltChoices[i],12,12,stroke);
-        stroke.setColor(i==r.bladeIndex?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(i==r.bladeIndex?3*ui:1.5f*ui);c.drawRoundRect(bladeChoices[i],12,12,stroke);
-        if(hilts[i]!=null){RectF img=new RectF(hiltChoices[i].left+5*ui,hiltChoices[i].top+19*ui,hiltChoices[i].right-5*ui,hiltChoices[i].bottom-27*ui);c.drawBitmap(hilts[i],null,img,p);}
-        if(blades[i]!=null){RectF img=new RectF(bladeChoices[i].left+7*ui,bladeChoices[i].top+32*ui,bladeChoices[i].right-7*ui,bladeChoices[i].top+57*ui);c.drawBitmap(blades[i],null,img,p);}
-        p.setTextSize(10*ui);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText(hiltNames[i],hiltChoices[i].centerX(),hiltChoices[i].bottom-9*ui,p);
-        c.drawText(bladeNames[i],bladeChoices[i].centerX(),bladeChoices[i].bottom-9*ui,p);
+      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize((portrait?18:22)*ui);p.setColor(Color.WHITE);
+      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+30*ui,p);
+
+      if(portrait){
+        float gap=8*ui,cw=(pw-36*ui-gap*2)/3f,ch=72*ui;
+        p.setTextSize(12*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS",x+18*ui,y+55*ui,p);
+        float hs=y+64*ui;
+        for(int i=0;i<6;i++){
+          int col=i%3,row=i/3;float lx=x+18*ui+col*(cw+gap),ty=hs+row*(ch+7*ui);
+          hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
+          drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
+        }
+        float bsY=hs+2*(ch+7*ui)+20*ui;
+        p.setTextSize(12*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("BLADES",x+18*ui,bsY,p);
+        float bstart=bsY+8*ui;
+        for(int i=0;i<6;i++){
+          int col=i%3,row=i/3;float lx=x+18*ui+col*(cw+gap),ty=bstart+row*(ch+7*ui);
+          bladeChoices[i].set(lx,ty,lx+cw,ty+ch);
+          drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
+        }
+      }else{
+        p.setTextSize(14*ui);p.setColor(0xFFD1D5DB);p.setTextAlign(Paint.Align.CENTER);
+        c.drawText("HILT",x+45*ui,y+75*ui,p);c.drawText("BLADE",x+45*ui,y+235*ui,p);
+        float gap=12*ui,cw=(pw-56*ui-gap*5)/6f;
+        for(int i=0;i<6;i++){
+          float lx=x+28*ui+i*(cw+gap);
+          hiltChoices[i].set(lx,y+88*ui,lx+cw,y+198*ui);
+          bladeChoices[i].set(lx,y+248*ui,lx+cw,y+360*ui);
+          drawLoadoutChoice(c,hiltChoices[i],hilts[i],hiltNames[i],i==r.hiltIndex,ui,true);
+          drawLoadoutChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui,false);
+        }
       }
-      p.setTextSize(13*ui);p.setColor(0xFFB9C1CC);c.drawText("Tap anywhere outside this panel to close",w*.5f,y+ph-18*ui,p);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11*ui);p.setColor(0xFFB9C1CC);
+      c.drawText("Tap outside to close",w*.5f,y+ph-12*ui,p);
+    }
+
+    void drawLoadoutChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui,boolean hilt){
+      p.setShader(new LinearGradient(rr.left,rr.top,rr.left,rr.bottom,
+        selected?0xCC453711:0xB519222E,selected?0xDD171108:0xC7080C12,Shader.TileMode.CLAMP));
+      c.drawRoundRect(rr,11*ui,11*ui,p);p.setShader(null);
+      stroke.setColor(selected?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(selected?2.6f*ui:1.2f*ui);c.drawRoundRect(rr,11*ui,11*ui,stroke);
+      if(bmp!=null){
+        RectF img;
+        if(hilt)img=new RectF(rr.left+4*ui,rr.top+13*ui,rr.right-4*ui,rr.bottom-22*ui);
+        else img=new RectF(rr.left+5*ui,rr.top+21*ui,rr.right-5*ui,rr.top+43*ui);
+        c.drawBitmap(bmp,null,img,p);
+      }
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.4f*ui);p.setColor(Color.WHITE);
+      c.drawText(name,rr.centerX(),rr.bottom-6*ui,p);
     }
 
     void drawMatchHud(Canvas c,int w,int h,float ui,GameRenderer r){
       // Compact scoreboard hugs the very top and stays centered so it does not
       // cover useful table space at low camera angles.
-      float panelH=70*ui,top=7*ui,centerW=Math.min(112*ui,w*.13f);
-      float teamW=Math.min(224*ui,(w-centerW-22*ui)*.5f);
+      boolean portrait=h>w;
+      float panelH=(portrait?58:70)*ui,top=(portrait?4:7)*ui;
+      float centerW=Math.min((portrait?88:112)*ui,w*(portrait?.21f:.13f));
+      float teamW=portrait?Math.max(92*ui,(w-centerW-10*ui)*.5f):Math.min(224*ui,(w-centerW-22*ui)*.5f);
       float mid=w*.5f,leftRight=mid-centerW*.5f,rightLeft=mid+centerW*.5f;
       RectF left=new RectF(leftRight-teamW,top,leftRight+1*ui,top+panelH);
       RectF right=new RectF(rightLeft-1*ui,top,rightLeft+teamW,top+panelH);
@@ -1468,7 +1609,9 @@ public class MainActivity extends Activity {
       for(int n=start;n<=end;n++)if(r.isBallOnTable(n))remain.add(n);
 
       // Seven compact spots in a 2-3-2 diamond cluster.
-      float cx=rr.centerX(),baseY=rr.top+30*ui,dx=15*ui,dy=13*ui,rad=6.2f*ui;
+      boolean mini=rr.height()<64*ui;
+      float cx=rr.centerX(),baseY=rr.top+(mini?25:30)*ui;
+      float dx=(mini?12.5f:15)*ui,dy=(mini?10.5f:13)*ui,rad=(mini?5.3f:6.2f)*ui;
       float[][] spots={
         {-dx*.55f,0},{dx*.55f,0},
         {-dx,dy},{0,dy},{dx,dy},
@@ -1513,9 +1656,9 @@ public class MainActivity extends Activity {
 
     void drawEnglish(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
-      englishR=Math.min(portrait?w*.27f:h*.205f,145*ui);
-      englishCx=w-englishR-34*ui;
-      englishCy=portrait?h*.48f:h*.43f;
+      englishR=portrait?Math.min(w*.225f,112*ui):Math.min(h*.205f,145*ui);
+      englishCx=w-englishR-(portrait?18:34)*ui;
+      englishCy=portrait?h*.46f:h*.43f;
       p.setColor(0xC8000000);c.drawRoundRect(new RectF(englishCx-englishR-28*ui,englishCy-englishR-54*ui,englishCx+englishR+28*ui,englishCy+englishR+126*ui),24,24,p);
       p.setColor(0xFFF5F5F5);c.drawCircle(englishCx,englishCy,englishR,p);
       stroke.setStrokeWidth(4*ui);stroke.setColor(0xFF9CA3AF);c.drawCircle(englishCx,englishCy,englishR,stroke);
@@ -1611,10 +1754,11 @@ public class MainActivity extends Activity {
     void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
-      float baseW=198*ui,baseH=122*ui;
-      float cx=w-136*ui;
-      float baseCy=Math.max(142*ui,h*.39f);
-      float maxTravel=Math.max(190*ui,h*.50f);
+      boolean portrait=h>w;
+      float baseW=(portrait?154:198)*ui,baseH=(portrait?104:122)*ui;
+      float cx=w-(portrait?96:136)*ui;
+      float baseCy=Math.max((portrait?132:142)*ui,h*(portrait?.36f:.39f));
+      float maxTravel=Math.max((portrait?230:190)*ui,h*(portrait?.46f:.50f));
       float travel=Math.min(maxTravel,r.chargePullPx);
       float cy=baseCy+travel;
       thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.58f,cx+baseW*.5f,cy+baseH*.58f);
@@ -2915,7 +3059,7 @@ public class MainActivity extends Activity {
     void beginMicroAimHold(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       microAimHoldSign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(microAimHoldSign,.18f);
+      microAimByWorldSign(microAimHoldSign,.10f);
     }
 
     void endMicroAimHold(){
@@ -2939,7 +3083,7 @@ public class MainActivity extends Activity {
     void microAimScreen(boolean left,int w,int h){
       if(!localCanControl()||state!=AIMING||gameOver)return;
       int sign=screenMicroAimSign(left,w,h);
-      microAimByWorldSign(sign,.18f);
+      microAimByWorldSign(sign,.10f);
     }
 
     void microAimScreen(boolean left,int w,int h,float degrees){
