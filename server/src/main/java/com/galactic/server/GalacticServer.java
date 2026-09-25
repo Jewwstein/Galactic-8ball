@@ -61,10 +61,6 @@ public class GalacticServer {
         ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,"text/plain");
         ex.getResponseSender().send("Galactic 8-Ball server OK");
       })
-      .addExactPath("/play",ex->sendWebResource(ex,"/web/index.html","text/html; charset=utf-8"))
-      .addExactPath("/play/",ex->sendWebResource(ex,"/web/index.html","text/html; charset=utf-8"))
-      .addExactPath("/play/manifest.webmanifest",ex->sendWebResource(ex,"/web/manifest.webmanifest","application/manifest+json; charset=utf-8"))
-      .addExactPath("/play/icon.svg",ex->sendWebResource(ex,"/web/icon.svg","image/svg+xml; charset=utf-8"))
       .addPrefixPath("/ws",ws)
       .addPrefixPath("/",ex->{
         ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,"text/plain");
@@ -80,22 +76,6 @@ public class GalacticServer {
     },0,4_166_667,TimeUnit.NANOSECONDS);
 
     System.out.println("Galactic 8-Ball server listening on "+port);
-  }
-
-  static void sendWebResource(io.undertow.server.HttpServerExchange ex,String resource,String contentType){
-    try(InputStream in=GalacticServer.class.getResourceAsStream(resource)){
-      if(in==null){
-        ex.setStatusCode(404);
-        ex.getResponseSender().send("Not found");
-        return;
-      }
-      ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,contentType);
-      ex.getResponseHeaders().put(io.undertow.util.Headers.CACHE_CONTROL,"no-store");
-      ex.getResponseSender().send(new String(in.readAllBytes(),StandardCharsets.UTF_8));
-    }catch(Exception e){
-      ex.setStatusCode(500);
-      ex.getResponseSender().send("Web client unavailable");
-    }
   }
 
   static void handle(Client c,String msg){
@@ -127,7 +107,6 @@ public class GalacticServer {
           leave(c);c.username=null;c.authToken=null;
           send(c.channel,"LOGGED_OUT");
         }
-        case "AI_GAME" -> createAiGame(c);
         case "LOBBY" -> {
           if(!requireAuth(c))return;
           sendLobby(c);
@@ -143,16 +122,14 @@ public class GalacticServer {
           joinRoom(c,p[1]);
         }
         case "LEAVE_ROOM" -> {
-          if(c.roomId==null&&!requireAuth(c))return;
+          if(!requireAuth(c))return;
           leaveRoomOnly(c,true);
         }
         case "PING" -> send(c.channel,"PONG");
         case "CMD" -> {
+          if(!requireAuth(c))return;
           Room r=roomFor(c);
-          if(r!=null){
-            // AI web games intentionally allow a guest player without an account.
-            if(r.aiGame||requireAuth(c))r.command(c,p);
-          }else if(!requireAuth(c))return;
+          if(r!=null)r.command(c,p);
         }
       }
     }catch(Exception e){
@@ -177,17 +154,6 @@ public class GalacticServer {
 
   static Room roomFor(Client c){return c.roomId==null?null:rooms.get(c.roomId);}
 
-  static void createAiGame(Client c){
-    leaveRoomOnly(c,false);
-    String id=UUID.randomUUID().toString();
-    String owner=(c.username==null||c.username.isEmpty())?"Web Player":c.username;
-    Room room=new Room(id,"Galactic AI",owner,true);
-    rooms.put(id,room);
-    room.player1=c;c.roomId=id;c.player=1;
-    send(c.channel,"ROOM_JOINED|"+id+"|"+encode(room.name)+"|1");
-    send(c.channel,room.snapshot());
-  }
-
   static void createRoom(Client c,String rawName){
     String name=sanitizeRoomName(rawName);
     if(name.isEmpty()){error(c,"Room name required");return;}
@@ -204,7 +170,6 @@ public class GalacticServer {
   static void joinRoom(Client c,String id){
     Room room=rooms.get(id);
     if(room==null){error(c,"Room no longer exists");return;}
-    if(room.aiGame){error(c,"That room is a single-player AI match");return;}
     synchronized(room){
       if(room.player2!=null&&room.player2.channel.isOpen()){
         error(c,"Room is full");return;
@@ -273,7 +238,6 @@ public class GalacticServer {
     list.sort(Comparator.comparingLong(r->r.createdAt));
     StringBuilder sb=new StringBuilder("LOBBY|");
     for(Room r:list){
-      if(r.aiGame)continue;
       int count=(r.player1!=null?1:0)+(r.player2!=null?1:0);
       sb.append(r.id).append(',').append(encode(r.name)).append(',').append(encode(r.owner)).append(',').append(count).append(",2;");
     }
@@ -498,7 +462,6 @@ public class GalacticServer {
     static final float R=1.192f,PHYS_R=1.1900001f,MINX=-40.808f,MAXX=40.808f,MINZ=-19.808f,MAXZ=19.808f;
 
     final String id,name,owner;
-    final boolean aiGame;
     final long createdAt=System.currentTimeMillis();
     Client player1,player2;
     final ArrayList<Ball> balls=new ArrayList<>();
@@ -510,13 +473,8 @@ public class GalacticServer {
     float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,power=0,chargePullPx=0,chargePullWorld=0,englishX=0,englishY=0;
     String ruleMessage="BREAK • TEAM 1";
     int tickCounter=0;
-    boolean aiThinking=false;
-    long aiReadyAt=0;
 
-    Room(String id,String name,String owner){this(id,name,owner,false);}
-    Room(String id,String name,String owner,boolean aiGame){
-      this.id=id;this.name=name;this.owner=owner;this.aiGame=aiGame;resetRack();
-    }
+    Room(String id,String name,String owner){this.id=id;this.name=name;this.owner=owner;resetRack();}
 
     synchronized void tick(){
       if(state==ROLLING){
@@ -527,18 +485,9 @@ public class GalacticServer {
         if(allStopped()){
           resolveShotRules();
           state=AIMING;englishX=englishY=0;power=chargePullPx=chargePullWorld=0;
-          if(aiGame&&!gameOver&&currentTeam==2)scheduleAi();
-          else aiThinking=false;
         }
       }else{
         advanceSinks(FIXED_DT);
-        if(aiGame&&!gameOver&&currentTeam==2&&state==AIMING){
-          if(!aiThinking)scheduleAi();
-          else if(System.currentTimeMillis()>=aiReadyAt){
-            aiThinking=false;
-            performAiShot();
-          }
-        }
       }
       tickCounter++;
       if(tickCounter%8==0)broadcast(snapshot());
@@ -547,8 +496,8 @@ public class GalacticServer {
     synchronized void command(Client c,String[] p){
       if(c.player<=0)return;
       String op=p.length>1?p[1]:"";
-      boolean admin="RACK".equals(op)||(!aiGame&&("SHOOTER".equals(op)||"TEAM".equals(op)));
-      if(!admin&&c.player!=activeShooter){error(c,aiGame?"Galactic AI is taking its turn":"Not active shooter");return;}
+      boolean admin="RACK".equals(op)||"SHOOTER".equals(op)||"TEAM".equals(op);
+      if(!admin&&c.player!=activeShooter){error(c,"Not active shooter");return;}
       try{
         switch(op){
           case "AIM" -> {if(p.length>2&&state==AIMING)setAim(Float.parseFloat(p[2]));}
@@ -568,8 +517,8 @@ public class GalacticServer {
           case "HILT" -> {if(p.length>2)hiltIndex=Math.max(0,Math.min(5,Integer.parseInt(p[2])));}
           case "BLADE" -> {if(p.length>2)bladeIndex=Math.max(0,Math.min(5,Integer.parseInt(p[2])));}
           case "RACK" -> resetRack();
-          case "SHOOTER" -> {if(!aiGame){activeShooter=activeShooter==1?2:1;ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";}}
-          case "TEAM" -> {if(!aiGame){currentTeam=currentTeam==1?2:1;ruleMessage="TEAM "+currentTeam+" ACTIVE";}}
+          case "SHOOTER" -> {activeShooter=activeShooter==1?2:1;ruleMessage="PLAYER "+activeShooter+" ACTIVE SHOOTER";}
+          case "TEAM" -> {currentTeam=currentTeam==1?2:1;ruleMessage="TEAM "+currentTeam+" ACTIVE";}
         }
       }catch(Exception ignored){}
       broadcast(snapshot());
@@ -593,10 +542,10 @@ public class GalacticServer {
     }
 
     void resetRack(){
-      balls.clear();ballsSunkThisShot.clear();aiThinking=false;aiReadyAt=0;
+      balls.clear();ballsSunkThisShot.clear();
       currentTeam=1;activeShooter=1;winnerTeam=0;teamSuit[0]=teamSuit[1]=0;tableOpen=true;gameOver=false;
       state=AIMING;aimX=desiredAimX=1;aimZ=desiredAimZ=0;power=chargePullPx=chargePullWorld=englishX=englishY=0;
-      ruleMessage=aiGame?"YOU BREAK • GALACTIC AI":"BREAK • TEAM 1";
+      ruleMessage="BREAK • TEAM 1";
       balls.add(new Ball(0,-20f,0f));
       float[][] p={
         {20.000f,0.000f},{22.090f,-1.214f},{22.092f,1.207f},{24.178f,-2.421f},{24.184f,0.004f},{24.180f,2.417f},
@@ -732,83 +681,6 @@ public class GalacticServer {
       else if(valid){int remain=remaining(teamSuit[currentTeam-1]);ruleMessage=remain==0?"TEAM "+currentTeam+" • 8 BALL READY":"TEAM "+currentTeam+" CONTINUES";}
       else{currentTeam=currentTeam==1?2:1;ruleMessage="TEAM "+currentTeam+" TURN";}
       activeShooter=currentTeam;ballsSunkThisShot.clear();
-    }
-
-    void scheduleAi(){
-      aiThinking=true;
-      aiReadyAt=System.currentTimeMillis()+900;
-      activeShooter=2;
-      ruleMessage="GALACTIC AI THINKING";
-    }
-
-    boolean aiPathClear(float sx,float sz,float ex,float ez,int ignoreA,int ignoreB){
-      float dx=ex-sx,dz=ez-sz,len2=dx*dx+dz*dz;
-      if(len2<.01f)return true;
-      for(Ball b:balls){
-        if(!b.active||b.sinking||b.index==ignoreA||b.index==ignoreB)continue;
-        float t=((b.x-sx)*dx+(b.z-sz)*dz)/len2;
-        if(t<=.05f||t>=.95f)continue;
-        float px=sx+dx*t,pz=sz+dz*t,ox=b.x-px,oz=b.z-pz;
-        float clearance=PHYS_R*2.08f;
-        if(ox*ox+oz*oz<clearance*clearance)return false;
-      }
-      return true;
-    }
-
-    ArrayList<Ball> aiTargets(){
-      ArrayList<Ball> out=new ArrayList<>();
-      int suit=teamSuit[1];
-      boolean eightReady=suit!=0&&remaining(suit)==0;
-      for(Ball b:balls){
-        if(!b.active||b.sinking||b.index==0)continue;
-        if(eightReady){
-          if(b.index==8)out.add(b);
-        }else if(b.index!=8&&(suit==0||suit(b.index)==suit)){
-          out.add(b);
-        }
-      }
-      return out;
-    }
-
-    void performAiShot(){
-      if(!aiGame||gameOver||currentTeam!=2||state!=AIMING||!allStopped())return;
-      Ball cue=ball(0);if(cue==null||!cue.active)return;
-      ArrayList<Ball> targets=aiTargets();if(targets.isEmpty())return;
-      float[][] pockets={
-        {MINX-1.0f,MINZ-1.0f},{0,MINZ-1.15f},{MAXX+1.0f,MINZ-1.0f},
-        {MINX-1.0f,MAXZ+1.0f},{0,MAXZ+1.15f},{MAXX+1.0f,MAXZ+1.0f}
-      };
-      Ball best=null;float bestAimX=1,bestAimZ=0,bestScore=Float.MAX_VALUE,bestDist=0;
-      for(Ball t:targets){
-        for(float[] pocket:pockets){
-          float pdx=pocket[0]-t.x,pdz=pocket[1]-t.z;
-          float pd=(float)Math.sqrt(pdx*pdx+pdz*pdz);if(pd<.01f)continue;
-          float ux=pdx/pd,uz=pdz/pd;
-          float gx=t.x-ux*(PHYS_R*2.02f),gz=t.z-uz*(PHYS_R*2.02f);
-          if(gx<MINX+R||gx>MAXX-R||gz<MINZ+R||gz>MAXZ-R)continue;
-          float cdx=gx-cue.x,cdz=gz-cue.z,cd=(float)Math.sqrt(cdx*cdx+cdz*cdz);if(cd<.01f)continue;
-          if(!aiPathClear(cue.x,cue.z,gx,gz,0,t.index))continue;
-          if(!aiPathClear(t.x,t.z,pocket[0],pocket[1],t.index,0))continue;
-          float ax=cdx/cd,az=cdz/cd;
-          float cut=Math.max(-1f,Math.min(1f,ax*ux+az*uz));
-          float score=cd+pd*.72f+(1f-cut)*22f;
-          if(score<bestScore){bestScore=score;best=t;bestAimX=ax;bestAimZ=az;bestDist=cd+pd;}
-        }
-      }
-      if(best==null){
-        for(Ball t:targets){
-          float dx=t.x-cue.x,dz=t.z-cue.z,d=(float)Math.sqrt(dx*dx+dz*dz);
-          if(d<bestScore&&d>.01f){bestScore=d;best=t;bestAimX=dx/d;bestAimZ=dz/d;bestDist=d;}
-        }
-      }
-      if(best==null)return;
-      float angle=(float)Math.atan2(bestAimZ,bestAimX);
-      angle+=(float)Math.sin((tickCounter&0xFFFF)*.017f)*.012f;
-      aimX=desiredAimX=(float)Math.cos(angle);aimZ=desiredAimZ=(float)Math.sin(angle);
-      englishX=englishY=0;
-      power=Math.max(42f,Math.min(82f,44f+bestDist*.42f));
-      activeShooter=2;currentTeam=2;ruleMessage="GALACTIC AI SHOOTS";
-      releaseShot();
     }
 
     Ball ball(int idx){for(Ball b:balls)if(b.index==idx)return b;return null;}
