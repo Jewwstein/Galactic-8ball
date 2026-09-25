@@ -1402,6 +1402,9 @@ public class MainActivity extends Activity {
       for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
     }
 
+    float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
+    float hudSafeY(int w,int h,float ui){return (h>w?34f:38f)*ui;}
+
     Bitmap loadHorizontal(Context c,String n){
       try(InputStream in=c.getAssets().open("ui/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
@@ -1441,20 +1444,28 @@ public class MainActivity extends Activity {
         ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
         : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
 
-      if(portrait)lockRect.set(w-108*ui,h-126*ui,w-16*ui,h-34*ui);
-      else lockRect.set(w-138*ui,h-162*ui,w-24*ui,h-48*ui);
+      // Reserve a true safe area inside the lightsaber bezel. Every interactive
+      // gameplay HUD now lives inside this rectangle instead of touching the screen edge.
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+
+      float lockSize=(portrait?92:114)*ui;
+      float lockRight=w-safeX-8*ui,lockBottom=h-safeY-10*ui;
+      lockRect.set(lockRight-lockSize,lockBottom-lockSize,lockRight,lockBottom);
 
       // Portrait and landscape have independent HUD geometry instead of stretching
       // one layout until controls become oversized or tiny after rotation.
       float tabW=(portrait?52:62)*ui,tabH=(portrait?66:78)*ui;
       float tabCY=portrait?h*.34f:h*.43f;
-      sideMenuTabRect.set(10*ui,tabCY-tabH*.5f,10*ui+tabW,tabCY+tabH*.5f);
+      sideMenuTabRect.set(safeX,tabCY-tabH*.5f,safeX+tabW,tabCY+tabH*.5f);
       if(sideMenuOpen){
-        float panelW=(portrait?Math.min(w/ui-20,226):248)*ui;
+        float maxPanelW=Math.max(120*ui,w-safeX*2);
+        float panelW=portrait?Math.min(maxPanelW,226*ui):Math.min(maxPanelW,248*ui);
         float itemH=(portrait?52:58)*ui,itemGap=(portrait?7:8)*ui;
-        float panelTop=Math.max((portrait?86:72)*ui,h*.5f-(itemH*5+itemGap*4+34*ui)*.5f);
-        sideMenuPanelRect.set(10*ui,panelTop,10*ui+panelW,panelTop+itemH*5+itemGap*4+34*ui);
-        float bx=22*ui,by=panelTop+24*ui,bw=panelW-24*ui;
+        float panelHeight=itemH*5+itemGap*4+34*ui;
+        float panelTop=Math.max(safeY+8*ui,h*.5f-panelHeight*.5f);
+        panelTop=Math.min(panelTop,h-safeY-panelHeight);
+        sideMenuPanelRect.set(safeX,panelTop,safeX+panelW,panelTop+panelHeight);
+        float bx=safeX+12*ui,by=panelTop+24*ui,bw=panelW-24*ui;
         saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
         rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
         activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
@@ -1478,7 +1489,7 @@ public class MainActivity extends Activity {
         }
         if(!r.localCanControl()){
           p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
-          c.drawText(r.aiEnabled?"GALACTIC AI THINKING":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
+          c.drawText(r.aiEnabled?"GALACTIC AI THINKING":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,hudSafeY(w,h,ui)+(portrait?91:105)*ui,p);
         }
       } else if(r.gameOver){
         drawWinnerOverlay(c,w,h,ui,r);
@@ -1489,7 +1500,7 @@ public class MainActivity extends Activity {
         if(r.localCanControl())drawThumbStrikeHilt(c,w,h,ui,r);
       } else {
         p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
-        c.drawText("BALLS ROLLING",w*.5f,42*ui,p);
+        c.drawText("BALLS ROLLING",w*.5f,hudSafeY(w,h,ui)+(portrait?91:105)*ui,p);
       }
 
       // Navigation must remain usable after a win/loss. Draw it after every
@@ -1583,7 +1594,8 @@ public class MainActivity extends Activity {
 
 
     void drawAimAnalogStick(Canvas c,int w,int h,float ui){
-      float r=68*ui,cx=88*ui,cy=h-88*ui;
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      float r=68*ui,cx=safeX+r+10*ui,cy=h-safeY-r-10*ui;
       aimStickRect.set(cx-r,cy-r,cx+r,cy+r);
       drawAnalogStick(c,cx,cy,r,aimStickX,aimStickY,"AIM",ui,0xFF5BD6FF);
     }
@@ -1623,8 +1635,9 @@ public class MainActivity extends Activity {
       // on the opposite direction button.
       float size=(portrait?92:112)*ui;
       float gap=(portrait?36:42)*ui;
-      float x=(portrait?14:20)*ui;
-      float y=h-size-(portrait?14:18)*ui;
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      float x=safeX+(portrait?8:10)*ui;
+      float y=h-safeY-size-(portrait?8:10)*ui;
 
       microLeftRect.set(x,y,x+size,y+size);
       microRightRect.set(x+size+gap,y,x+size*2+gap,y+size);
@@ -1688,8 +1701,10 @@ public class MainActivity extends Activity {
 
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
-      float pw=portrait?Math.min(w*.94f,430*ui):Math.min(w*.82f,1080*ui);
-      float ph=portrait?Math.min(h*.72f,500*ui):Math.min(h*.64f,430*ui);
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      float availW=Math.max(160*ui,w-safeX*2),availH=Math.max(220*ui,h-safeY*2);
+      float pw=portrait?Math.min(availW,430*ui):Math.min(availW,1080*ui);
+      float ph=portrait?Math.min(availH,500*ui):Math.min(availH,430*ui);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
@@ -1755,9 +1770,11 @@ public class MainActivity extends Activity {
       // Compact scoreboard hugs the very top and stays centered so it does not
       // cover useful table space at low camera angles.
       boolean portrait=h>w;
-      float panelH=(portrait?58:70)*ui,top=(portrait?4:7)*ui;
-      float centerW=Math.min((portrait?88:112)*ui,w*(portrait?.21f:.13f));
-      float teamW=portrait?Math.max(92*ui,(w-centerW-10*ui)*.5f):Math.min(224*ui,(w-centerW-22*ui)*.5f);
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      float panelH=(portrait?58:70)*ui,top=safeY+(portrait?4:6)*ui;
+      float availableW=Math.max(220*ui,w-safeX*2);
+      float centerW=Math.min((portrait?88:112)*ui,availableW*(portrait?.22f:.15f));
+      float teamW=portrait?Math.max(82*ui,(availableW-centerW-10*ui)*.5f):Math.min(224*ui,(availableW-centerW-22*ui)*.5f);
       float mid=w*.5f,leftRight=mid-centerW*.5f,rightLeft=mid+centerW*.5f;
       RectF left=new RectF(leftRight-teamW,top,leftRight+1*ui,top+panelH);
       RectF right=new RectF(rightLeft-1*ui,top,rightLeft+teamW,top+panelH);
@@ -1859,7 +1876,9 @@ public class MainActivity extends Activity {
     }
 
     void drawWinnerOverlay(Canvas c,int w,int h,float ui,GameRenderer r){
-      RectF box=new RectF(w*.16f,h*.38f,w*.84f,h*.55f);
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      RectF box=new RectF(Math.max(w*.16f,safeX+8*ui),Math.max(h*.38f,safeY+8*ui),
+        Math.min(w*.84f,w-safeX-8*ui),Math.min(h*.55f,h-safeY-8*ui));
       p.setColor(0xE510141C);p.setStyle(Paint.Style.FILL);c.drawRoundRect(box,24*ui,24*ui,p);
       stroke.setColor(0xFFF4C542);stroke.setStrokeWidth(4*ui);c.drawRoundRect(box,24*ui,24*ui,stroke);
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
@@ -1878,8 +1897,9 @@ public class MainActivity extends Activity {
 
     void drawEnglish(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
-      englishR=portrait?Math.min(w*.225f,112*ui):Math.min(h*.205f,145*ui);
-      englishCx=w-englishR-(portrait?18:34)*ui;
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      englishR=portrait?Math.min((w-safeX*2)*.225f,112*ui):Math.min((h-safeY*2)*.205f,145*ui);
+      englishCx=w-safeX-englishR-(portrait?28:30)*ui;
       englishCy=portrait?h*.46f:h*.43f;
       p.setColor(0xC8000000);c.drawRoundRect(new RectF(englishCx-englishR-28*ui,englishCy-englishR-54*ui,englishCx+englishR+28*ui,englishCy+englishR+126*ui),24,24,p);
       p.setColor(0xFFF5F5F5);c.drawCircle(englishCx,englishCy,englishR,p);
@@ -1982,7 +2002,8 @@ public class MainActivity extends Activity {
       // Keep the visual hilt and its touch geometry in the same screen-space
       // lane. The previous HUD rectangle sat above part of the OpenGL hilt,
       // which is why only the top portion reliably began a pull.
-      float cx=w*(portrait?.77f:.84f);
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      float cx=Math.min(w*(portrait?.77f:.84f),w-safeX-baseW*.50f);
       float baseCy=h*(portrait?.58f:.56f);
       float maxTravel=Math.max((portrait?210:175)*ui,h*(portrait?.34f:.36f));
       float travel=Math.min(maxTravel,r.chargePullPx);
@@ -1998,7 +2019,7 @@ public class MainActivity extends Activity {
       float grabHalfH=baseH*1.34f;
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
-      float trackTop=baseCy-baseH*1.48f,trackBottom=Math.min(h-14*ui,baseCy+maxTravel);
+      float trackTop=Math.max(safeY+8*ui,baseCy-baseH*1.48f),trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
@@ -2006,7 +2027,7 @@ public class MainActivity extends Activity {
       p.setTextSize(9.5f*ui);p.setColor(0xA9DDF8FF);
       c.drawText("THUMB STRIKE",cx,trackTop-8*ui,p);
       p.setTextSize(13*ui);p.setColor(r.power>1f?0xFFF4C542:0xFFC1CDDA);
-      c.drawText(Math.round(r.power)+"%",cx,Math.min(h-8*ui,trackBottom+17*ui),p);
+      c.drawText(Math.round(r.power)+"%",cx,Math.min(h-safeY-4*ui,trackBottom+17*ui),p);
     }
 
     public boolean onTouchEvent(MotionEvent e){
