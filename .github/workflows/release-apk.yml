@@ -173,7 +173,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Fixes Galactic AI entry so the match opens immediately on Normal difficulty. AI difficulty and Challenge Mode are now selected from the in-game GAME MENU, with visible Easy, Normal, Hard, Expert, and challenge controls. Keeps the Exit Room patch, updater, swipe aiming, and Falcon stability fixes.
+            UpdateNotes: Replaces Android text dialogs for AI difficulty and Challenge Mode with fully in-game premium Galactic submenus using the same metallic, glowing, planet-badge button system as the main GAME MENU. Keeps AI entry, Exit Room, updater, swipe aiming, and Falcon stability fixes.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:

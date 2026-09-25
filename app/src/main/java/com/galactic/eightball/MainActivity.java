@@ -680,97 +680,6 @@ public class MainActivity extends Activity {
     refreshLobbyScreen();
   }
 
-  void showAiDifficultyInGame(){
-    if(game==null||game.r==null||!game.r.aiEnabled)return;
-
-    LinearLayout box=new LinearLayout(this);
-    box.setOrientation(LinearLayout.VERTICAL);
-    box.setPadding(dp(12),dp(6),dp(12),dp(6));
-    ScrollView scroll=new ScrollView(this);
-    scroll.addView(box,new ScrollView.LayoutParams(-1,-2));
-
-    AlertDialog dialog=new AlertDialog.Builder(this)
-      .setTitle("GALACTIC AI DIFFICULTY")
-      .setMessage("Current: "+game.r.aiDifficultyName()+"\n\nChoose a difficulty. This starts a fresh standard AI rack.")
-      .setView(scroll)
-      .setNegativeButton("CLOSE",null)
-      .create();
-
-    final String[] labels={"EASY","NORMAL","HARD","EXPERT"};
-    for(int i=0;i<labels.length;i++){
-      final int diff=i;
-      Button b=homeButton(labels[i]);
-      b.setOnClickListener(v->{
-        game.queueEvent(()->{
-          game.r.aiDifficulty=diff;
-          game.r.challengeMode=false;
-          game.r.challengeId=0;
-          game.r.resetRack();
-          game.r.ruleMessage="GALACTIC AI • "+game.r.aiDifficultyName()+" • YOU BREAK";
-        });
-        dialog.dismiss();
-        Toast.makeText(this,"Galactic AI difficulty: "+labels[diff],Toast.LENGTH_SHORT).show();
-      });
-      box.addView(b);
-    }
-    dialog.show();
-  }
-
-  void showChallengesInGame(){
-    if(game==null||game.r==null||!game.r.aiEnabled)return;
-
-    LinearLayout box=new LinearLayout(this);
-    box.setOrientation(LinearLayout.VERTICAL);
-    box.setPadding(dp(12),dp(6),dp(12),dp(6));
-    ScrollView scroll=new ScrollView(this);
-    scroll.addView(box,new ScrollView.LayoutParams(-1,-2));
-
-    AlertDialog dialog=new AlertDialog.Builder(this)
-      .setTitle("GALACTIC CHALLENGES")
-      .setMessage("Choose a challenge. A fresh rack starts automatically.\n\n"+
-        "CLEAN RUN — Win without scratching.\n"+
-        "SPEED RUN — Win in 8 player shots or fewer.\n"+
-        "COMBO STRIKE — Pocket 2+ object balls in one shot.\n"+
-        "SITH TRIAL — Defeat the Expert Galactic AI.")
-      .setView(scroll)
-      .setNegativeButton("CLOSE",null)
-      .create();
-
-    final String[] labels={"CLEAN RUN","SPEED RUN","COMBO STRIKE","SITH TRIAL"};
-    for(int i=0;i<labels.length;i++){
-      final int challenge=i+1;
-      Button b=homeButton(labels[i]);
-      b.setOnClickListener(v->{
-        final int diff=challenge==4?3:(challenge==2?2:1);
-        game.queueEvent(()->{
-          game.r.aiDifficulty=diff;
-          game.r.challengeMode=true;
-          game.r.challengeId=challenge;
-          game.r.resetRack();
-          game.r.ruleMessage="CHALLENGE • "+game.r.challengeName();
-        });
-        dialog.dismiss();
-        Toast.makeText(this,"Challenge started: "+challengeDisplayName(challenge),Toast.LENGTH_SHORT).show();
-      });
-      box.addView(b);
-    }
-
-    Button standard=homeButton("RETURN TO STANDARD AI");
-    standard.setOnClickListener(v->{
-      game.queueEvent(()->{
-        game.r.aiDifficulty=1;
-        game.r.challengeMode=false;
-        game.r.challengeId=0;
-        game.r.resetRack();
-        game.r.ruleMessage="GALACTIC AI • NORMAL • YOU BREAK";
-      });
-      dialog.dismiss();
-      Toast.makeText(this,"Standard Normal AI started.",Toast.LENGTH_SHORT).show();
-    });
-    box.addView(standard);
-    dialog.show();
-  }
-
   void startSinglePlayer(){
     startSinglePlayer(false,1,0);
   }
@@ -1751,9 +1660,10 @@ public class MainActivity extends Activity {
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
-    RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
+    RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
+    int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0;
@@ -1794,7 +1704,10 @@ public class MainActivity extends Activity {
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
-      for(int i=0;i<6;i++){hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();}
+      for(int i=0;i<6;i++){
+        hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
+        hiltChoices[i]=new RectF();bladeChoices[i]=new RectF();aiSubmenuRects[i]=new RectF();
+      }
     }
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
@@ -1858,21 +1771,42 @@ public class MainActivity extends Activity {
       if(sideMenuOpen){
         float maxPanelW=Math.max(160*ui,w-safeX*2);
         float panelW=portrait?Math.min(maxPanelW,286*ui):Math.min(maxPanelW,330*ui);
-        float itemH=(portrait?62:68)*ui,itemGap=(portrait?9:10)*ui;
+        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?6:5);
+        float itemH=(aiSubmenu==2?(portrait?54:52):(aiSubmenu==1?(portrait?58:57):(portrait?62:68)))*ui;
+        float itemGap=(aiSubmenu==0?(portrait?9:10):6)*ui;
         float headerH=(portrait?48:52)*ui;
-        float panelHeight=headerH+itemH*5+itemGap*4+20*ui;
+        float panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+20*ui;
+        float availableH=Math.max(180*ui,h-safeY*2-16*ui);
+        if(panelHeight>availableH){
+          float over=panelHeight-availableH;
+          itemH=Math.max(46*ui,itemH-over/itemCount);
+          panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+20*ui;
+        }
         float panelTop=Math.max(safeY+8*ui,h*.5f-panelHeight*.5f);
         panelTop=Math.min(panelTop,h-safeY-panelHeight);
         sideMenuPanelRect.set(safeX,panelTop,safeX+panelW,panelTop+panelHeight);
         float bx=safeX+14*ui,by=panelTop+headerH,bw=panelW-28*ui;
-        saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
-        rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
-        activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
-        teamSwitchRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
-        multiplayerRect.set(bx,by,bx+bw,by+itemH);
+
+        saberMenuRect.setEmpty();rackRect.setEmpty();activeShooterRect.setEmpty();
+        teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
+        for(RectF rr:aiSubmenuRects)rr.setEmpty();
+
+        if(aiSubmenu==0){
+          saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          teamSwitchRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          multiplayerRect.set(bx,by,bx+bw,by+itemH);
+        }else{
+          for(int i=0;i<itemCount;i++){
+            aiSubmenuRects[i].set(bx,by,bx+bw,by+itemH);
+            by+=itemH+itemGap;
+          }
+        }
       }else{
         sideMenuPanelRect.setEmpty();saberMenuRect.setEmpty();rackRect.setEmpty();
         activeShooterRect.setEmpty();teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
+        for(RectF rr:aiSubmenuRects)rr.setEmpty();
       }
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
@@ -1962,13 +1896,35 @@ public class MainActivity extends Activity {
     void drawSideMenu(Canvas c,float ui,GameRenderer r){
       p.setStyle(Paint.Style.FILL);p.setColor(0xEE070D16);p.setShadowLayer(18*ui,4*ui,0,0xCC000000);
       c.drawRoundRect(sideMenuPanelRect,20*ui,20*ui,p);p.clearShadowLayer();
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.0f*ui);stroke.setColor(0xB05BD6FF);c.drawRoundRect(sideMenuPanelRect,20*ui,20*ui,stroke);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.0f*ui);
+      int panelAccent=aiSubmenu==1?0xFFF4C542:(aiSubmenu==2?0xFFB88CFF:0xFF5BD6FF);
+      stroke.setColor((panelAccent&0x00FFFFFF)|0xB0000000);c.drawRoundRect(sideMenuPanelRect,20*ui,20*ui,stroke);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(17*ui);p.setColor(0xFFF4C542);
-      c.drawText("GAME MENU",sideMenuPanelRect.left+16*ui,sideMenuPanelRect.top+29*ui,p);
-      stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0x555BD6FF);
+      p.setTextSize(17*ui);p.setColor(aiSubmenu==0?0xFFF4C542:panelAccent);
+      String header=aiSubmenu==1?"AI DIFFICULTY":(aiSubmenu==2?"GALACTIC CHALLENGES":"GAME MENU");
+      c.drawText(header,sideMenuPanelRect.left+16*ui,sideMenuPanelRect.top+29*ui,p);
+      stroke.setStrokeWidth(1.2f*ui);stroke.setColor((panelAccent&0x00FFFFFF)|0x55000000);
       c.drawLine(sideMenuPanelRect.left+14*ui,sideMenuPanelRect.top+39*ui,sideMenuPanelRect.right-14*ui,sideMenuPanelRect.top+39*ui,stroke);
+
+      if(aiSubmenu==1){
+        drawPremiumButton(c,aiSubmenuRects[0],"EASY","RELAXED AIM • MORE MISTAKES",ui,0xFF65E4A5,r.aiDifficulty==0&&!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[1],"NORMAL","BALANCED GALACTIC AI",ui,0xFF46C7FF,r.aiDifficulty==1&&!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[2],"HARD","SHARPER AIM + POWER",ui,0xFFFFA64A,r.aiDifficulty==2&&!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[3],"EXPERT","NEAR-PERFECT PLANNING",ui,0xFFFF667A,r.aiDifficulty==3&&!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[4],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
+        return;
+      }
+
+      if(aiSubmenu==2){
+        drawPremiumButton(c,aiSubmenuRects[0],"CLEAN RUN","WIN WITHOUT SCRATCHING",ui,0xFF65E4A5,r.challengeMode&&r.challengeId==1);
+        drawPremiumButton(c,aiSubmenuRects[1],"SPEED RUN","WIN IN 8 SHOTS OR FEWER",ui,0xFF46C7FF,r.challengeMode&&r.challengeId==2);
+        drawPremiumButton(c,aiSubmenuRects[2],"COMBO STRIKE","POCKET 2+ IN ONE SHOT",ui,0xFFF4C542,r.challengeMode&&r.challengeId==3);
+        drawPremiumButton(c,aiSubmenuRects[3],"SITH TRIAL","DEFEAT EXPERT GALACTIC AI",ui,0xFFFF667A,r.challengeMode&&r.challengeId==4);
+        drawPremiumButton(c,aiSubmenuRects[4],"STANDARD AI","NORMAL • DISABLE CHALLENGE",ui,0xFFB88CFF,!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[5],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
+        return;
+      }
 
       String mp=(net==null)?"OFFLINE":net.statusText();if(mp.length()>22)mp=mp.substring(0,22);
       drawPremiumButton(c,saberMenuRect,"SABER MENU","LOADOUT",ui,0xFF46C7FF,menuOpen);
@@ -2547,6 +2503,7 @@ public class MainActivity extends Activity {
 
         if(sideMenuTabRect.contains(x,y)){
           sideMenuOpen=!sideMenuOpen;
+          if(!sideMenuOpen)aiSubmenu=0;
           if(game.r.sfx!=null)game.r.sfx.uiTransition();
           if(ctx instanceof MainActivity&&((MainActivity)ctx).saberBezel!=null)
             ((MainActivity)ctx).saberBezel.pulse(0xFF63D7FF,.72f);
@@ -2557,7 +2514,7 @@ public class MainActivity extends Activity {
         // Tapping off the side menu closes it and consumes the tap so the player
         // never accidentally changes aim while dismissing the menu.
         if(sideMenuOpen&&!sideMenuPanelRect.contains(x,y)){
-          sideMenuOpen=false;invalidate();return true;
+          sideMenuOpen=false;aiSubmenu=0;invalidate();return true;
         }
 
         if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()&&!sideMenuOpen){
@@ -2578,8 +2535,52 @@ public class MainActivity extends Activity {
           }
         }
 
+        if(sideMenuOpen&&aiSubmenu==1){
+          for(int i=0;i<4;i++){
+            if(aiSubmenuRects[i].contains(x,y)){
+              final int diff=i;
+              sideMenuOpen=false;aiSubmenu=0;invalidate();
+              game.queueEvent(()->{
+                r.aiDifficulty=diff;r.challengeMode=false;r.challengeId=0;r.resetRack();
+                r.ruleMessage="GALACTIC AI • "+r.aiDifficultyName()+" • YOU BREAK";
+              });
+              if(ctx instanceof MainActivity)Toast.makeText(ctx,"Galactic AI difficulty: "+new String[]{"Easy","Normal","Hard","Expert"}[diff],Toast.LENGTH_SHORT).show();
+              return true;
+            }
+          }
+          if(aiSubmenuRects[4].contains(x,y)){aiSubmenu=0;invalidate();return true;}
+          return true;
+        }
+
+        if(sideMenuOpen&&aiSubmenu==2){
+          for(int i=0;i<4;i++){
+            if(aiSubmenuRects[i].contains(x,y)){
+              final int challenge=i+1;
+              final int diff=challenge==4?3:(challenge==2?2:1);
+              sideMenuOpen=false;aiSubmenu=0;invalidate();
+              game.queueEvent(()->{
+                r.aiDifficulty=diff;r.challengeMode=true;r.challengeId=challenge;r.resetRack();
+                r.ruleMessage="CHALLENGE • "+r.challengeName();
+              });
+              if(ctx instanceof MainActivity)Toast.makeText(ctx,"Challenge started: "+((MainActivity)ctx).challengeDisplayName(challenge),Toast.LENGTH_SHORT).show();
+              return true;
+            }
+          }
+          if(aiSubmenuRects[4].contains(x,y)){
+            sideMenuOpen=false;aiSubmenu=0;invalidate();
+            game.queueEvent(()->{
+              r.aiDifficulty=1;r.challengeMode=false;r.challengeId=0;r.resetRack();
+              r.ruleMessage="GALACTIC AI • NORMAL • YOU BREAK";
+            });
+            Toast.makeText(ctx,"Standard Normal AI started.",Toast.LENGTH_SHORT).show();
+            return true;
+          }
+          if(aiSubmenuRects[5].contains(x,y)){aiSubmenu=0;invalidate();return true;}
+          return true;
+        }
+
         if(sideMenuOpen&&saberMenuRect.contains(x,y)){
-          menuOpen=true;sideMenuOpen=false;
+          menuOpen=true;sideMenuOpen=false;aiSubmenu=0;
           if(game.r.sfx!=null)game.r.sfx.uiTransition();
           if(ctx instanceof MainActivity&&((MainActivity)ctx).saberBezel!=null)
             ((MainActivity)ctx).saberBezel.pulse(0xFFFFC54A,.76f);
@@ -2587,23 +2588,23 @@ public class MainActivity extends Activity {
         }
         if(sideMenuOpen&&rackRect.contains(x,y)){sideMenuOpen=false;invalidate();pullingHilt=false;game.queueEvent(()->r.userResetRack());return true;}
         if(sideMenuOpen&&activeShooterRect.contains(x,y)){
-          sideMenuOpen=false;invalidate();
           if(r.aiEnabled){
-            Context cc=getContext();
-            if(cc instanceof MainActivity)((MainActivity)cc).showAiDifficultyInGame();
-          }else game.queueEvent(()->r.userToggleActiveShooter());
+            aiSubmenu=1;invalidate();
+          }else{
+            sideMenuOpen=false;invalidate();game.queueEvent(()->r.userToggleActiveShooter());
+          }
           return true;
         }
         if(sideMenuOpen&&teamSwitchRect.contains(x,y)){
-          sideMenuOpen=false;invalidate();
           if(r.aiEnabled){
-            Context cc=getContext();
-            if(cc instanceof MainActivity)((MainActivity)cc).showChallengesInGame();
-          }else game.queueEvent(()->r.userSwitchTeam());
+            aiSubmenu=2;invalidate();
+          }else{
+            sideMenuOpen=false;invalidate();game.queueEvent(()->r.userSwitchTeam());
+          }
           return true;
         }
         if(sideMenuOpen&&multiplayerRect.contains(x,y)){
-          sideMenuOpen=false;invalidate();
+          sideMenuOpen=false;aiSubmenu=0;invalidate();
           Context cc=getContext();
           if(cc instanceof MainActivity)((MainActivity)cc).showMultiplayerDialog();
           return true;
