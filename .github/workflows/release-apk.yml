@@ -151,21 +151,23 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Prepare APK release asset
-        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7-Falcon-Stability-Test.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Galactic-8-Ball-v0.7.1-Swipe-Aim-Test.apk
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.7-falcon-stability-test
+          tag_name: v0.7.1-swipe-aim-test
           target_commitish: ${{ github.sha }}
-          name: Galactic 8-Ball v0.7 Falcon Stability Test
+          name: Galactic 8-Ball v0.7.1 Swipe Aim Test
           body: |
             Galactic 8-Ball Android multiplayer test build.
             Package: com.galactic.eightball
-            Version: 0.7
+            Version: 0.7.1
             Source baseline: ${{ github.sha }}
-            Falcon render stability pass: fixed world transform, 24-bit depth buffer, improved near-plane precision, depth bias, and enhanced darker 2K Falcon texture.
-            Preserves the approved Falcon footprint and current dogfight scale.
-          files: Galactic-8-Ball-v0.7-Falcon-Stability-Test.apk
+            Adds full-screen one-finger swipe aiming: swipe left/right on open screen space to rotate the hilt and predictive line.
+            Existing direct hilt dragging, precision aim buttons, two-finger pinch zoom, and two-finger camera pan remain available.
+            Includes the Falcon render stability/depth fix and enhanced darker 2K Falcon texture.
+            Preserves the approved Falcon footprint, current dogfight scale, physics, and multiplayer behavior.
+          files: Galactic-8-Ball-v0.7.1-Swipe-Aim-Test.apk
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
