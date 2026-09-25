@@ -2988,7 +2988,6 @@ public class MainActivity extends Activity {
           b.sinkT=Float.parseFloat(a[11]);b.spin=Float.parseFloat(a[12]);
           if(b.body!=null)b.body.setActive(false);
         }
-        if(previousState==ROLLING&&state==AIMING)
       }catch(Exception ignored){}
     }
 
