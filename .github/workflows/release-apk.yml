@@ -173,7 +173,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Replaces Android text dialogs for AI difficulty and Challenge Mode with fully in-game premium Galactic submenus using the same metallic, glowing, planet-badge button system as the main GAME MENU. Keeps AI entry, Exit Room, updater, swipe aiming, and Falcon stability fixes.
+            UpdateNotes: Adds persistent player accolade badges visible in team boxes, unlockable reward hilts for Clean Run, Speed Run, Combo Strike, Sith Trial, Normal Galactic AI, Jedi Victor, and Sith Victor, two new alignment challenges based on the equipped hilt, live English-aware prediction and shot behavior, refined corner/rail predictor accuracy, and matching multiplayer profile/English/pocket behavior.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
