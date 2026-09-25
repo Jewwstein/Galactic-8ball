@@ -31,7 +31,7 @@ if effects is None:
 
 # Exact gameplay mapping used by Galactic 8-Ball v428:
 # 0 ignite Sith, 1 ignite Jedi, 2 clash, 3 deactivate,
-# 4 pocket, 5 scratch, 6 Sith victory, 7 Jedi victory, 9 charging hum.
+# 4 pocket, 5 scratch, 6 Sith victory, 7 Jedi victory, 8 UI transition, 9 charging hum.
 mapping={
     0:"sfx_ignite_sith",
     1:"sfx_ignite_jedi",
@@ -41,6 +41,7 @@ mapping={
     5:"sfx_scratch",
     6:"sfx_victory_sith",
     7:"sfx_victory_jedi",
+    8:"sfx_ui_trigger8",
     9:"sfx_hum",
 }
 
