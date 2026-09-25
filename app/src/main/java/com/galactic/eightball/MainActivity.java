@@ -2546,22 +2546,67 @@ public class MainActivity extends Activity {
       return 0xFFFF3D45;
     }
 
-    String badgeGlyph(int bit){
-      if(bit==BADGE_CLEAN)return "C";
-      if(bit==BADGE_SPEED)return "S";
-      if(bit==BADGE_COMBO)return "×2";
-      if(bit==BADGE_SITH_TRIAL)return "ST";
-      if(bit==BADGE_NORMAL)return "N";
-      if(bit==BADGE_JEDI)return "J";
-      return "S";
+    void drawBadgeIcon(Canvas c,float x,float y,float r,int bit,float ui){
+      p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(0xFFF7FBFF);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);
+      stroke.setStrokeJoin(Paint.Join.ROUND);stroke.setStrokeWidth(Math.max(1.15f*ui,r*.15f));stroke.setColor(0xFFF7FBFF);
+
+      if(bit==BADGE_CLEAN){
+        // Precision check + sparkle.
+        Path q=new Path();q.moveTo(x-r*.50f,y);q.lineTo(x-r*.12f,y+r*.34f);q.lineTo(x+r*.53f,y-r*.43f);c.drawPath(q,stroke);
+        stroke.setStrokeWidth(Math.max(.8f*ui,r*.10f));
+        c.drawLine(x+r*.38f,y-r*.62f,x+r*.38f,y-r*.28f,stroke);
+        c.drawLine(x+r*.55f,y-r*.45f,x+r*.21f,y-r*.45f,stroke);
+      }else if(bit==BADGE_SPEED){
+        Path bolt=new Path();
+        bolt.moveTo(x+r*.12f,y-r*.68f);bolt.lineTo(x-r*.42f,y+r*.04f);bolt.lineTo(x-r*.05f,y+r*.02f);
+        bolt.lineTo(x-r*.22f,y+r*.67f);bolt.lineTo(x+r*.48f,y-r*.16f);bolt.lineTo(x+r*.08f,y-r*.12f);bolt.close();
+        c.drawPath(bolt,p);
+      }else if(bit==BADGE_COMBO){
+        p.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(1f*ui,r*.12f));
+        c.drawCircle(x-r*.28f,y+r*.08f,r*.34f,stroke);c.drawCircle(x+r*.28f,y-r*.08f,r*.34f,stroke);
+        p.setStyle(Paint.Style.FILL);p.setColor(0xFFFFE79A);c.drawCircle(x,y,r*.12f,p);
+      }else if(bit==BADGE_SITH_TRIAL){
+        Path mask=new Path();
+        mask.moveTo(x,y-r*.70f);mask.lineTo(x+r*.53f,y-r*.15f);mask.lineTo(x+r*.32f,y+r*.57f);
+        mask.lineTo(x,y+r*.72f);mask.lineTo(x-r*.32f,y+r*.57f);mask.lineTo(x-r*.53f,y-r*.15f);mask.close();
+        p.setColor(0xFF16070A);c.drawPath(mask,p);stroke.setStrokeWidth(Math.max(.9f*ui,r*.10f));stroke.setColor(0xFFFFE5E7);c.drawPath(mask,stroke);
+        p.setColor(0xFFFF4052);c.drawCircle(x-r*.18f,y-r*.04f,r*.08f,p);c.drawCircle(x+r*.18f,y-r*.04f,r*.08f,p);
+      }else if(bit==BADGE_NORMAL){
+        // Clean trooper-inspired helmet silhouette.
+        Path helm=new Path();helm.moveTo(x-r*.52f,y+r*.42f);helm.lineTo(x-r*.45f,y-r*.22f);
+        helm.quadTo(x,y-r*.72f,x+r*.45f,y-r*.22f);helm.lineTo(x+r*.52f,y+r*.42f);
+        helm.lineTo(x+r*.23f,y+r*.60f);helm.lineTo(x-r*.23f,y+r*.60f);helm.close();
+        p.setColor(0xFFF7F8FA);c.drawPath(helm,p);
+        stroke.setColor(0xFF20252D);stroke.setStrokeWidth(Math.max(.9f*ui,r*.10f));
+        c.drawLine(x-r*.30f,y,x+r*.30f,y,stroke);
+      }else if(bit==BADGE_JEDI){
+        // Noble radiant star.
+        Path star=new Path();
+        for(int i=0;i<10;i++){
+          double a=-Math.PI/2+i*Math.PI/5;float rr=(i&1)==0?r*.68f:r*.28f;
+          float px=x+(float)Math.cos(a)*rr,py=y+(float)Math.sin(a)*rr;
+          if(i==0)star.moveTo(px,py);else star.lineTo(px,py);
+        }
+        star.close();p.setColor(0xFFF8E7A2);c.drawPath(star,p);
+        p.setColor(0xFF5BB9FF);c.drawCircle(x,y,r*.16f,p);
+      }else{
+        // Sith victory: angular crimson crest.
+        Path crest=new Path();crest.moveTo(x,y-r*.72f);crest.lineTo(x+r*.60f,y+r*.52f);
+        crest.lineTo(x+r*.12f,y+r*.34f);crest.lineTo(x,y+r*.68f);crest.lineTo(x-r*.12f,y+r*.34f);
+        crest.lineTo(x-r*.60f,y+r*.52f);crest.close();
+        p.setColor(0xFFFFE7E8);c.drawPath(crest,p);
+        p.setColor(0xFFFF3D45);c.drawCircle(x,y+r*.05f,r*.13f,p);
+      }
+      stroke.setStrokeCap(Paint.Cap.BUTT);stroke.setStrokeJoin(Paint.Join.MITER);
     }
 
     void drawTeamBadges(Canvas c,RectF rr,int team,float ui,GameRenderer r){
       int mask=badgeMaskForTeam(team,r);if(mask==0)return;
       int[] bits={BADGE_CLEAN,BADGE_SPEED,BADGE_COMBO,BADGE_SITH_TRIAL,BADGE_NORMAL,BADGE_JEDI,BADGE_SITH};
       int total=Integer.bitCount(mask),shown=0;
-      float rad=7.2f*ui,gap=4.0f*ui;
-      float x=rr.left+12*ui+rad,y=rr.bottom-10.5f*ui;
+      float rad=6.45f*ui,gap=3.8f*ui;
+      float x=rr.left+11*ui+rad,y=rr.bottom-8.2f*ui;
       for(int bit:bits){
         if((mask&bit)==0)continue;
         if(shown>=4)break;
@@ -2571,8 +2616,7 @@ public class MainActivity extends Activity {
           new int[]{0xFFFFFFFF,accent,0xFF0A0E14},new float[]{0,.48f,1f},Shader.TileMode.CLAMP));
         p.setShadowLayer(5*ui,0,0,(accent&0x00FFFFFF)|0xAA000000);c.drawCircle(x,y,rad,p);p.clearShadowLayer();p.setShader(null);
         stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.2f*ui);stroke.setColor(0xFFE8EDF5);c.drawCircle(x,y,rad,stroke);
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize((bit==BADGE_COMBO?5.3f:5.8f)*ui);p.setColor(0xFF071018);
-        c.drawText(badgeGlyph(bit),x,y+2.0f*ui,p);
+        drawBadgeIcon(c,x,y,rad*.74f,bit,ui);
         x+=rad*2+gap;shown++;
       }
       if(total>shown){
