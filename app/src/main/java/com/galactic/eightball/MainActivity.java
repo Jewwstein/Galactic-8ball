@@ -2733,7 +2733,7 @@ public class MainActivity extends Activity {
       // corner pocket on opposing figure-8 paths. They stay decorative/non-physical.
       dogfightClock+=dt;
       float t=dogfightClock;
-      float[][] corners={{-40f,-19f},{40f,-19f},{-40f,19f},{40f,19f}};
+      float[][] corners={{-40f,-19f},{40f,-19f},{-40f,19f},{40f,19f},{0f,-19f},{0f,19f}};
       for(int c=0;c<corners.length;c++){
         float phase=c*1.37f;
         float q=t*.62f+phase;
@@ -2755,7 +2755,7 @@ public class MainActivity extends Activity {
 
         float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
-        android.opengl.Matrix.scaleM(X,0,3.2f,3.2f,3.2f);
+        // The extracted X-Wing mesh is authored much wider than it is thick; compensate\n        // its local axes so it reads as a volumetric fighter instead of a flat sprite.\n        android.opengl.Matrix.scaleM(X,0,3.2f,5.1f,3.2f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
