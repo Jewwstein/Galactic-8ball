@@ -30,6 +30,10 @@ import okhttp3.*;
 
 public class MainActivity extends Activity {
   static final String DEFAULT_SERVER_URL="https://galactic-8ball-server.onrender.com";
+  static final String UPDATE_API_URL="https://api.github.com/repos/Jewwstein/Galactic-8ball/releases/latest";
+  static final String PERMANENT_APK_URL="https://github.com/Jewwstein/Galactic-8ball/releases/latest/download/Galactic-8-Ball-Latest.apk";
+  static final String UPDATE_PREFS="galactic_updater";
+  static final String APK_MIME="application/vnd.android.package-archive";
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
@@ -40,6 +44,9 @@ public class MainActivity extends Activity {
   Button continueButton;
   boolean showingTable=false;
   boolean offlineSinglePlayer=false;
+  boolean updateCheckStarted=false,updateDialogShowing=false;
+  long pendingUpdateDownloadId=-1L;
+  BroadcastReceiver updateDownloadReceiver;
 
   public void onCreate(Bundle b){
     super.onCreate(b);
@@ -81,11 +88,211 @@ public class MainActivity extends Activity {
 
     setContentView(appRoot);
     showHomeScreen();
+    setupAutoUpdater();
+    new Handler(Looper.getMainLooper()).postDelayed(this::checkForAppUpdate,1200);
     // Trigger 8 is the app's signature launch/UI transition cue.
     new Handler(Looper.getMainLooper()).postDelayed(()->{
       if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.uiTransition();
       if(saberBezel!=null)saberBezel.pulse(0xFF7BE8FF,1f);
     },260);
+  }
+
+  void setupAutoUpdater(){
+    android.content.SharedPreferences p=getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE);
+    pendingUpdateDownloadId=p.getLong("download_id",-1L);
+    updateDownloadReceiver=new BroadcastReceiver(){
+      @Override public void onReceive(Context context,Intent intent){
+        if(!android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(intent.getAction()))return;
+        long id=intent.getLongExtra(android.app.DownloadManager.EXTRA_DOWNLOAD_ID,-1L);
+        if(id>0&&id==pendingUpdateDownloadId)maybeInstallDownloadedUpdate(id);
+      }
+    };
+    IntentFilter filter=new IntentFilter(android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+    if(Build.VERSION.SDK_INT>=33)registerReceiver(updateDownloadReceiver,filter,Context.RECEIVER_EXPORTED);
+    else registerReceiver(updateDownloadReceiver,filter);
+  }
+
+  void checkForAppUpdate(){
+    if(updateCheckStarted)return;
+    updateCheckStarted=true;
+    OkHttpClient client=new OkHttpClient.Builder()
+      .connectTimeout(10,java.util.concurrent.TimeUnit.SECONDS)
+      .readTimeout(15,java.util.concurrent.TimeUnit.SECONDS)
+      .build();
+    Request req=new Request.Builder()
+      .url(UPDATE_API_URL)
+      .header("Accept","application/vnd.github+json")
+      .header("User-Agent","Galactic-8-Ball-Updater")
+      .build();
+    client.newCall(req).enqueue(new Callback(){
+      @Override public void onFailure(Call call,IOException e){/* Update checks fail silently when offline. */}
+      @Override public void onResponse(Call call,Response response)throws IOException{
+        try(Response r=response){
+          if(!r.isSuccessful()||r.body()==null)return;
+          String json=r.body().string();
+          org.json.JSONObject obj=new org.json.JSONObject(json);
+          String body=obj.optString("body","");
+          int latestCode=parseReleaseInt(body,"VersionCode");
+          String latestName=parseReleaseValue(body,"VersionName");
+          if(latestCode<=BuildConfig.VERSION_CODE)return;
+          if(latestName.isEmpty())latestName=obj.optString("tag_name","new build");
+          final int code=latestCode;
+          final String name=latestName;
+          runOnUiThread(()->showUpdateAvailable(code,name));
+        }catch(Exception ignored){}
+      }
+    });
+  }
+
+  int parseReleaseInt(String body,String key){
+    String v=parseReleaseValue(body,key);
+    try{return Integer.parseInt(v.trim());}catch(Exception ignored){return -1;}
+  }
+
+  String parseReleaseValue(String body,String key){
+    if(body==null)return "";
+    String prefix=key+":";
+    for(String line:body.split("\\r?\\n")){
+      String t=line.trim();
+      if(t.regionMatches(true,0,prefix,0,prefix.length()))return t.substring(prefix.length()).trim();
+    }
+    return "";
+  }
+
+  void showUpdateAvailable(int latestCode,String latestName){
+    if(isFinishing()||updateDialogShowing)return;
+    updateDialogShowing=true;
+    new AlertDialog.Builder(this)
+      .setTitle("Galactic 8-Ball Update Available")
+      .setMessage("Version "+latestName+" is ready. Download and install the newest test build now?")
+      .setCancelable(true)
+      .setPositiveButton("DOWNLOAD UPDATE",(d,w)->{
+        updateDialogShowing=false;
+        requestUpdateDownload(latestName);
+      })
+      .setNegativeButton("LATER",(d,w)->updateDialogShowing=false)
+      .setOnCancelListener(d->updateDialogShowing=false)
+      .show();
+  }
+
+  boolean canInstallPackages(){
+    return Build.VERSION.SDK_INT<26||getPackageManager().canRequestPackageInstalls();
+  }
+
+  void requestUpdateDownload(String versionName){
+    android.content.SharedPreferences p=getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE);
+    if(!canInstallPackages()){
+      p.edit().putBoolean("download_after_permission",true).putString("pending_version",versionName).apply();
+      new AlertDialog.Builder(this)
+        .setTitle("Allow Galactic Updates")
+        .setMessage("Android needs one-time permission for Galactic 8-Ball to install its own APK updates. Turn on “Allow from this source,” then return to the game.")
+        .setPositiveButton("OPEN SETTINGS",(d,w)->{
+          try{
+            Intent i=new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+              android.net.Uri.parse("package:"+getPackageName()));
+            startActivity(i);
+          }catch(Exception e){
+            Toast.makeText(this,"Open Android Settings and allow installs from Galactic 8-Ball.",Toast.LENGTH_LONG).show();
+          }
+        })
+        .setNegativeButton("NOT NOW",null)
+        .show();
+      return;
+    }
+    beginUpdateDownload(versionName);
+  }
+
+  void beginUpdateDownload(String versionName){
+    try{
+      android.app.DownloadManager dm=(android.app.DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+      android.app.DownloadManager.Request req=new android.app.DownloadManager.Request(android.net.Uri.parse(PERMANENT_APK_URL));
+      req.setTitle("Galactic 8-Ball "+versionName);
+      req.setDescription("Downloading game update");
+      req.setMimeType(APK_MIME);
+      req.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+      String safe=(versionName==null?"update":versionName).replaceAll("[^A-Za-z0-9._-]","_");
+      req.setDestinationInExternalFilesDir(this,android.os.Environment.DIRECTORY_DOWNLOADS,
+        "Galactic-8-Ball-"+safe+".apk");
+      pendingUpdateDownloadId=dm.enqueue(req);
+      getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE).edit()
+        .putLong("download_id",pendingUpdateDownloadId)
+        .remove("download_after_permission")
+        .remove("pending_version")
+        .apply();
+      Toast.makeText(this,"Galactic 8-Ball update downloading…",Toast.LENGTH_LONG).show();
+    }catch(Exception e){
+      Toast.makeText(this,"Could not start the update download.",Toast.LENGTH_LONG).show();
+    }
+  }
+
+  void maybeInstallDownloadedUpdate(long id){
+    if(id<=0)return;
+    try{
+      android.app.DownloadManager dm=(android.app.DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+      android.app.DownloadManager.Query q=new android.app.DownloadManager.Query().setFilterById(id);
+      try(android.database.Cursor cur=dm.query(q)){
+        if(cur==null||!cur.moveToFirst())return;
+        int status=cur.getInt(cur.getColumnIndexOrThrow(android.app.DownloadManager.COLUMN_STATUS));
+        if(status==android.app.DownloadManager.STATUS_FAILED){
+          clearPendingUpdateDownload();
+          Toast.makeText(this,"Update download failed. Try again next time you open the game.",Toast.LENGTH_LONG).show();
+          return;
+        }
+        if(status!=android.app.DownloadManager.STATUS_SUCCESSFUL)return;
+      }
+      if(!canInstallPackages()){
+        getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE).edit()
+          .putBoolean("install_after_permission",true)
+          .putLong("download_id",id)
+          .apply();
+        Intent settings=new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+          android.net.Uri.parse("package:"+getPackageName()));
+        startActivity(settings);
+        return;
+      }
+      android.net.Uri uri=dm.getUriForDownloadedFile(id);
+      if(uri==null)return;
+      clearPendingUpdateDownload();
+      Intent install=new Intent(Intent.ACTION_VIEW);
+      install.setDataAndType(uri,APK_MIME);
+      install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_ACTIVITY_NEW_TASK);
+      startActivity(install);
+    }catch(Exception e){
+      Toast.makeText(this,"Android could not open the downloaded update.",Toast.LENGTH_LONG).show();
+    }
+  }
+
+  void clearPendingUpdateDownload(){
+    pendingUpdateDownloadId=-1L;
+    getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE).edit()
+      .remove("download_id")
+      .remove("install_after_permission")
+      .apply();
+  }
+
+  @Override protected void onResume(){
+    super.onResume();
+    android.content.SharedPreferences p=getSharedPreferences(UPDATE_PREFS,MODE_PRIVATE);
+    if(p.getBoolean("download_after_permission",false)&&canInstallPackages()){
+      String v=p.getString("pending_version","update");
+      p.edit().remove("download_after_permission").remove("pending_version").apply();
+      beginUpdateDownload(v);
+      return;
+    }
+    long id=p.getLong("download_id",-1L);
+    if(id>0&&p.getBoolean("install_after_permission",false)&&canInstallPackages()){
+      pendingUpdateDownloadId=id;
+      p.edit().remove("install_after_permission").apply();
+      maybeInstallDownloadedUpdate(id);
+    }
+  }
+
+  @Override protected void onDestroy(){
+    if(updateDownloadReceiver!=null){
+      try{unregisterReceiver(updateDownloadReceiver);}catch(Exception ignored){}
+      updateDownloadReceiver=null;
+    }
+    super.onDestroy();
   }
 
   int dp(float v){
