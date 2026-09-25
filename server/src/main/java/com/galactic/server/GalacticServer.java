@@ -61,6 +61,10 @@ public class GalacticServer {
         ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,"text/plain");
         ex.getResponseSender().send("Galactic 8-Ball server OK");
       })
+      .addExactPath("/play",ex->sendWebResource(ex,"/web/index.html","text/html; charset=utf-8"))
+      .addExactPath("/play/",ex->sendWebResource(ex,"/web/index.html","text/html; charset=utf-8"))
+      .addExactPath("/play/manifest.webmanifest",ex->sendWebResource(ex,"/web/manifest.webmanifest","application/manifest+json; charset=utf-8"))
+      .addExactPath("/play/icon.svg",ex->sendWebResource(ex,"/web/icon.svg","image/svg+xml; charset=utf-8"))
       .addPrefixPath("/ws",ws)
       .addPrefixPath("/",ex->{
         ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,"text/plain");
@@ -76,6 +80,22 @@ public class GalacticServer {
     },0,4_166_667,TimeUnit.NANOSECONDS);
 
     System.out.println("Galactic 8-Ball server listening on "+port);
+  }
+
+  static void sendWebResource(io.undertow.server.HttpServerExchange ex,String resource,String contentType){
+    try(InputStream in=GalacticServer.class.getResourceAsStream(resource)){
+      if(in==null){
+        ex.setStatusCode(404);
+        ex.getResponseSender().send("Not found");
+        return;
+      }
+      ex.getResponseHeaders().put(io.undertow.util.Headers.CONTENT_TYPE,contentType);
+      ex.getResponseHeaders().put(io.undertow.util.Headers.CACHE_CONTROL,"no-store");
+      ex.getResponseSender().send(new String(in.readAllBytes(),StandardCharsets.UTF_8));
+    }catch(Exception e){
+      ex.setStatusCode(500);
+      ex.getResponseSender().send("Web client unavailable");
+    }
   }
 
   static void handle(Client c,String msg){
