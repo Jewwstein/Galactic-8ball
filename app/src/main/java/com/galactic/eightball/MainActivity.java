@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
   TextView homeStatus, lobbyStatus;
   Button continueButton;
   boolean showingTable=false;
+  boolean offlineSinglePlayer=false;
 
   public void onCreate(Bundle b){
     super.onCreate(b);
@@ -305,6 +306,10 @@ public class MainActivity extends Activity {
     });
     card.addView(continueButton);
 
+    Button offline=homeButton("Play offline vs Galactic AI");
+    offline.setOnClickListener(v->startSinglePlayer(true));
+    card.addView(offline);
+
     Button login=homeButton("Log in");
     login.setOnClickListener(v->openAuthFromHome(false));
     card.addView(login);
@@ -314,7 +319,7 @@ public class MainActivity extends Activity {
     card.addView(create);
 
     TextView foot=new TextView(this);
-    foot.setText("Sign in first. Authentication takes you to the Galactic lobby.");
+    foot.setText("No account or internet required for Galactic AI. Sign in only when you want online rooms and friends.");
     foot.setTextColor(Color.rgb(120,137,164));
     foot.setTextSize(12);
     foot.setGravity(Gravity.CENTER);
@@ -338,7 +343,7 @@ public class MainActivity extends Activity {
     if(hasToken){
       homeStatus.setText("GALACTIC NETWORK ONLINE\nSaved account: "+(user.isEmpty()?"Galactic player":user));
     }else{
-      homeStatus.setText("GALACTIC NETWORK ONLINE\nLog in or create an account to enter the Galactic lobby.");
+      homeStatus.setText("OFFLINE PLAY READY\nPlay Galactic AI now, or sign in for online rooms.");
     }
 
     if(continueButton!=null){
@@ -419,7 +424,7 @@ public class MainActivity extends Activity {
     card.addView(create);
 
     Button ai=homeButton("Single player vs AI");
-    ai.setOnClickListener(v->startSinglePlayer());
+    ai.setOnClickListener(v->startSinglePlayer(false));
     card.addView(ai);
 
     Button logout=homeButton("Log out");
@@ -453,6 +458,7 @@ public class MainActivity extends Activity {
   }
 
   void showLobbyScreen(){
+    offlineSinglePlayer=false;
     showingTable=false;
     if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
@@ -462,18 +468,30 @@ public class MainActivity extends Activity {
   }
 
   void startSinglePlayer(){
+    startSinglePlayer(false);
+  }
+
+  void startSinglePlayer(boolean offline){
     if(multiplayer!=null&&multiplayer.inRoom){
       Toast.makeText(this,"Leave the online room before starting single player.",Toast.LENGTH_LONG).show();
       return;
     }
+
+    offlineSinglePlayer=offline;
+
+    // Offline play never attempts login, room discovery, or any server action.
+    // A saved account/token remains untouched so the player can go online later.
     game.queueEvent(()->{
       game.r.aiEnabled=true;
       game.r.aiThinking=false;
       game.r.resetRack();
-      game.r.ruleMessage="SINGLE PLAYER • YOU BREAK";
+      game.r.ruleMessage=offline?"OFFLINE • YOU BREAK":"SINGLE PLAYER • YOU BREAK";
     });
     showGameScreen();
-    Toast.makeText(this,"Single player started. You are Team 1; Galactic AI is Team 2.",Toast.LENGTH_LONG).show();
+    Toast.makeText(this,
+      offline?"Offline Galactic AI started. No account or internet required.":
+              "Single player started. You are Team 1; Galactic AI is Team 2.",
+      Toast.LENGTH_LONG).show();
   }
 
   void showGameScreen(){
@@ -551,8 +569,10 @@ public class MainActivity extends Activity {
     if(multiplayer==null)return;
 
     if(game!=null&&game.r!=null&&game.r.aiEnabled){
+      boolean returnHome=offlineSinglePlayer || multiplayer==null || !multiplayer.authenticated;
       game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;game.r.resetRack();});
-      showLobbyScreen();
+      offlineSinglePlayer=false;
+      if(returnHome)showHomeScreen();else showLobbyScreen();
       return;
     }
 
@@ -1317,8 +1337,9 @@ public class MainActivity extends Activity {
       drawPremiumButton(c,rackRect,"NEW RACK","RESET TABLE",ui,0xFFFF6B55,false);
       drawPremiumButton(c,activeShooterRect,"ACTIVE SHOOTER","PLAYER "+r.activeShooter,ui,0xFFF4C542,r.localCanControl());
       drawPremiumButton(c,teamSwitchRect,"TEAM SWITCH","TEAM "+r.currentTeam,ui,r.currentTeam==1?0xFF66B7FF:0xFFFF7979,false);
-      String title=r.aiEnabled?"BACK TO LOBBY":(net!=null&&net.inRoom?"LEAVE MATCH":"GALACTIC LOBBY");
-      String sub=r.aiEnabled?"EXIT SINGLE PLAYER":mp;
+      boolean offlineAi=r.aiEnabled&&getContext() instanceof MainActivity&&((MainActivity)getContext()).offlineSinglePlayer;
+      String title=r.aiEnabled?(offlineAi?"BACK TO HOME":"BACK TO LOBBY"):(net!=null&&net.inRoom?"LEAVE MATCH":"GALACTIC LOBBY");
+      String sub=r.aiEnabled?(offlineAi?"EXIT OFFLINE GAME":"EXIT SINGLE PLAYER"):mp;
       drawPremiumButton(c,multiplayerRect,title,sub,ui,0xFF65E4A5,r.aiEnabled||(net!=null&&net.isConnected()));
     }
 
