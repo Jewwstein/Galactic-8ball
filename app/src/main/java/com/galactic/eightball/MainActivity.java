@@ -2760,7 +2760,7 @@ public class MainActivity extends Activity {
 
         float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
-        // The extracted X-Wing mesh is authored much wider than it is thick; compensate\n        // its local axes so it reads as a volumetric fighter instead of a flat sprite.\n        android.opengl.Matrix.scaleM(X,0,3.2f,5.1f,3.2f);
+        // Preserve the PapaX007 AssetBundle's native dimensions and apply the\n        // exact TTS dogfight scale used in Galactic 8-Ball v2.\n        android.opengl.Matrix.scaleM(X,0,.035f,.035f,.035f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
