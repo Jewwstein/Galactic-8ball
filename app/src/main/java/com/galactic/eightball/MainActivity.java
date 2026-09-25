@@ -2760,7 +2760,7 @@ public class MainActivity extends Activity {
 
         float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
-        // Full merged X-Wing is normalized as one complete model. Use the same\n        // overall visual size as the first four-corner Android dogfight test.\n        android.opengl.Matrix.scaleM(X,0,6.4f,6.4f,6.4f);
+        // Full merged X-Wing is normalized as one complete model. Use the same\n        // overall visual size as the first four-corner Android dogfight test.\n        android.opengl.Matrix.scaleM(X,0,18.0f,18.0f,18.0f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
