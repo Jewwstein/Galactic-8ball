@@ -1792,15 +1792,27 @@ public class MainActivity extends Activity {
       // HUD only supplies the touch target, subtle track, and power readout.
       boolean portrait=h>w;
       float baseW=(portrait?154:198)*ui,baseH=(portrait?104:122)*ui;
-      float cx=w-(portrait?96:136)*ui;
-      float baseCy=Math.max((portrait?132:142)*ui,h*(portrait?.36f:.39f));
-      float maxTravel=Math.max((portrait?230:190)*ui,h*(portrait?.46f:.50f));
+
+      // Keep the visual hilt and its touch geometry in the same screen-space
+      // lane. The previous HUD rectangle sat above part of the OpenGL hilt,
+      // which is why only the top portion reliably began a pull.
+      float cx=w*(portrait?.77f:.84f);
+      float baseCy=h*(portrait?.58f:.56f);
+      float maxTravel=Math.max((portrait?210:175)*ui,h*(portrait?.34f:.36f));
       float travel=Math.min(maxTravel,r.chargePullPx);
       float cy=baseCy+travel;
-      thumbHiltRect.set(cx-baseW*.5f,cy-baseH*.58f,cx+baseW*.5f,cy+baseH*.58f);
-      thumbGrabRect.set(cx-baseW*.80f,cy-baseH*.86f,cx+baseW*.80f,cy+baseH*.86f);
 
-      float trackTop=baseCy-94*ui,trackBottom=Math.min(h-16*ui,baseCy+maxTravel);
+      // Visual bounds roughly follow the rendered hilt.
+      thumbHiltRect.set(cx-baseW*.48f,cy-baseH*.82f,cx+baseW*.48f,cy+baseH*.82f);
+
+      // The WHOLE hilt is a valid grab target, with generous padding around the
+      // middle and bottom. During CHARGING this right-side lane has no competing
+      // control, so being forgiving is preferable to pixel-perfect hit testing.
+      float grabHalfW=baseW*.64f;
+      float grabHalfH=baseH*1.34f;
+      thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
+
+      float trackTop=baseCy-baseH*1.48f,trackBottom=Math.min(h-14*ui,baseCy+maxTravel);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
@@ -1922,6 +1934,19 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.CHARGING){
+          // Refresh the thumb hilt's screen hitbox at touch time. This avoids a
+          // one-frame stale rectangle immediately after LOCK ENGLISH.
+          boolean portrait=h>w;
+          float tui=portrait
+            ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
+            : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
+          float baseW=(portrait?154:198)*tui,baseH=(portrait?104:122)*tui;
+          float tcx=w*(portrait?.77f:.84f);
+          float baseCy=h*(portrait?.58f:.56f);
+          float maxTravel=Math.max((portrait?210:175)*tui,h*(portrait?.34f:.36f));
+          float tcy=baseCy+Math.min(maxTravel,r.chargePullPx);
+          thumbGrabRect.set(tcx-baseW*.64f,tcy-baseH*1.34f,tcx+baseW*.64f,tcy+baseH*1.34f);
+
           if(thumbGrabRect.contains(x,y)){
             pullingThumbHilt=true;thumbPullStartY=y;
             game.queueEvent(()->r.beginWorldCharge());
@@ -2417,9 +2442,15 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.orthoM(O,0,-aspect,aspect,-1f,1f,-5f,5f);
 
       float pullNorm=Math.max(0f,Math.min(1f,power/100f));
-      float x=aspect*.675f;
-      float baseY=.10f;
-      float hiltTravel=.72f*pullNorm;
+      boolean portrait=surfaceH>surfaceW;
+
+      // Convert the desired HUD screen fractions into this orthographic overlay:
+      // screenX=(x/aspect+1)/2, screenY=(1-y)/2.
+      float screenX=portrait?.77f:.84f;
+      float screenY=portrait?.58f:.56f;
+      float x=aspect*(screenX*2f-1f);
+      float baseY=1f-screenY*2f;
+      float hiltTravel=(portrait?.66f:.72f)*pullNorm;
       float hiltY=baseY-hiltTravel;
       float hiltScale=.54f;
       float emitterAtRest=baseY+hiltScale*.52f;
@@ -3304,7 +3335,7 @@ public class MainActivity extends Activity {
       if(state!=CHARGING)return;
       chargePullPx=pullPx;
       chargePullWorld=pullPx/Math.max(10f,h*.055f);
-      power=Math.min(100f,pullPx/Math.max(120f,h*.50f)*100f);
+      power=Math.min(100f,pullPx/Math.max(140f,h*.36f)*100f);
     }
 
     void updateWorldCharge(float pullPx,int h){
