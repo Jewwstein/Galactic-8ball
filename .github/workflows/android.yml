@@ -95,6 +95,7 @@ jobs:
           python tools/make_launcher_icon.py
           python tools/extract_unity.py
           python tools/enhance_table_textures.py
+          python tools/enhance_falcon_texture.py
           python tools/extract_balls.py
           python tools/extract_sabers.py
           python tools/extract_audio.py
