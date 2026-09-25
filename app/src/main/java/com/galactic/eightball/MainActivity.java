@@ -1648,7 +1648,51 @@ public class MainActivity extends Activity {
 
     float dpv(float v){return v*getResources().getDisplayMetrics().density;}
 
-    void drawSaber(Canvas c,Bitmap hilt,Bitmap blade,float emitterX,float emitterY,float angle,float bladeLen,float bladeThick,int color){
+    void drawBezelRewardHilt(Canvas c,int hiltIndex,float emitterX,float emitterY,float bladeThick){
+      float hw=Math.max(dpv(58),bladeThick*5.2f),hh=Math.max(dpv(18),bladeThick*1.55f);
+      float left=emitterX-hw,right=emitterX+dpv(4),cy=emitterY,h=hh*.34f;
+      int accent;
+      switch(hiltIndex){
+        case 6:accent=0xFF66E38C;break;
+        case 7:accent=0xFFB9F4FF;break;
+        case 8:accent=0xFFC99A3A;break;
+        case 9:accent=0xFFFF4052;break;
+        case 10:accent=0xFFF3F5F7;break;
+        case 11:accent=0xFFFF3038;break;
+        default:accent=0xFFFFD45C;break;
+      }
+      int body=(hiltIndex==9||hiltIndex==11)?0xFF2B2D33:(hiltIndex==10?0xFFF2F4F6:0xFFBFC5CE);
+      int grip=hiltIndex==12?0xFF6B4A2C:0xFF171A20;
+      paint.setStyle(Paint.Style.FILL);
+      paint.setShader(new LinearGradient(left,cy-h,right,cy+h,
+        new int[]{0xFFF9FBFD,body,0xFF4C535D},null,Shader.TileMode.CLAMP));
+      c.drawRoundRect(new RectF(left+h*.7f,cy-h*.68f,right-h*.55f,cy+h*.68f),h*.55f,h*.55f,paint);
+      paint.setShader(null);
+      float gx1=left+(right-left)*.34f,gx2=left+(right-left)*.70f;
+      paint.setColor(grip);c.drawRoundRect(new RectF(gx1,cy-h*.75f,gx2,cy+h*.75f),h*.22f,h*.22f,paint);
+      glow.setStyle(Paint.Style.STROKE);glow.setStrokeWidth(Math.max(1f,bladeThick*.07f));glow.setColor(0xAA8D98A8);
+      for(int k=1;k<=4;k++){float xx=gx1+k*(gx2-gx1)/5f;c.drawLine(xx,cy-h*.70f,xx,cy+h*.70f,glow);}
+      paint.setColor(body);c.drawRoundRect(new RectF(left,cy-h*.88f,left+h*.82f,cy+h*.88f),h*.25f,h*.25f,paint);
+      c.drawRoundRect(new RectF(right-h*.90f,cy-h*.95f,right,cy+h*.95f),h*.25f,h*.25f,paint);
+      paint.setColor(accent);c.drawRect(right-h*.33f,cy-h*.70f,right-h*.16f,cy+h*.70f,paint);
+      if(hiltIndex==8){
+        paint.setColor(0xFFC99A3A);c.drawRoundRect(new RectF(gx1,cy-h*1.05f,gx1+(gx2-gx1)*.55f,cy-h*.62f),h*.10f,h*.10f,paint);
+      }else if(hiltIndex==9){
+        paint.setColor(0xFFD8D0C2);Path bone=new Path();float mx=(gx1+gx2)*.5f;
+        bone.moveTo(mx-h*.55f,cy);bone.lineTo(mx,cy-h*.70f);bone.lineTo(mx+h*.55f,cy);bone.lineTo(mx,cy+h*.70f);bone.close();c.drawPath(bone,paint);
+      }else if(hiltIndex==10){
+        paint.setColor(0xFFFF3948);c.drawCircle(gx1+h*.20f,cy,h*.12f,paint);
+      }else if(hiltIndex==11){
+        float ex=right-h*.78f;paint.setColor(0xFF34373D);
+        c.drawRoundRect(new RectF(ex-h*.15f,cy-h*1.55f,ex+h*.15f,cy+h*1.55f),h*.10f,h*.10f,paint);
+        paint.setColor(accent);c.drawRect(ex-h*.055f,cy-h*1.45f,ex+h*.055f,cy+h*1.45f,paint);
+      }else if(hiltIndex==12){
+        glow.setStrokeWidth(Math.max(1f,bladeThick*.10f));glow.setColor(0xFFD7B37A);
+        for(int k=0;k<5;k++){float xx=gx1+k*(gx2-gx1)/5f;c.drawLine(xx,cy-h*.65f,xx+h*.22f,cy+h*.65f,glow);}
+      }
+    }
+
+    void drawSaber(Canvas c,int hiltIndex,Bitmap hilt,Bitmap blade,float emitterX,float emitterY,float angle,float bladeLen,float bladeThick,int color){
       c.save();
       c.rotate(angle,emitterX,emitterY);
 
@@ -1670,6 +1714,8 @@ public class MainActivity extends Activity {
         float hh=Math.max(dpv(18),bladeThick*1.55f);
         RectF hr=new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f);
         c.drawBitmap(hilt,null,hr,paint);
+      }else if(hiltIndex>=BASE_HILT_COUNT){
+        drawBezelRewardHilt(c,hiltIndex,emitterX,emitterY,bladeThick);
       }
       c.restore();
     }
@@ -1680,7 +1726,7 @@ public class MainActivity extends Activity {
       int w=getWidth(),h=getHeight();
       if(w<=0||h<=0)return;
 
-      int hi=Math.max(0,Math.min(5,game.r.hiltIndex));
+      int hi=Math.max(0,Math.min(TOTAL_HILT_COUNT-1,game.r.hiltIndex));
       int bi=Math.max(0,Math.min(5,game.r.bladeIndex));
 
       int active=0;
@@ -1690,7 +1736,7 @@ public class MainActivity extends Activity {
       if(lastActiveCount>=0&&active<lastActiveCount)pulse(0xFFFFC54A,.92f);
       if(!lastGameOver&&game.r.gameOver)pulse(0xFFFFFFFF,1f);
       lastState=game.r.state;lastTeam=game.r.currentTeam;lastActiveCount=active;lastGameOver=game.r.gameOver;
-      Bitmap hilt=hilts[hi],blade=blades[bi];
+      Bitmap hilt=hi<BASE_HILT_COUNT?hilts[hi]:null,blade=blades[bi];
       int color=bladeColors[bi];
 
       float edge=dpv(8);
@@ -1703,8 +1749,8 @@ public class MainActivity extends Activity {
       float horizontalHiltInset=corner;
       float horizontalBladeExtra=Math.max(dpv(22),corner*.46f);
       float horizontalBladeLen=w-(edge+horizontalHiltInset)*2+horizontalBladeExtra;
-      drawSaber(c,hilt,blade,edge+horizontalHiltInset,edge+thick*.45f,0,horizontalBladeLen,thick,color);
-      drawSaber(c,hilt,blade,w-edge-horizontalHiltInset,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
+      drawSaber(c,hi,hilt,blade,edge+horizontalHiltInset,edge+thick*.45f,0,horizontalBladeLen,thick,color);
+      drawSaber(c,hi,hilt,blade,w-edge-horizontalHiltInset,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
 
       // Split each tall side rail into TWO shorter sabers instead of one
       // stretched blade. Opposing blades meet near the screen midpoint.
@@ -1712,12 +1758,12 @@ public class MainActivity extends Activity {
       float sideLen=Math.max(dpv(28),(h*.5f)-(edge+corner)-sideGap*.5f);
 
       // Left side: one saber from the top down, one from the bottom up.
-      drawSaber(c,hilt,blade,edge+thick*.45f,edge+corner,90,sideLen,thick,color);
-      drawSaber(c,hilt,blade,edge+thick*.45f,h-edge-corner,-90,sideLen,thick,color);
+      drawSaber(c,hi,hilt,blade,edge+thick*.45f,edge+corner,90,sideLen,thick,color);
+      drawSaber(c,hi,hilt,blade,edge+thick*.45f,h-edge-corner,-90,sideLen,thick,color);
 
       // Right side mirrors the left.
-      drawSaber(c,hilt,blade,w-edge-thick*.45f,edge+corner,90,sideLen,thick,color);
-      drawSaber(c,hilt,blade,w-edge-thick*.45f,h-edge-corner,-90,sideLen,thick,color);
+      drawSaber(c,hi,hilt,blade,w-edge-thick*.45f,edge+corner,90,sideLen,thick,color);
+      drawSaber(c,hi,hilt,blade,w-edge-thick*.45f,h-edge-corner,-90,sideLen,thick,color);
 
       // Reactive energy wash: UI transitions, aim/charge state changes, pocketed
       // balls, turn changes and match-over all briefly energize the existing bezel.
@@ -3225,6 +3271,8 @@ public class MainActivity extends Activity {
     volatile float chargePullPx=0,chargePullWorld=0;
     volatile int microAimHoldSign=0;
     boolean breakAssistArmed=true;
+    boolean englishObjectApplied=false;
+    int englishRailCooldown=0;
     Mesh dogfightXWing,dogfightTie,dogfightBolt;
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
@@ -4134,7 +4182,36 @@ public class MainActivity extends Activity {
         }
         public void endContact(org.jbox2d.dynamics.contacts.Contact c){}
         public void preSolve(org.jbox2d.dynamics.contacts.Contact c,org.jbox2d.collision.Manifold m){}
-        public void postSolve(org.jbox2d.dynamics.contacts.Contact c,org.jbox2d.callbacks.ContactImpulse i){}
+        public void postSolve(org.jbox2d.dynamics.contacts.Contact c,org.jbox2d.callbacks.ContactImpulse impulse){
+          if(state!=ROLLING||balls.isEmpty())return;
+          Object ua=c.getFixtureA().getBody().getUserData(),ub=c.getFixtureB().getBody().getUserData();
+          Ball cue=balls.get(0),other=null;
+          boolean cueA=ua==cue,cueB=ub==cue;
+          if(!cueA&&!cueB)return;
+          Object otherData=cueA?ub:ua;
+          if(otherData instanceof Ball)other=(Ball)otherData;
+          Vec2 v=cue.body==null?null:cue.body.getLinearVelocity();
+          if(v==null)return;
+          float speed=(float)Math.sqrt(v.x*v.x+v.y*v.y);if(speed<.08f)return;
+
+          if(other!=null&&!englishObjectApplied){
+            englishObjectApplied=true;
+            float nx=other.x-cue.x,nz=other.z-cue.z,nd=(float)Math.sqrt(nx*nx+nz*nz);
+            if(nd>.001f){nx/=nd;nz/=nd;}
+            float tx=v.x, tz=v.y;
+            // Follow/draw changes cue continuation after object-ball impact.
+            tx+=nx*(topSpin*speed*.34f);tz+=nz*(topSpin*speed*.34f);
+            float a=(float)Math.toRadians(sideSpin*7.0f),cs=(float)Math.cos(a),sn=(float)Math.sin(a);
+            float rx=tx*cs-tz*sn,rz=tx*sn+tz*cs;
+            cue.body.setLinearVelocity(new Vec2(rx,rz));
+          }else if(other==null&&englishRailCooldown<=0&&Math.abs(sideSpin)>.002f){
+            englishRailCooldown=12;
+            // Cushion throw from side English: rotate the solver's outgoing velocity.
+            float a=(float)Math.toRadians(sideSpin*6.0f),cs=(float)Math.cos(a),sn=(float)Math.sin(a);
+            float rx=v.x*cs-v.y*sn,rz=v.x*sn+v.y*cs;
+            cue.body.setLinearVelocity(new Vec2(rx,rz));
+          }
+        }
       });
       BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
 
@@ -5005,7 +5082,7 @@ public class MainActivity extends Activity {
       float androidScale=.60f+.18f*pn*pn;
       float speed=power*1.65f*1.25f*androidScale;
       cue.spin=englishX*speed*.06f;
-      sideSpin=englishX;topSpin=englishY;
+      sideSpin=englishX;topSpin=englishY;englishObjectApplied=false;englishRailCooldown=0;
       if(cue.body!=null){
         cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
         cue.body.setAwake(true);
@@ -5086,6 +5163,7 @@ public class MainActivity extends Activity {
         int loops=0;
         while(physicsAccum>=FIXED_DT&&loops<32){
           world.step(FIXED_DT,30,12);
+          if(englishRailCooldown>0)englishRailCooldown--;
           syncBodies();
           for(int i=0;i<balls.size();i++)checkPocket(i,balls.get(i));
           advanceSinks(FIXED_DT);
@@ -5208,9 +5286,9 @@ public class MainActivity extends Activity {
       if(disc<0)return Float.POSITIVE_INFINITY;
       float root=(float)Math.sqrt(disc);
       float t=-b-root;
-      if(t>.045f)return t;
+      if(t>.012f)return t;
       t=-b+root;
-      return t>.045f?t:Float.POSITIVE_INFINITY;
+      return t>.012f?t:Float.POSITIVE_INFINITY;
     }
 
     PredictorRailHit predictorCapsuleHit(float x,float z,float dx,float dz,float[] e,float radius){
@@ -5225,7 +5303,7 @@ public class MainActivity extends Activity {
       if(Math.abs(dv)>.00001f){
         for(int side=-1;side<=1;side+=2){
           float t=(side*radius-d0)/dv;
-          if(t>.045f&&t<best){
+          if(t>.012f&&t<best){
             float px=x+dx*t,pz=z+dz*t;
             float along=(px-ax)*tx+(pz-az)*tz;
             if(along>=0&&along<=len){
@@ -5252,7 +5330,9 @@ public class MainActivity extends Activity {
 
     PredictorRailHit predictorRailHit(float x,float z,float dx,float dz){
       PredictorRailHit best=null;
-      float radius=PHYS_R*1.002f;
+      // Match the live circle fixture center-path clearance.  The tiny skin avoids
+      // guides visually entering a jaw before the JBox2D circle would contact it.
+      float radius=PHYS_R+.010f;
       for(float[] e:predictorRails){
         PredictorRailHit h=predictorCapsuleHit(x,z,dx,dz,e,radius);
         if(h!=null&&(best==null||h.t<best.t))best=h;
@@ -5265,11 +5345,20 @@ public class MainActivity extends Activity {
     }
 
     float predictorPocketT(float x,float z,float dx,float dz){
-      // Match the game's real pocket acceptance test rather than treating the
-      // table as a rectangle. Fine stepping is only used through the pocket/jaw
-      // zone and keeps the visual line consistent with checkPocket().
-      for(float t=.12f;t<=95f;t+=.12f){
-        if(predictorPocketAt(x+dx*t,z+dz*t))return t;
+      // Detect the same arcade-pocket boundary used by live physics, then binary
+      // refine the first entry point.  The old .12-unit quantization was visible
+      // at corner jaws and close side-rail shots.
+      float previous=0f;
+      for(float t=.04f;t<=95f;t+=.06f){
+        if(predictorPocketAt(x+dx*t,z+dz*t)){
+          float lo=previous,hi=t;
+          for(int i=0;i<8;i++){
+            float mid=(lo+hi)*.5f;
+            if(predictorPocketAt(x+dx*mid,z+dz*mid))hi=mid;else lo=mid;
+          }
+          return hi;
+        }
+        previous=t;
       }
       return Float.POSITIVE_INFINITY;
     }
@@ -5312,7 +5401,22 @@ public class MainActivity extends Activity {
       return new float[]{ox/m,oz/m};
     }
 
-    void drawPredictorFreePath(float[] pv,float x,float z,float dx,float dz,int blade,int maxBanks){
+    float[] predictorRotate(float dx,float dz,float radians){
+      float cs=(float)Math.cos(radians),sn=(float)Math.sin(radians);
+      float x=dx*cs-dz*sn,z=dx*sn+dz*cs;
+      float n=(float)Math.sqrt(x*x+z*z);
+      return n>.00001f?new float[]{x/n,z/n}:new float[]{dx,dz};
+    }
+
+    float[] predictorRailBounceWithEnglish(float dx,float dz,float nx,float nz,boolean cueEnglish){
+      float[] out=predictorRailBounce(dx,dz,nx,nz);
+      if(!cueEnglish||Math.abs(englishX)<.002f)return out;
+      // Side English produces cushion throw.  Full left/right English shifts the
+      // visual and live bank by about six degrees; zero English is unchanged.
+      return predictorRotate(out[0],out[1],(float)Math.toRadians(englishX*6.0f));
+    }
+
+    void drawPredictorFreePath(float[] pv,float x,float z,float dx,float dz,int blade,int maxBanks,boolean cueEnglish){
       float n=(float)Math.sqrt(dx*dx+dz*dz);if(n<.0001f)return;dx/=n;dz/=n;
       for(int bank=0;bank<=maxBanks;bank++){
         PredictorRailHit rail=predictorRailHit(x,z,dx,dz);
@@ -5331,9 +5435,9 @@ public class MainActivity extends Activity {
 
         float ex=x+dx*rail.t,ez=z+dz*rail.t;
         drawSaberSegment(pv,x,z,ex,ez,blade);
-        float[] bounce=predictorRailBounce(dx,dz,rail.nx,rail.nz);
+        float[] bounce=predictorRailBounceWithEnglish(dx,dz,rail.nx,rail.nz,cueEnglish);
         dx=bounce[0];dz=bounce[1];
-        x=ex+dx*.08f;z=ez+dz*.08f;
+        x=ex+dx*.025f;z=ez+dz*.025f;
         blade=predictorAltBlade(bank+3);
       }
     }
@@ -5369,14 +5473,20 @@ public class MainActivity extends Activity {
           // by physics, so a jaw hit is shown as a jaw hit rather than a pocket.
           float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);
           if(nd>.0001f){nx/=nd;nz/=nd;}
-          drawPredictorFreePath(pv,hit.x,hit.z,nx,nz,predictorAltBlade(2),2);
+          drawPredictorFreePath(pv,hit.x,hit.z,nx,nz,predictorAltBlade(2),2,false);
 
-          // Cue-ball tangent after the collision, also traced against exact rails.
+          // Cue-ball continuation after impact includes the live English selection.
+          // Top = follow through the object-ball normal, bottom = draw back from it,
+          // while left/right English throws the continuation sideways.
           float dot=dx*nx+dz*nz,cx=dx-dot*nx,cz=dz-dot*nz;
+          float follow=englishY*.72f;
+          cx+=nx*follow;cz+=nz*follow;
           float cd=(float)Math.sqrt(cx*cx+cz*cz);
-          if(cd>.06f){
+          if(cd>.035f){
             cx/=cd;cz/=cd;
-            drawPredictorFreePath(pv,ex+cx*.08f,ez+cz*.08f,cx,cz,predictorAltBlade(4),1);
+            float[] englishDir=predictorRotate(cx,cz,(float)Math.toRadians(englishX*7.0f));
+            cx=englishDir[0];cz=englishDir[1];
+            drawPredictorFreePath(pv,ex+cx*.025f,ez+cz*.025f,cx,cz,predictorAltBlade(4),2,true);
           }
           return;
         }
@@ -5397,9 +5507,9 @@ public class MainActivity extends Activity {
 
         // Bounce from the exact cushion/jaw normal using the same restitution /
         // friction behavior as the live JBox2D contact instead of a perfect mirror.
-        float[] bounce=predictorRailBounce(dx,dz,rail.nx,rail.nz);
+        float[] bounce=predictorRailBounceWithEnglish(dx,dz,rail.nx,rail.nz,true);
         dx=bounce[0];dz=bounce[1];
-        x=ex+dx*.08f;z=ez+dz*.08f;
+        x=ex+dx*.025f;z=ez+dz*.025f;
       }
     }
 
