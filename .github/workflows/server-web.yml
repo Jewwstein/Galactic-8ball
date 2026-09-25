@@ -31,14 +31,14 @@ jobs:
       - name: Verify web client
         run: |
           curl -fsS http://127.0.0.1:10000/health | grep -F "Galactic 8-Ball server OK"
-          curl -fsS http://127.0.0.1:10000/play | grep -F "iPhone Web Test"
+          curl -fsS http://127.0.0.1:10000/play | grep -F "playAiGuest"
           curl -fsS http://127.0.0.1:10000/play/manifest.webmanifest | grep -F '"display": "standalone"'
           curl -fsS http://127.0.0.1:10000/play/icon.svg | grep -F "<svg"
       - name: Verify Render deployment
         run: |
           for i in {1..60}; do
             BODY="$(curl -fsS --max-time 20 https://galactic-8ball-server.onrender.com/play 2>/dev/null || true)"
-            if echo "$BODY" | grep -Fq "iPhone Web Test"; then
+            if echo "$BODY" | grep -Fq "playAiGuest"; then
               echo "Render web client is live."
               exit 0
             fi
