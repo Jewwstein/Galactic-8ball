@@ -71,18 +71,20 @@
     <h1>Enter the Galaxy</h1>
     <p class="muted">This web tester uses the same accounts, rooms and authoritative multiplayer server as the Android app.</p>
     <div class="tabs"><button id="loginTab" class="active">Sign In</button><button id="registerTab">Create Account</button></div>
+    <button id="playAiGuest" class="primary" style="width:100%;margin:10px 0 14px">Play vs Galactic AI</button>
+    <p class="muted" style="font-size:12px;text-align:center;margin:-5px 0 14px">No account required for single player.</p>
     <form id="authForm" class="stack">
       <input id="username" autocomplete="username" placeholder="Username" maxlength="18" required>
       <input id="password" type="password" autocomplete="current-password" placeholder="Password" minlength="6" required>
       <button id="authSubmit" class="primary" type="submit">Sign In</button>
     </form>
-    <p id="authHint" class="muted" style="font-size:12px;margin:10px 0 0">Use an existing Galactic 8-Ball account or create one here.</p>
+    <p id="authHint" class="muted" style="font-size:12px;margin:10px 0 0">Sign in only if you want online rooms and saved Galactic account access.</p>
   </section>
 
   <section id="lobbyScreen" class="card hidden">
     <div class="row wrap">
       <div class="grow"><h2 style="margin-bottom:3px">Galactic Lobby</h2><div class="muted" id="lobbyUser"></div></div>
-      <button id="refreshRooms">Refresh</button><button id="logoutBtn" class="danger">Log Out</button>
+      <button id="playAiLobby" class="primary">Play vs AI</button><button id="refreshRooms">Refresh</button><button id="logoutBtn" class="danger">Log Out</button>
     </div>
     <div class="row wrap" style="margin-top:12px">
       <input id="roomName" class="grow" maxlength="28" placeholder="New room name">
@@ -141,7 +143,7 @@
 (() => {
   "use strict";
   const $=id=>document.getElementById(id);
-  const S={ws:null,connected:false,authenticated:false,registerMode:false,username:"",token:"",rooms:[],roomId:"",roomName:"",player:0,state:null,intentionalClose:false,reconnectTimer:null,lastAimSend:0};
+  const S={ws:null,connected:false,authenticated:false,registerMode:false,username:"",token:"",rooms:[],roomId:"",roomName:"",player:0,state:null,aiMode:false,intentionalClose:false,reconnectTimer:null,lastAimSend:0};
   const stateNames=["AIMING","SELECTING ENGLISH","CHARGING","ROLLING"];
 
   function enc(s){
@@ -201,12 +203,16 @@
     if(msg.startsWith("LOBBY|")){parseLobby(msg);return}
     if(msg.startsWith("ROOM_JOINED|")){
       const p=msg.split("|");S.roomId=p[1]||"";S.roomName=dec(p[2]||"");S.player=Number(p[3]||0);
-      $("roomLabel").textContent=S.roomName;$("playerLabel").textContent="Player "+S.player;
-      screen("gameScreen");toast("Joined "+S.roomName+" as Player "+S.player);return;
+      if(S.roomName==="Galactic AI")S.aiMode=true;
+      $("roomLabel").textContent=S.aiMode?"You vs Galactic AI":S.roomName;
+      $("playerLabel").textContent=S.aiMode?"You • Team 1":"Player "+S.player;
+      $("who").textContent=S.aiMode?(S.authenticated?S.username:"Single Player"):S.username;
+      screen("gameScreen");toast(S.aiMode?"Galactic AI match started. You break.":"Joined "+S.roomName+" as Player "+S.player);return;
     }
     if(msg.startsWith("ROOM_LEFT")||msg.startsWith("ROOM_CLOSED")){
-      S.roomId="";S.roomName="";S.player=0;S.state=null;screen("lobbyScreen");send("LOBBY");
-      if(msg.startsWith("ROOM_CLOSED"))toast("Room closed by the host.");return;
+      const wasAi=S.aiMode;S.roomId="";S.roomName="";S.player=0;S.state=null;S.aiMode=false;
+      if(S.authenticated){screen("lobbyScreen");send("LOBBY")}else screen("authScreen");
+      if(msg.startsWith("ROOM_CLOSED")&&!wasAi)toast("Room closed by the host.");return;
     }
     if(msg.startsWith("PLAYER_JOINED|")){toast((dec(msg.split("|")[1]||"")||"Player 2")+" joined.");return}
     if(msg.startsWith("PLAYER_LEFT|")){toast("The other player left.");return}
@@ -250,10 +256,14 @@
   function updateControls(){
     const st=S.state;if(!st)return;
     $("ruleText").textContent=st.rule||("TEAM "+st.team);
-    $("turnLabel").textContent="Active: Player "+st.active+" • "+(stateNames[st.mode]||"");
+    $("turnLabel").textContent=S.aiMode
+      ? (st.active===1?"Your turn":"Galactic AI")+" • "+(stateNames[st.mode]||"")
+      : "Active: Player "+st.active+" • "+(stateNames[st.mode]||"");
     $("turnLabel").classList.toggle("active",S.player===st.active);
     const mine=S.player===st.active;
-    $("controlNotice").textContent=st.gameOver?("Game over • Team "+st.winner+" wins"):mine?"Your turn":"Waiting for Player "+st.active;
+    $("controlNotice").textContent=st.gameOver
+      ? (S.aiMode?(st.winner===1?"You win!":"Galactic AI wins."):"Game over • Team "+st.winner+" wins")
+      : mine?"Your turn":(S.aiMode?"Galactic AI is thinking…":"Waiting for Player "+st.active);
     $("aimControls").classList.toggle("hidden",!(mine&&st.mode===0&&!st.gameOver));
     $("englishControls").classList.toggle("hidden",!(mine&&st.mode===1&&!st.gameOver));
     $("powerControls").classList.toggle("hidden",!(mine&&st.mode===2&&!st.gameOver));
@@ -329,6 +339,13 @@
   $("englishPad").addEventListener("pointerup",e=>{englishDrag=false;try{$("englishPad").releasePointerCapture(e.pointerId)}catch(_){}});
   $("englishPad").addEventListener("pointercancel",()=>englishDrag=false);
 
+  function startAiGame(){
+    S.aiMode=true;S.state=null;$("who").textContent=S.authenticated?S.username:"Single Player";
+    connect("AI_GAME");
+  }
+
+  $("playAiGuest").addEventListener("click",startAiGame);
+  $("playAiLobby").addEventListener("click",startAiGame);
   $("loginTab").addEventListener("click",()=>{S.registerMode=false;$("loginTab").classList.add("active");$("registerTab").classList.remove("active");$("authSubmit").textContent="Sign In";$("password").autocomplete="current-password"});
   $("registerTab").addEventListener("click",()=>{S.registerMode=true;$("registerTab").classList.add("active");$("loginTab").classList.remove("active");$("authSubmit").textContent="Create Account";$("password").autocomplete="new-password"});
   $("authForm").addEventListener("submit",e=>{e.preventDefault();const u=$("username").value.trim(),p=$("password").value;if(!u||!p)return;connect((S.registerMode?"REGISTER":"LOGIN")+"|"+enc(u)+"|"+enc(p))});
@@ -344,7 +361,7 @@
   $("leaveRoom").addEventListener("click",()=>send("LEAVE_ROOM"));
 
   function clearSession(){
-    S.intentionalClose=true;if(S.ws)try{S.ws.close(1000,"logout")}catch(e){}S.ws=null;S.connected=false;S.authenticated=false;S.username="";S.token="";S.roomId="";S.player=0;S.state=null;
+    S.intentionalClose=true;if(S.ws)try{S.ws.close(1000,"logout")}catch(e){}S.ws=null;S.connected=false;S.authenticated=false;S.username="";S.token="";S.roomId="";S.player=0;S.state=null;S.aiMode=false;
     try{localStorage.removeItem("g8_user");localStorage.removeItem("g8_token")}catch(e){}
     $("who").textContent="";setConn("","Offline");screen("authScreen");
   }
