@@ -2,7 +2,29 @@ plugins { id("com.android.application") }
 android {
  namespace = "com.galactic.eightball"
  compileSdk = 35
- defaultConfig { applicationId = "com.galactic.eightball"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "0.1" }
+
+ signingConfigs {
+   create("stableDebug") {
+     storeFile = file("galactic-stable-debug.keystore")
+     storePassword = "galactic8ball"
+     keyAlias = "galacticdebug"
+     keyPassword = "galactic8ball"
+   }
+ }
+
+ defaultConfig {
+   applicationId = "com.galactic.eightball"
+   minSdk = 26
+   targetSdk = 35
+   versionCode = 2
+   versionName = "0.2"
+ }
+
+ buildTypes {
+   getByName("debug") {
+     signingConfig = signingConfigs.getByName("stableDebug")
+   }
+ }
 }
 
 dependencies {
