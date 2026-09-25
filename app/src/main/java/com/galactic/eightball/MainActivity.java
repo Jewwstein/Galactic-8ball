@@ -2765,7 +2765,7 @@ public class MainActivity extends Activity {
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
         android.opengl.Matrix.rotateM(T,0,tYaw,0,1,0);
-        android.opengl.Matrix.scaleM(T,0,2.55f,2.55f,2.55f);
+        android.opengl.Matrix.scaleM(T,0,1.65f,1.65f,1.65f);
         drawMesh(dogfightTie,pv,T,dogfightTieTex,new float[]{1f,1f,1f,1f});
 
         float dx=tx-xw,dz=tz-zw,dist=(float)Math.sqrt(dx*dx+dz*dz);
