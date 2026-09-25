@@ -402,9 +402,9 @@ public class MainActivity extends Activity {
     };
     final String[] messages={
       "Drag the lightsaber hilt around the cue ball to rotate your shot. The glowing predictor shows the cue-ball path and the projected object-ball path.",
-      "Use the large glowing LEFT and RIGHT controls for precision. Tap for a tiny adjustment or hold either button for continuous rotation.",
+      "Use the left AIM stick to rotate the hilt. Barely move it for tiny precision changes; push it farther for fast sweeping adjustments all the way around the cue ball.",
       "When your line is ready, tap LOCK. Then choose where the cue tip strikes the cue ball for English and lock that selection.",
-      "Pull the hilt on the table backward to set power, or use the separate right-thumb hilt beside the LOCK area and drag it downward. Release either hilt to shoot. Use two fingers to orbit the camera and pinch to zoom.",
+      "Use the right CAMERA stick beside LOCK to swing around the table and change your viewing angle. Pinch with two fingers to zoom; drag with two fingers to pan the table while zoomed. After English, pull either the table hilt or the right-thumb saber to set power and release to shoot.",
       "The top HUD shows each team's remaining balls. Glowing rings on the table identify team balls. Open the side menu for your saber loadout, new rack, team controls, or to return to the Galactic Lobby."
     };
     showTutorialPage(user,titles,messages,0);
@@ -960,11 +960,12 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false;
+    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
+    float aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0;
     long lastAimTapMs=0;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
     final Handler uiHandler=new Handler(Looper.getMainLooper());
@@ -973,6 +974,22 @@ public class MainActivity extends Activity {
         if(!microHolding)return;
         game.queueEvent(()->game.r.microAimHoldStep(3.6f));
         uiHandler.postDelayed(this,30);
+      }
+    };
+    final Runnable aimStickRepeat=new Runnable(){
+      public void run(){
+        if(!aimStickActive)return;
+        final float axis=aimStickX;
+        game.queueEvent(()->game.r.analogAim(axis,.020f));
+        uiHandler.postDelayed(this,20);
+      }
+    };
+    final Runnable cameraStickRepeat=new Runnable(){
+      public void run(){
+        if(!cameraStickActive)return;
+        final float ax=cameraStickX,ay=cameraStickY;
+        game.queueEvent(()->game.r.cameraOrbitAnalog(ax,ay,.020f));
+        uiHandler.postDelayed(this,20);
       }
     };
 
@@ -1052,7 +1069,10 @@ public class MainActivity extends Activity {
       if(r.state==GameRenderer.AIMING && !r.gameOver){
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
-        if(r.localCanControl())drawMicroAimControls(c,w,h,ui);
+        if(r.localCanControl()){
+          drawAimAnalogStick(c,w,h,ui);
+          drawCameraAnalogStick(c,w,h,ui);
+        }
         if(!r.localCanControl()){
           p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
           c.drawText(r.aiEnabled?"GALACTIC AI THINKING":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,42*ui,p);
@@ -1138,6 +1158,37 @@ public class MainActivity extends Activity {
       p.setShader(null);
     }
 
+
+    void drawAimAnalogStick(Canvas c,int w,int h,float ui){
+      float r=68*ui,cx=88*ui,cy=h-88*ui;
+      aimStickRect.set(cx-r,cy-r,cx+r,cy+r);
+      drawAnalogStick(c,cx,cy,r,aimStickX,aimStickY,"AIM",ui,0xFF5BD6FF);
+    }
+
+    void drawCameraAnalogStick(Canvas c,int w,int h,float ui){
+      float r=54*ui;
+      float cx=lockRect.left-r-18*ui,cy=lockRect.centerY();
+      cameraStickRect.set(cx-r,cy-r,cx+r,cy+r);
+      drawAnalogStick(c,cx,cy,r,cameraStickX,cameraStickY,"CAMERA",ui,0xFFB88CFF);
+    }
+
+    void drawAnalogStick(Canvas c,float cx,float cy,float r,float nx,float ny,String label,float ui,int accent){
+      p.setStyle(Paint.Style.FILL);
+      p.setShadowLayer(14*ui,0,0,(accent&0x00FFFFFF)|0x99000000);
+      p.setColor(0x6A07111C);c.drawCircle(cx,cy,r,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);stroke.setColor((accent&0x00FFFFFF)|0xDD000000);c.drawCircle(cx,cy,r,stroke);
+      stroke.setStrokeWidth(1.0f*ui);stroke.setColor(0x55FFFFFF);c.drawCircle(cx,cy,r*.68f,stroke);
+      c.drawLine(cx-r*.72f,cy,cx+r*.72f,cy,stroke);
+      c.drawLine(cx,cy-r*.72f,cx,cy+r*.72f,stroke);
+
+      float kr=r*.34f,kx=cx+nx*r*.55f,ky=cy+ny*r*.55f;
+      p.setShadowLayer(12*ui,0,0,(accent&0x00FFFFFF)|0xCC000000);
+      p.setColor(0xD90D1825);c.drawCircle(kx,ky,kr,p);p.clearShadowLayer();
+      stroke.setStrokeWidth(2.3f*ui);stroke.setColor(accent);c.drawCircle(kx,ky,kr,stroke);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10*ui);p.setColor((accent&0x00FFFFFF)|0xEE000000);
+      c.drawText(label,cx,cy-r-7*ui,p);
+    }
 
     void drawMicroAimControls(Canvas c,int w,int h,float ui){
       float size=92*ui,gap=14*ui,x=18*ui,y=h-size-16*ui;
@@ -1454,7 +1505,7 @@ public class MainActivity extends Activity {
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
       float baseW=188*ui,baseH=112*ui;
-      float cx=w-76*ui;
+      float cx=w-124*ui;
       float baseCy=Math.max(150*ui,h*.43f);
       float travel=Math.min(178*ui,r.chargePullPx*.68f);
       float cy=baseCy+travel;
@@ -1480,6 +1531,7 @@ public class MainActivity extends Activity {
       if(e.getPointerCount()>=2 || camGesture){
         if((a==MotionEvent.ACTION_POINTER_DOWN||a==MotionEvent.ACTION_DOWN) && e.getPointerCount()>=2){
           camGesture=true;pullingHilt=false;
+          endAimStick();endCameraStick();
           float x0=e.getX(0),y0=e.getY(0),x1=e.getX(1),y1=e.getY(1);
           camPrevMidX=(x0+x1)*.5f;camPrevMidY=(y0+y1)*.5f;
           float dx=x1-x0,dy=y1-y0;camPrevDist=(float)Math.sqrt(dx*dx+dy*dy);
@@ -1492,7 +1544,7 @@ public class MainActivity extends Activity {
           final float dragX=midX-camPrevMidX,dragY=midY-camPrevMidY;
           final float pinch=(camPrevDist>8)?dist/camPrevDist:1f;
           camPrevMidX=midX;camPrevMidY=midY;camPrevDist=dist;
-          game.queueEvent(()->r.cameraGesture(dragX,dragY,pinch));return true;
+          game.queueEvent(()->r.cameraPanZoomGesture(dragX,dragY,pinch,w,h));return true;
         }
         if(a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
           if(e.getPointerCount()<=2)camGesture=false;return true;
@@ -1523,12 +1575,18 @@ public class MainActivity extends Activity {
         }
 
         if(r.state==GameRenderer.AIMING&&!r.gameOver&&r.localCanControl()&&!sideMenuOpen){
-          if(microLeftRect.contains(x,y)){
-            beginMicroHold(-1,w,h);
+          if(aimStickRect.contains(x,y)){
+            aimStickActive=true;
+            updateAimStick(x,y);
+            uiHandler.removeCallbacks(aimStickRepeat);
+            uiHandler.post(aimStickRepeat);
             return true;
           }
-          if(microRightRect.contains(x,y)){
-            beginMicroHold(1,w,h);
+          if(cameraStickRect.contains(x,y)){
+            cameraStickActive=true;
+            updateCameraStick(x,y);
+            uiHandler.removeCallbacks(cameraStickRepeat);
+            uiHandler.post(cameraStickRepeat);
             return true;
           }
         }
@@ -1583,6 +1641,18 @@ public class MainActivity extends Activity {
           RectF hit=new RectF(worldHiltRect);hit.inset(-36*ui,-36*ui);
           if(hit.contains(x,y)){pullingHilt=true;hiltPullStartX=x;hiltPullStartY=y;game.queueEvent(()->r.beginWorldCharge());return true;}
         }
+      }
+
+      if(aimStickActive){
+        if(a==MotionEvent.ACTION_MOVE){updateAimStick(x,y);return true;}
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){endAimStick();return true;}
+        return true;
+      }
+
+      if(cameraStickActive){
+        if(a==MotionEvent.ACTION_MOVE){updateCameraStick(x,y);return true;}
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){endCameraStick();return true;}
+        return true;
       }
 
       if(microHolding){
@@ -1661,6 +1731,30 @@ public class MainActivity extends Activity {
         return true;
       }
       return true;
+    }
+
+    void updateAimStick(float x,float y){
+      float cx=aimStickRect.centerX(),cy=aimStickRect.centerY(),r=aimStickRect.width()*.5f;
+      float dx=(x-cx)/Math.max(1f,r),dy=(y-cy)/Math.max(1f,r);
+      float d=(float)Math.sqrt(dx*dx+dy*dy);if(d>1f){dx/=d;dy/=d;}
+      aimStickX=dx;aimStickY=dy;invalidate();
+    }
+
+    void endAimStick(){
+      aimStickActive=false;aimStickX=aimStickY=0;
+      uiHandler.removeCallbacks(aimStickRepeat);invalidate();
+    }
+
+    void updateCameraStick(float x,float y){
+      float cx=cameraStickRect.centerX(),cy=cameraStickRect.centerY(),r=cameraStickRect.width()*.5f;
+      float dx=(x-cx)/Math.max(1f,r),dy=(y-cy)/Math.max(1f,r);
+      float d=(float)Math.sqrt(dx*dx+dy*dy);if(d>1f){dx/=d;dy/=d;}
+      cameraStickX=dx;cameraStickY=dy;invalidate();
+    }
+
+    void endCameraStick(){
+      cameraStickActive=false;cameraStickX=cameraStickY=0;
+      uiHandler.removeCallbacks(cameraStickRepeat);invalidate();
     }
 
     void beginMicroHold(int dir,int w,int h){
@@ -1752,7 +1846,7 @@ public class MainActivity extends Activity {
   static class GameRenderer implements GLSurfaceView.Renderer{
     static final int AIMING=0,SELECTING_ENGLISH=1,CHARGING=2,ROLLING=3;
     Context ctx; SfxManager sfx; MultiplayerManager net; ArrayList<Part> table=new ArrayList<>(); ArrayList<Mesh> falconMeshes=new ArrayList<>(); ArrayList<Ball> balls=new ArrayList<>();
-    Mesh sphere,hiltCylinder,hiltBox,teamAidRing,thumbBladeMesh; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
+    Mesh sphere,hiltCylinder,hiltBox,teamAidRing,teamAidSegmentRing,thumbBladeMesh; Mesh[] realHiltMeshes=new Mesh[6]; int[] realHiltTextures=new int[6]; Mesh[] saberMeshes=new Mesh[6]; int[] saberTextures=new int[6]; int[] hiltTextures=new int[6]; HashMap<String,Integer> tex=new HashMap<>();
     Mesh[] ringMeshes=new Mesh[7*3];
     final ArrayList<float[]> predictorRails=new ArrayList<>();
     final float[][][] ringRadii={
@@ -1832,7 +1926,6 @@ public class MainActivity extends Activity {
     public void onDrawFrame(GL10 gl){
       long now=System.nanoTime();float dt=Math.min(.033f,(now-last)/1_000_000_000f);last=now;
       step(dt);
-      smoothCamera(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
       android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
@@ -1916,7 +2009,8 @@ public class MainActivity extends Activity {
         sphere=loadObj("objects/01_Tatooine/-8750451297455424342_default.obj");
         hiltCylinder=makeCylinderMesh(40);
         hiltBox=makeBoxMesh();
-        teamAidRing=makeRingMesh(1.58f,.13f,64);
+        teamAidRing=makeRingMesh(1.62f,.18f,64);
+        teamAidSegmentRing=makeSegmentedRingMesh(2.02f,.22f,24);
         thumbBladeMesh=makeThumbBladeMesh();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
@@ -2019,7 +2113,7 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.orthoM(O,0,-aspect,aspect,-1f,1f,-5f,5f);
 
       float pullNorm=Math.max(0f,Math.min(1f,power/100f));
-      float x=aspect*.885f;
+      float x=aspect*.735f;
       float baseY=.07f;
       float hiltTravel=.55f*pullNorm;
       float hiltY=baseY-hiltTravel;
@@ -2231,6 +2325,25 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
+    Mesh makeSegmentedRingMesh(float radius,float thickness,int seg){
+      float inner=Math.max(.02f,radius-thickness*.5f),outer=radius+thickness*.5f;
+      ArrayList<Float> pp=new ArrayList<>(),uu=new ArrayList<>();
+      for(int i=0;i<seg;i++){
+        if((i&1)==1)continue;
+        float a0=(float)(Math.PI*2*(i+.10f)/seg),a1=(float)(Math.PI*2*(i+.90f)/seg);
+        float c0=(float)Math.cos(a0),s0=(float)Math.sin(a0),c1=(float)Math.cos(a1),s1=(float)Math.sin(a1);
+        float[][] v={{inner,c0,s0},{outer,c0,s0},{outer,c1,s1},{inner,c0,s0},{outer,c1,s1},{inner,c1,s1}};
+        for(int k=0;k<6;k++){
+          float rad=v[k][0],cc=v[k][1],ss=v[k][2];
+          pp.add(rad*cc);pp.add(0f);pp.add(rad*ss);uu.add(k==1||k==2||k==4?1f:0f);uu.add(0f);
+        }
+      }
+      float[] p=new float[pp.size()],uv=new float[uu.size()];
+      for(int i=0;i<p.length;i++)p[i]=pp.get(i);
+      for(int i=0;i<uv.length;i++)uv[i]=uu.get(i);
+      return new Mesh(p,uv);
+    }
+
     void drawTeamAidRing(float[] pv,Ball b){
       if(teamAidRing==null||b.sinking||b.index==0)return;
       int team=0;
@@ -2242,27 +2355,44 @@ public class MainActivity extends Activity {
 
       boolean eightReady=false;
       if(b.index==8&&currentTeam>=1&&currentTeam<=2){
-        int s=teamSuit[currentTeam-1];
-        eightReady=s!=0&&remainingForSuit(s)==0;
+        int ss=teamSuit[currentTeam-1];
+        eightReady=ss!=0&&remainingForSuit(ss)==0;
       }
       if(team==0&&!eightReady)return;
 
       float[] color;
-      if(eightReady)color=new float[]{1f,.73f,.12f,.78f};
-      else if(team==1)color=new float[]{.12f,.68f,1f,.72f};
-      else color=new float[]{1f,.18f,.18f,.72f};
+      if(eightReady)color=new float[]{1f,.78f,.08f,1f};
+      else if(team==1)color=new float[]{.08f,.72f,1f,1f};
+      else color=new float[]{1f,.10f,.10f,1f};
 
-      float pulse=1f+.035f*(float)Math.sin(System.nanoTime()/180000000.0);
+      double time=System.nanoTime()/1_000_000_000.0;
+      float pulse=1f+.075f*(float)Math.sin(time*5.2+b.index*.57);
+      float bob=.035f*(float)Math.sin(time*4.1+b.index);
+      float spin=(float)((time*(team==2?-105.0:105.0)+b.index*17.0)%360.0);
+
       float[] M=identity();
-      android.opengl.Matrix.translateM(M,0,b.x,1.03f,b.z);
+      android.opengl.Matrix.translateM(M,0,b.x,.98f+bob,b.z);
       android.opengl.Matrix.scaleM(M,0,pulse,1f,pulse);
 
       GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-      for(int layer=0;layer<3;layer++){
-        float sc=1f+layer*.08f;
+
+      // Hot inner ring plus multiple additive halos.
+      for(int layer=0;layer<4;layer++){
+        float sc=1f+layer*.095f;
         float[] L=M.clone();android.opengl.Matrix.scaleM(L,0,sc,1f,sc);
-        drawMesh(teamAidRing,pv,L,0,new float[]{color[0],color[1],color[2],color[3]/(layer+1)});
+        float alpha=layer==0?.96f:(.62f/(layer+.35f));
+        drawMesh(teamAidRing,pv,L,0,new float[]{color[0],color[1],color[2],alpha});
       }
+
+      // Rotating broken energy ring makes team-owned balls easy to spot even
+      // against bright planet textures and gives the indicator visible motion.
+      if(teamAidSegmentRing!=null){
+        float[] A=M.clone();android.opengl.Matrix.rotateM(A,0,spin,0,1,0);
+        drawMesh(teamAidSegmentRing,pv,A,0,new float[]{color[0],color[1],color[2],.90f});
+        float[] B=M.clone();android.opengl.Matrix.rotateM(B,0,-spin*.72f,0,1,0);android.opengl.Matrix.scaleM(B,0,1.16f,1f,1.16f);
+        drawMesh(teamAidSegmentRing,pv,B,0,new float[]{color[0],color[1],color[2],.42f});
+      }
+
       GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
     }
 
@@ -2374,50 +2504,40 @@ public class MainActivity extends Activity {
     }
     int parseIndex(String s,int size){int i=Integer.parseInt(s);return i<0?size+i:i-1;}
 
-    void cameraGesture(float dragX,float dragY,float pinch){
-      camYaw-=dragX*.16f;
-      camPitch=Math.max(20f,Math.min(72f,camPitch+dragY*.12f));
-      if(pinch>.01f)camDist=Math.max(88f,Math.min(220f,camDist/pinch));
-      camGoalYaw=camYaw;camGoalPitch=camPitch;camGoalDist=camDist;
-      camGoalTargetX=camTargetX;camGoalTargetZ=camTargetZ;
+    void cameraOrbitAnalog(float ax,float ay,float dt){
+      float dead=.07f;
+      float mx=Math.abs(ax),my=Math.abs(ay);
+      if(mx>dead){
+        float e=(mx-dead)/(1f-dead);
+        camYaw-=Math.signum(ax)*(28f+118f*e*e)*dt;
+      }
+      if(my>dead){
+        float e=(my-dead)/(1f-dead);
+        camPitch-=Math.signum(ay)*(18f+55f*e*e)*dt;
+        camPitch=Math.max(18f,Math.min(76f,camPitch));
+      }
     }
 
-    float angleDelta(float to,float from){
-      float d=to-from;
-      while(d>180f)d-=360f;
-      while(d<-180f)d+=360f;
-      return d;
-    }
+    void cameraPanZoomGesture(float dragX,float dragY,float pinch,int w,int h){
+      if(pinch>.01f)camDist=Math.max(72f,Math.min(230f,camDist/pinch));
 
-    void smoothCamera(float dt){
-      // Deliberately gentle: automatic framing should feel like a camera operator
-      // nudging the composition, never like a teleport or forced spin.
-      float k=1f-(float)Math.exp(-dt*1.65f);
-      camYaw+=angleDelta(camGoalYaw,camYaw)*k;
-      camPitch+=(camGoalPitch-camPitch)*k;
-      camDist+=(camGoalDist-camDist)*k;
-      camTargetX+=(camGoalTargetX-camTargetX)*k;
-      camTargetZ+=(camGoalTargetZ-camTargetZ)*k;
+      // Two-finger drag pans the table in screen space. Horizontal drag follows
+      // camera-right; vertical drag follows the camera's ground-plane forward.
+      float yaw=(float)Math.toRadians(camYaw+(aspect<1f?90f:0f));
+      float rx=(float)Math.cos(yaw),rz=-(float)Math.sin(yaw);
+      float fx=-(float)Math.sin(yaw),fz=-(float)Math.cos(yaw);
+      float scale=camDist*.86f;
+      float sx=dragX/Math.max(1f,w)*scale;
+      float sy=dragY/Math.max(1f,h)*scale;
+      camTargetX-=rx*sx+fx*sy;
+      camTargetZ-=rz*sx+fz*sy;
+      camTargetX=Math.max(-34f,Math.min(34f,camTargetX));
+      camTargetZ=Math.max(-17f,Math.min(17f,camTargetZ));
     }
 
     void autoFrameCue(){
-      if(balls.isEmpty())return;
-      Ball cue=balls.get(0);
-      if(cue==null)return;
-
-      // Preserve the player's viewing angle and pitch. Only make a restrained,
-      // slow pan/zoom toward the cue side of the table so the camera never whips
-      // around after a shot.
-      camGoalYaw=camYaw;
-      camGoalPitch=camPitch;
-
-      float tx=cue.x*.22f+aimX*2.4f;
-      float tz=cue.z*.22f+aimZ*2.4f;
-      camGoalTargetX=Math.max(-12f,Math.min(12f,tx));
-      camGoalTargetZ=Math.max(-8f,Math.min(8f,tz));
-
-      float edge=Math.max(Math.abs(cue.x)/Math.max(1f,MAXX),Math.abs(cue.z)/Math.max(1f,MAXZ));
-      camGoalDist=Math.max(122f,Math.min(134f,124f+edge*8f));
+      // Intentionally disabled. Camera ownership is entirely manual:
+      // right analog stick = orbit/pitch; two fingers = pan/zoom.
     }
 
     float[] worldToScreen(float x,float y,float z,int w,int h){
@@ -2618,7 +2738,6 @@ public class MainActivity extends Activity {
       }
       buildPhysicsWorld();
       state=AIMING;activeShooter=1;power=0;chargePullPx=0;chargePullWorld=0;englishX=englishY=0;aimX=desiredAimX=1;aimZ=desiredAimZ=0;sideSpin=topSpin=0;
-      autoFrameCue();
     }
 
     void aimTouch(int action,float sx,float sy,int w,int h){
@@ -2704,6 +2823,19 @@ public class MainActivity extends Activity {
       if(!localCanControl()||state!=AIMING||gameOver)return;
       int sign=screenMicroAimSign(left,w,h);
       microAimByWorldSign(sign,degrees);
+    }
+
+    void analogAim(float axis,float dt){
+      if(!localCanControl()||state!=AIMING||gameOver)return;
+      float a=Math.abs(axis),dead=.055f;
+      if(a<=dead)return;
+      float e=(a-dead)/(1f-dead);
+      // Very gentle around center for sub-degree lining up, but full deflection
+      // spins fast enough to sweep all the way around the cue ball.
+      float degPerSec=4.0f+260f*e*e;
+      float delta=(float)Math.toRadians(Math.signum(axis)*degPerSec*dt);
+      float base=(float)Math.atan2(aimZ,aimX);
+      previewAimAngle(base+delta);
     }
 
     void previewAimAngle(float angle){
@@ -2856,7 +2988,7 @@ public class MainActivity extends Activity {
           b.sinkT=Float.parseFloat(a[11]);b.spin=Float.parseFloat(a[12]);
           if(b.body!=null)b.body.setActive(false);
         }
-        if(previousState==ROLLING&&state==AIMING)autoFrameCue();
+        if(previousState==ROLLING&&state==AIMING)
       }catch(Exception ignored){}
     }
 
@@ -3063,7 +3195,6 @@ public class MainActivity extends Activity {
         if(allStopped()){
           resolveShotRules();
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
-          autoFrameCue();
           if(aiEnabled&&!gameOver&&currentTeam==2){
             aiThinking=true;
             aiReadyAt=System.currentTimeMillis()+1100;
@@ -3102,25 +3233,41 @@ public class MainActivity extends Activity {
       if(b.body!=null){b.body.setLinearVelocity(new Vec2(0,0));b.body.setAngularVelocity(0);b.body.setActive(false);}
     }
 
+    boolean arcadePocketAt(float x,float z){
+      final float PX=42.0f,PZ=21.0f;
+      // Side pockets: wide forgiving mouth.
+      float sideDz=Math.min(Math.abs(z-PZ),Math.abs(z+PZ));
+      if(Math.abs(x)<=3.45f&&sideDz<=3.45f)return true;
+
+      // Corner pockets: generous radial capture zone around each mouth.
+      float cx=x>=0?PX:-PX,cz=z>=0?PZ:-PZ;
+      float dx=x-cx,dz=z-cz;
+      return dx*dx+dz*dz<=3.85f*3.85f;
+    }
+
     void checkPocket(int index,Ball b){
       if(!b.active||b.sinking)return;
-      float ax=Math.abs(b.x),az=Math.abs(b.z);
 
-      if(az>MAXZ+.18f && Math.abs(b.x)<2.35f){
-        startPocketSink(index,b,0,b.z>0?MAXZ:MINZ);return;
-      }
-
-      if(ax>MAXX-.55f && az>MAXZ-.55f){
-        float px=b.x>0?MAXX:MINX,pz=b.z>0?MAXZ:MINZ;
-        float dx=b.x-px,dz=b.z-pz;
-        if(dx*dx+dz*dz<2.35f*2.35f && (ax>MAXX+.08f||az>MAXZ+.08f)){
-          startPocketSink(index,b,px,pz);return;
+      // Arcade assist: once the center of a ball gets convincingly into a pocket
+      // vicinity, commit the shot and preserve the existing roll/drop animation
+      // instead of demanding a pixel-perfect jaw entry.
+      if(arcadePocketAt(b.x,b.z)){
+        final float PX=42.0f,PZ=21.0f;
+        float px,pz;
+        if(Math.abs(b.x)<=3.45f){
+          px=0f;pz=b.z>=0?PZ:-PZ;
+        }else{
+          px=b.x>=0?PX:-PX;pz=b.z>=0?PZ:-PZ;
         }
+        startPocketSink(index,b,px,pz);
+        return;
       }
 
+      // Safety catch if a fast body clears the table between fixed steps.
+      float ax=Math.abs(b.x),az=Math.abs(b.z);
       if(ax>MAXX+4f||az>MAXZ+4f){
-        float px=Math.abs(b.x)<8f?0:(b.x>0?MAXX:MINX);
-        float pz=b.z>0?MAXZ:MINZ;
+        float px=Math.abs(b.x)<8f?0:(b.x>0?42f:-42f);
+        float pz=b.z>0?21f:-21f;
         startPocketSink(index,b,px,pz);
       }
     }
@@ -3215,14 +3362,7 @@ public class MainActivity extends Activity {
     }
 
     boolean predictorPocketAt(float x,float z){
-      float ax=Math.abs(x),az=Math.abs(z);
-      if(az>MAXZ+.18f&&Math.abs(x)<2.35f)return true;
-      if(ax>MAXX-.55f&&az>MAXZ-.55f){
-        float px=x>0?MAXX:MINX,pz=z>0?MAXZ:MINZ;
-        float qx=x-px,qz=z-pz;
-        if(qx*qx+qz*qz<2.35f*2.35f&&(ax>MAXX+.08f||az>MAXZ+.08f))return true;
-      }
-      return ax>MAXX+4f||az>MAXZ+4f;
+      return arcadePocketAt(x,z);
     }
 
     float predictorPocketT(float x,float z,float dx,float dz){
