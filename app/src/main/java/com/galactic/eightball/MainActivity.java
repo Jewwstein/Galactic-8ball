@@ -514,7 +514,7 @@ public class MainActivity extends Activity {
     card.addView(continueButton);
 
     Button offline=homeButton("Play offline vs Galactic AI");
-    offline.setOnClickListener(v->startSinglePlayer(true));
+    offline.setOnClickListener(v->showAiModeDialog(true));
     card.addView(offline);
 
     Button login=homeButton("Log in");
@@ -631,7 +631,7 @@ public class MainActivity extends Activity {
     card.addView(create);
 
     Button ai=homeButton("Single player vs AI");
-    ai.setOnClickListener(v->startSinglePlayer(false));
+    ai.setOnClickListener(v->showAiModeDialog(false));
     card.addView(ai);
 
     Button logout=homeButton("Log out");
@@ -680,31 +680,85 @@ public class MainActivity extends Activity {
     refreshLobbyScreen();
   }
 
+  void showAiModeDialog(boolean offline){
+    final String[] modes={
+      "EASY  • relaxed aim, more mistakes",
+      "NORMAL  • balanced Galactic AI",
+      "HARD  • sharper aim and power",
+      "EXPERT  • near-perfect shot planning",
+      "CHALLENGES  • special objectives"
+    };
+    new AlertDialog.Builder(this)
+      .setTitle("GALACTIC AI")
+      .setMessage("Choose an AI difficulty or enter Challenge Mode.")
+      .setItems(modes,(d,which)->{
+        if(which>=0&&which<=3)startSinglePlayer(offline,which,0);
+        else if(which==4)showChallengeDialog(offline);
+      })
+      .setNegativeButton("CANCEL",null)
+      .show();
+  }
+
+  void showChallengeDialog(boolean offline){
+    final String[] challenges={
+      "CLEAN RUN\nWin without scratching the cue ball.",
+      "SPEED RUN\nWin in 8 player shots or fewer.",
+      "COMBO STRIKE\nPocket 2 or more object balls in one shot.",
+      "SITH TRIAL\nDefeat the Expert Galactic AI."
+    };
+    new AlertDialog.Builder(this)
+      .setTitle("GALACTIC CHALLENGES")
+      .setMessage("Pick a challenge. Challenge progress appears during the match.")
+      .setItems(challenges,(d,which)->startSinglePlayer(offline,
+        which==3?3:(which==1?2:1),which+1))
+      .setNegativeButton("BACK",(d,w)->showAiModeDialog(offline))
+      .show();
+  }
+
   void startSinglePlayer(){
-    startSinglePlayer(false);
+    startSinglePlayer(false,1,0);
   }
 
   void startSinglePlayer(boolean offline){
+    startSinglePlayer(offline,1,0);
+  }
+
+  void startSinglePlayer(boolean offline,int difficulty,int challengeId){
     if(multiplayer!=null&&multiplayer.inRoom){
       Toast.makeText(this,"Leave the online room before starting single player.",Toast.LENGTH_LONG).show();
       return;
     }
 
     offlineSinglePlayer=offline;
+    final int diff=Math.max(0,Math.min(3,difficulty));
+    final int challenge=Math.max(0,Math.min(4,challengeId));
 
     // Offline play never attempts login, room discovery, or any server action.
     // A saved account/token remains untouched so the player can go online later.
     game.queueEvent(()->{
       game.r.aiEnabled=true;
       game.r.aiThinking=false;
+      game.r.aiDifficulty=diff;
+      game.r.challengeMode=challenge>0;
+      game.r.challengeId=challenge;
       game.r.resetRack();
-      game.r.ruleMessage=offline?"OFFLINE • YOU BREAK":"SINGLE PLAYER • YOU BREAK";
+      if(challenge>0)game.r.ruleMessage="CHALLENGE • "+game.r.challengeName();
+      else game.r.ruleMessage=(offline?"OFFLINE • ":"SINGLE PLAYER • ")+game.r.aiDifficultyName()+" • YOU BREAK";
     });
     showGameScreen();
-    Toast.makeText(this,
-      offline?"Offline Galactic AI started. No account or internet required.":
-              "Single player started. You are Team 1; Galactic AI is Team 2.",
-      Toast.LENGTH_LONG).show();
+    String mode=challenge>0?("Challenge: "+challengeDisplayName(challenge)):
+      ("AI difficulty: "+new String[]{"Easy","Normal","Hard","Expert"}[diff]);
+    Toast.makeText(this,mode,Toast.LENGTH_LONG).show();
+  }
+
+  String challengeDisplayName(int id){
+    switch(id){
+      case 1:return "Clean Run";
+      case 2:return "Speed Run";
+      case 3:return "Combo Strike";
+      case 4:return "Sith Trial";
+      default:return "Challenge";
+    }
   }
 
   void showGameScreen(){
@@ -771,6 +825,27 @@ public class MainActivity extends Activity {
       });
     });
     dialog.show();
+  }
+
+  @Override public void onBackPressed(){
+    if(multiplayer!=null&&multiplayer.inRoom){
+      new AlertDialog.Builder(this)
+        .setTitle("LEAVE ONLINE ROOM?")
+        .setMessage("Exit this match and return to the Galactic Lobby?")
+        .setPositiveButton("LEAVE ROOM",(d,w)->multiplayer.leaveRoom())
+        .setNegativeButton("STAY",null)
+        .show();
+      return;
+    }
+    if(showingTable&&game!=null&&game.r!=null&&game.r.aiEnabled){
+      showMultiplayerDialog();
+      return;
+    }
+    if(showingTable){
+      if(multiplayer!=null&&multiplayer.authenticated)showLobbyScreen();else showHomeScreen();
+      return;
+    }
+    super.onBackPressed();
   }
 
   @Override protected void onDestroy(){
