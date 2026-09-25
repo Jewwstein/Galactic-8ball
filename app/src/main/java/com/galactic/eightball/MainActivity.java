@@ -1694,7 +1694,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[6], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[6],bladeChoices=new RectF[6];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
@@ -1823,6 +1823,15 @@ public class MainActivity extends Activity {
 
       drawMatchHud(c,w,h,ui,r);
 
+      if(net!=null&&net.inRoom){
+        float ew=(portrait?116:132)*ui,eh=(portrait?42:46)*ui;
+        float ex=safeX,ey=sideMenuTabRect.bottom+10*ui;
+        exitRoomRect.set(ex,ey,ex+ew,ey+eh);
+        drawExitRoomButton(c,exitRoomRect,ui);
+      }else exitRoomRect.setEmpty();
+
+      if(r.challengeMode)drawChallengeStatus(c,w,h,ui,r);
+
       if(r.state==GameRenderer.AIMING && !r.gameOver){
         drawWorldShotHilt(c,w,h,ui,r);
         drawCrosshairButton(c,lockRect,ui);
@@ -1855,6 +1864,27 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
+    }
+
+    void drawExitRoomButton(Canvas c,RectF rr,float ui){
+      p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
+      c.drawRoundRect(rr,12*ui,12*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2*ui);stroke.setColor(0xFFFF7480);c.drawRoundRect(rr,12*ui,12*ui,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(12.5f*ui);p.setColor(Color.WHITE);
+      c.drawText("EXIT ROOM",rr.centerX(),rr.centerY()+4.5f*ui,p);
+    }
+
+    void drawChallengeStatus(Canvas c,int w,int h,float ui,GameRenderer r){
+      String status=r.challengeStatusText();
+      if(status==null||status.isEmpty())return;
+      float maxW=Math.min(w*.58f,430*ui),ph=34*ui;
+      float cx=w*.5f,top=hudSafeY(w,h,ui)+(h>w?92:108)*ui;
+      RectF rr=new RectF(cx-maxW*.5f,top,cx+maxW*.5f,top+ph);
+      int accent=r.challengeComplete?0xFF64E6A2:(r.challengeFailed?0xFFFF6876:0xFFF4C542);
+      p.setStyle(Paint.Style.FILL);p.setColor(0xD407101C);p.setShadowLayer(8*ui,0,2*ui,0x99000000);c.drawRoundRect(rr,17*ui,17*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.7f*ui);stroke.setColor(accent);c.drawRoundRect(rr,17*ui,17*ui,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);
+      c.drawText(status,cx,rr.centerY()+4*ui,p);
     }
 
     void drawButton(Canvas c,RectF rr,String text,float fs,int bg){
@@ -2440,6 +2470,20 @@ public class MainActivity extends Activity {
           return true;
         }
 
+        if(net!=null&&net.inRoom&&!exitRoomRect.isEmpty()&&exitRoomRect.contains(x,y)){
+          Context cc=getContext();
+          if(cc instanceof MainActivity){
+            MainActivity aMain=(MainActivity)cc;
+            new AlertDialog.Builder(aMain)
+              .setTitle("LEAVE ONLINE ROOM?")
+              .setMessage("Exit this match and return to the Galactic Lobby?")
+              .setPositiveButton("LEAVE ROOM",(d,w2)->net.leaveRoom())
+              .setNegativeButton("STAY",null)
+              .show();
+          }
+          return true;
+        }
+
         if(sideMenuTabRect.contains(x,y)){
           sideMenuOpen=!sideMenuOpen;
           if(game.r.sfx!=null)game.r.sfx.uiTransition();
@@ -2837,6 +2881,9 @@ public class MainActivity extends Activity {
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
     volatile boolean tableOpen=true,gameOver=false;
     volatile boolean aiEnabled=false,aiThinking=false;
+    volatile int aiDifficulty=1; // 0 easy, 1 normal, 2 hard, 3 expert
+    volatile boolean challengeMode=false,challengeComplete=false,challengeFailed=false;
+    volatile int challengeId=0,challengePlayerShots=0,challengeScratches=0,challengeObjectsThisShot=0;
     volatile long aiReadyAt=0;
     volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
@@ -3749,15 +3796,94 @@ public class MainActivity extends Activity {
     int firstContactBall=0;
     boolean ballInHand=false;
 
+    String aiDifficultyName(){
+      switch(aiDifficulty){
+        case 0:return "EASY";
+        case 2:return "HARD";
+        case 3:return "EXPERT";
+        default:return "NORMAL";
+      }
+    }
+
+    long aiThinkDelayMs(){
+      switch(aiDifficulty){
+        case 0:return 800;
+        case 2:return 1150;
+        case 3:return 1350;
+        default:return 1000;
+      }
+    }
+
+    String challengeName(){
+      switch(challengeId){
+        case 1:return "CLEAN RUN";
+        case 2:return "SPEED RUN";
+        case 3:return "COMBO STRIKE";
+        case 4:return "SITH TRIAL";
+        default:return "GALACTIC CHALLENGE";
+      }
+    }
+
+    String challengeStatusText(){
+      if(!challengeMode)return "";
+      if(challengeComplete)return "CHALLENGE COMPLETE • "+challengeName();
+      if(challengeFailed)return "CHALLENGE FAILED • "+challengeName();
+      switch(challengeId){
+        case 1:return "CLEAN RUN • SCRATCHES "+challengeScratches;
+        case 2:return "SPEED RUN • SHOTS "+challengePlayerShots+"/8";
+        case 3:return "COMBO STRIKE • POCKET 2+ IN ONE SHOT";
+        case 4:return "SITH TRIAL • DEFEAT EXPERT AI";
+        default:return challengeName();
+      }
+    }
+
+    void completeChallenge(){
+      if(!challengeMode||challengeComplete||challengeFailed)return;
+      challengeComplete=true;
+      new Handler(Looper.getMainLooper()).post(()->Toast.makeText(ctx,
+        "Challenge complete: "+challengeName()+"!",Toast.LENGTH_LONG).show());
+    }
+
+    void failChallenge(){
+      if(!challengeMode||challengeComplete||challengeFailed)return;
+      challengeFailed=true;
+      new Handler(Looper.getMainLooper()).post(()->Toast.makeText(ctx,
+        "Challenge failed: "+challengeName()+". Start a new rack to retry.",Toast.LENGTH_LONG).show());
+    }
+
+    void evaluateChallengeGameOver(){
+      if(!challengeMode||challengeComplete||challengeFailed)return;
+      if(winnerTeam!=1){failChallenge();return;}
+      if(challengeId==1){
+        if(challengeScratches==0)completeChallenge();else failChallenge();
+      }else if(challengeId==2){
+        if(challengePlayerShots<=8)completeChallenge();else failChallenge();
+      }else if(challengeId==4){
+        completeChallenge();
+      }else if(challengeId==3){
+        failChallenge();
+      }
+    }
+
     void resetRules(){
       if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
       currentTeam=1;winnerTeam=0;activeShooter=1;teamSuit[0]=teamSuit[1]=0;
       tableOpen=true;gameOver=false;ballInHand=false;firstContactBall=0;ballsSunkThisShot.clear();
-      ruleMessage="BREAK • TEAM 1";
+      challengeComplete=false;challengeFailed=false;challengePlayerShots=0;challengeScratches=0;challengeObjectsThisShot=0;
+      ruleMessage=challengeMode?("CHALLENGE • "+challengeName()):"BREAK • TEAM 1";
     }
 
     void recordPocket(int index){
       if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(challengeMode&&currentTeam==1){
+        if(index==0){
+          challengeScratches++;
+          if(challengeId==1)failChallenge();
+        }else if(index!=8){
+          challengeObjectsThisShot++;
+          if(challengeId==3&&challengeObjectsThisShot>=2)completeChallenge();
+        }
+      }
     }
 
     boolean legalFirstContact(int team,int ball){
@@ -3793,6 +3919,7 @@ public class MainActivity extends Activity {
         ruleMessage=legal?("8 BALL • TEAM "+shooter+" WINS"):
           (scratch?("SCRATCH ON 8 • TEAM "+other+" WINS"):("EARLY/ILLEGAL 8 BALL • TEAM "+other+" WINS"));
         if(sfx!=null)sfx.victory(winnerTeam==1);
+        evaluateChallengeGameOver();
         ballsSunkThisShot.clear();firstContactBall=0;return;
       }
 
@@ -4409,7 +4536,10 @@ public class MainActivity extends Activity {
           float ax=cdx/cd,az=cdz/cd;
           float cut=Math.max(-1f,Math.min(1f,ax*ux+az*uz));
           float cutPenalty=(1f-cut)*22f;
-          float score=cd+pd*.72f+cutPenalty;
+          float noiseScale=aiDifficulty==0?24f:(aiDifficulty==1?7.5f:(aiDifficulty==2?1.8f:0f));
+          float seed=(t.index*19.13f+pocket[0]*.17f+pocket[1]*.31f+(float)(System.nanoTime()&1023)*.0007f);
+          float planningNoise=Math.abs((float)Math.sin(seed))*noiseScale;
+          float score=cd+pd*.72f+cutPenalty+planningNoise;
           if(score<bestScore){
             bestScore=score;best=t;bestAimX=ax;bestAimZ=az;bestDist=cd+pd;
           }
@@ -4427,21 +4557,30 @@ public class MainActivity extends Activity {
       if(best==null)return;
 
       float angle=(float)Math.atan2(bestAimZ,bestAimX);
-      // Small human-like aim variation keeps the generic AI competitive without being perfect.
-      float error=(float)Math.sin((System.nanoTime()&0xFFFF)*.0017f)*.012f;
-      angle+=error;
+      float errMax=aiDifficulty==0?(float)Math.toRadians(3.6f):
+        (aiDifficulty==1?(float)Math.toRadians(1.25f):
+        (aiDifficulty==2?(float)Math.toRadians(.36f):(float)Math.toRadians(.08f)));
+      float wave=(float)Math.sin((System.nanoTime()&0xFFFF)*.0017f);
+      angle+=wave*errMax;
       aimX=desiredAimX=(float)Math.cos(angle);
       aimZ=desiredAimZ=(float)Math.sin(angle);
       englishX=englishY=sideSpin=topSpin=0;
-      power=Math.max(42f,Math.min(82f,44f+bestDist*.42f));
+      float basePower=Math.max(42f,Math.min(82f,44f+bestDist*.42f));
+      float jitterMax=aiDifficulty==0?9f:(aiDifficulty==1?4f:(aiDifficulty==2?1.4f:.35f));
+      power=Math.max(36f,Math.min(88f,basePower+wave*jitterMax));
       activeShooter=2;currentTeam=2;
-      ruleMessage="GALACTIC AI SHOOTS";
+      ruleMessage="GALACTIC AI • "+aiDifficultyName()+" SHOOTS";
       executeShot();
     }
 
     void executeShot(){
       firstContactBall=0;
       ballInHand=false;
+      if(challengeMode&&currentTeam==1){
+        challengePlayerShots++;
+        challengeObjectsThisShot=0;
+        if(challengeId==2&&challengePlayerShots>8)failChallenge();
+      }
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
       // Exact TTS shot formula: power * speedMultiplier(1.65) * SHOT_VELOCITY_FACTOR(1.25).
@@ -4540,9 +4679,9 @@ public class MainActivity extends Activity {
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
           if(aiEnabled&&!gameOver&&currentTeam==2){
             aiThinking=true;
-            aiReadyAt=System.currentTimeMillis()+1100;
+            aiReadyAt=System.currentTimeMillis()+aiThinkDelayMs();
             activeShooter=2;
-            ruleMessage="GALACTIC AI THINKING";
+            ruleMessage="GALACTIC AI • "+aiDifficultyName()+" THINKING";
           }else{
             aiThinking=false;
           }
@@ -4552,9 +4691,9 @@ public class MainActivity extends Activity {
         if(aiEnabled&&!gameOver&&currentTeam==2&&state==AIMING&&allStopped()){
           if(!aiThinking){
             aiThinking=true;
-            aiReadyAt=System.currentTimeMillis()+1100;
+            aiReadyAt=System.currentTimeMillis()+aiThinkDelayMs();
             activeShooter=2;
-            ruleMessage="GALACTIC AI THINKING";
+            ruleMessage="GALACTIC AI • "+aiDifficultyName()+" THINKING";
           }else if(System.currentTimeMillis()>=aiReadyAt){
             aiThinking=false;
             performAiShot();
