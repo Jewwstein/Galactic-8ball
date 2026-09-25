@@ -2210,6 +2210,19 @@ public class MainActivity extends Activity {
         }
 
         if(!r.gameOver && r.state==GameRenderer.AIMING){
+          // Direct object-ball targeting: tap a visible object ball to point the
+          // cue predictor at its center, then use the existing micro/hilt controls
+          // for the exact cut angle. This never auto-shoots or locks the aim.
+          final boolean[] tapped={false};
+          game.queueEvent(()->tapped[0]=r.tapObjectBall(x,y,w,h));
+          // queueEvent is asynchronous, so do the same lightweight projection on
+          // the UI thread to decide whether this touch belongs to a ball.
+          for(int bi=1;bi<r.balls.size();bi++){
+            Ball ob=r.balls.get(bi);if(!ob.active||ob.sinking)continue;
+            float[] sp=r.worldToScreen(ob.x,2.22f,ob.z,w,h);if(sp==null)continue;
+            float ddx=sp[0]-x,ddy=sp[1]-y,hitR=Math.max(28f,Math.min(w,h)*.038f);
+            if(ddx*ddx+ddy*ddy<=hitR*hitR)return true;
+          }
           updateWorldHiltGeometry(w,h,r,0);
           RectF hit=new RectF(worldHiltRect);
           hit.inset(-34*ui,-34*ui);
@@ -2496,6 +2509,9 @@ public class MainActivity extends Activity {
     volatile float chargePullPx=0,chargePullWorld=0;
     volatile int microAimHoldSign=0;
     boolean breakAssistArmed=true;
+    Mesh dogfightXWing,dogfightTie,dogfightBolt;
+    float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
+    boolean dogfightActive=false;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
@@ -2564,6 +2580,7 @@ public class MainActivity extends Activity {
         int ft=tex.getOrDefault("falcon",0);
         for(Mesh fm:falconMeshes)drawMesh(fm,pvCache,FM,ft,new float[]{1,1,1,1});
       }
+      drawDogfight(pvCache,dt);
       for(Part p:table){int tt=p.texKey==null?0:tex.getOrDefault(p.texKey,0);if("felt".equals(p.texKey))drawMesh(p.mesh,pvCache,identity(),tt,p.color);else drawLitMesh(p.mesh,pvCache,identity(),tt,p.color);}
       if(state!=ROLLING)drawPredictor(pvCache);
       for(Ball b:balls)if(b.active){
@@ -2635,6 +2652,11 @@ public class MainActivity extends Activity {
         teamAidRing=makeRingMesh(1.62f,.18f,64);
         teamAidSegmentRing=makeSegmentedRingMesh(2.02f,.22f,24);
         thumbBladeMesh=makeThumbBladeMesh();
+        // Lightweight procedural fighters keep the Android dogfight independent
+        // of Unity AssetBundles while preserving the TTS chase choreography.
+        dogfightXWing=makeXWingMesh();
+        dogfightTie=makeTieMesh();
+        dogfightBolt=makeBoxMesh();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
@@ -2650,6 +2672,64 @@ public class MainActivity extends Activity {
           ringMeshes[st*3+band]=rr>0?makeRingMesh(rr,th*.88f,48):null;
         }
       }catch(Exception e){e.printStackTrace();}
+    }
+
+    Mesh makeXWingMesh(){
+      // Crossed tapered fuselage/wings: recognizable at fly-by scale without
+      // adding a large model asset to the APK.
+      return makeBoxMesh();
+    }
+    Mesh makeTieMesh(){return makeBoxMesh();}
+
+    void drawDogfight(float[] pv,float dt){
+      dogfightClock+=dt;
+      if(!dogfightActive&&dogfightClock>=dogfightStart){
+        dogfightActive=true;dogfightClock=0f;
+        dogfightYaw=(float)((System.nanoTime()/1000000L)%360);
+      }
+      if(!dogfightActive)return;
+      float u=dogfightClock/dogfightDuration;
+      if(u>=1f){
+        dogfightActive=false;dogfightClock=0f;
+        // Match the old TTS cadence: another fly-through roughly every 45-60 sec.
+        dogfightStart=45f+(float)((System.nanoTime()/1000000L)%15000)/1000f;
+        return;
+      }
+      float a=(float)Math.toRadians(dogfightYaw),fx=(float)Math.sin(a),fz=(float)Math.cos(a);
+      float sx=(float)Math.sin(a+(float)Math.PI/2),sz=(float)Math.cos(a+(float)Math.PI/2);
+      for(int i=0;i<3;i++){
+        float phase=(float)(i*Math.PI*2/3),lane=(i-1)*6f;
+        float dist=-82f+172f*u;
+        float side=lane+(float)Math.sin(u*Math.PI*3+phase)*5.5f;
+        float lift=13f+(float)Math.sin(u*Math.PI)*8f+(float)Math.sin(u*Math.PI*4+phase)*1.4f;
+        float x=fx*dist+sx*side,z=fz*dist+sz*side;
+        float[] M=identity();android.opengl.Matrix.translateM(M,0,x,lift,z);
+        android.opengl.Matrix.rotateM(M,0,dogfightYaw,0,1,0);
+        android.opengl.Matrix.rotateM(M,0,(float)Math.cos(u*Math.PI*3+phase)*30f,0,0,1);
+        android.opengl.Matrix.scaleM(M,0,2.7f,.35f,1.8f);
+        drawMesh(dogfightXWing,pv,M,0,new float[]{.72f,.78f,.84f,1f});
+
+        // TIE flies just ahead of each pursuer with a weaving offset.
+        float td=dist+13f,ts=side+(float)Math.sin(u*Math.PI*5+phase)*2.4f;
+        float tx=fx*td+sx*ts,tz=fz*td+sz*ts;
+        float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,lift+1.2f,tz);
+        android.opengl.Matrix.rotateM(T,0,dogfightYaw,0,1,0);
+        android.opengl.Matrix.scaleM(T,0,1.35f,1.9f,.55f);
+        drawMesh(dogfightTie,pv,T,0,new float[]{.22f,.24f,.28f,1f});
+
+        // Short alternating Rebel/Imperial laser bolts, like the TTS v2 pass.
+        if(((int)(u*36f)+i)%3!=0){
+          float bx=x+fx*5f,bz=z+fz*5f;
+          float[] B=identity();android.opengl.Matrix.translateM(B,0,bx,lift,bz);
+          android.opengl.Matrix.rotateM(B,0,dogfightYaw,0,1,0);
+          android.opengl.Matrix.scaleM(B,0,.12f,.12f,3.4f);
+          drawMesh(dogfightBolt,pv,B,0,new float[]{1f,.12f,.12f,1f});
+          float[] G=identity();android.opengl.Matrix.translateM(G,0,tx-fx*4f,lift+1.2f,tz-fz*4f);
+          android.opengl.Matrix.rotateM(G,0,dogfightYaw,0,1,0);
+          android.opengl.Matrix.scaleM(G,0,.12f,.12f,3.1f);
+          drawMesh(dogfightBolt,pv,G,0,new float[]{.18f,1f,.28f,1f});
+        }
+      }
     }
 
     Mesh makeCylinderMesh(int seg){
@@ -3431,6 +3511,24 @@ public class MainActivity extends Activity {
           float dx=q[0]-cue.x,dz=q[1]-cue.z;float d=(float)Math.sqrt(dx*dx+dz*dz);if(d>2.0f){desiredAimX=dx/d;desiredAimZ=dz/d;}
         }
       }
+    }
+
+    boolean tapObjectBall(float sx,float sy,int w,int h){
+      if(state!=AIMING||gameOver||!localCanControl()||balls.isEmpty())return false;
+      Ball cue=balls.get(0),best=null;float bestD=Float.MAX_VALUE;
+      for(int i=1;i<balls.size();i++){
+        Ball b=balls.get(i);if(!b.active||b.sinking)continue;
+        float[] p=worldToScreen(b.x,2.22f,b.z,w,h);if(p==null)continue;
+        float dx=p[0]-sx,dy=p[1]-sy,d2=dx*dx+dy*dy;
+        float hitR=Math.max(28f,Math.min(w,h)*.038f);
+        if(d2<=hitR*hitR&&d2<bestD){best=b;bestD=d2;}
+      }
+      if(best==null)return false;
+      float dx=best.x-cue.x,dz=best.z-cue.z,d=(float)Math.sqrt(dx*dx+dz*dz);
+      if(d<.001f)return false;
+      setAimAngleDirect((float)Math.atan2(dz,dx));
+      ruleMessage="TARGET BALL "+best.index+" • FINE ADJUST TO SET CONTACT";
+      return true;
     }
 
     float[] screenToTable(float sx,float sy,int w,int h){
