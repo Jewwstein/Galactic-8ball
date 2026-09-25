@@ -485,8 +485,9 @@ public class GalacticServer {
     final int[] teamSuit={0,0};
     World world;Body railBody;
     int state=AIMING,currentTeam=1,activeShooter=1,winnerTeam=0,hiltIndex=0,bladeIndex=5;
-    boolean tableOpen=true,gameOver=false;
-    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,power=0,chargePullPx=0,chargePullWorld=0,englishX=0,englishY=0;
+    boolean tableOpen=true,gameOver=false,englishObjectApplied=false;
+    int englishRailCooldown=0;
+    float aimX=1,aimZ=0,desiredAimX=1,desiredAimZ=0,power=0,chargePullPx=0,chargePullWorld=0,englishX=0,englishY=0,sideSpin=0,topSpin=0;
     String ruleMessage="BREAK • TEAM 1";
     int tickCounter=0;
 
@@ -495,6 +496,7 @@ public class GalacticServer {
     synchronized void tick(){
       if(state==ROLLING){
         world.step(FIXED_DT,30,12);
+        if(englishRailCooldown>0)englishRailCooldown--;
         syncBodies();
         for(Ball b:balls)checkPocket(b);
         advanceSinks(FIXED_DT);
@@ -552,6 +554,7 @@ public class GalacticServer {
       float androidScale=.60f+.18f*pn*pn;
       float speed=power*1.65f*1.25f*androidScale;
       cue.spin=englishX*speed*.06f;
+      sideSpin=englishX;topSpin=englishY;englishObjectApplied=false;englishRailCooldown=0;
       cue.body.setLinearVelocity(new Vec2(aimX*speed,aimZ*speed));
       cue.body.setAwake(true);
       state=ROLLING;power=chargePullPx=chargePullWorld=0;
@@ -560,7 +563,7 @@ public class GalacticServer {
     void resetRack(){
       balls.clear();ballsSunkThisShot.clear();
       currentTeam=1;activeShooter=1;winnerTeam=0;teamSuit[0]=teamSuit[1]=0;tableOpen=true;gameOver=false;
-      state=AIMING;aimX=desiredAimX=1;aimZ=desiredAimZ=0;power=chargePullPx=chargePullWorld=englishX=englishY=0;
+      state=AIMING;aimX=desiredAimX=1;aimZ=desiredAimZ=0;power=chargePullPx=chargePullWorld=englishX=englishY=sideSpin=topSpin=0;englishObjectApplied=false;englishRailCooldown=0;
       ruleMessage="BREAK • TEAM 1";
       balls.add(new Ball(0,-20f,0f));
       float[][] p={
@@ -575,6 +578,33 @@ public class GalacticServer {
 
     void buildWorld(){
       world=new World(new Vec2(0,0));world.setContinuousPhysics(true);world.setWarmStarting(true);
+      world.setContactListener(new org.jbox2d.callbacks.ContactListener(){
+        public void beginContact(org.jbox2d.dynamics.contacts.Contact contact){}
+        public void endContact(org.jbox2d.dynamics.contacts.Contact contact){}
+        public void preSolve(org.jbox2d.dynamics.contacts.Contact contact,org.jbox2d.collision.Manifold oldManifold){}
+        public void postSolve(org.jbox2d.dynamics.contacts.Contact contact,org.jbox2d.callbacks.ContactImpulse impulse){
+          if(state!=ROLLING)return;
+          Ball cue=ball(0);if(cue==null||cue.body==null)return;
+          Object ua=contact.getFixtureA().getBody().getUserData(),ub=contact.getFixtureB().getBody().getUserData();
+          boolean cueA=ua==cue,cueB=ub==cue;if(!cueA&&!cueB)return;
+          Object otherData=cueA?ub:ua;
+          Ball other=otherData instanceof Ball?(Ball)otherData:null;
+          Vec2 v=cue.body.getLinearVelocity();float speed=(float)Math.sqrt(v.x*v.x+v.y*v.y);
+          if(speed<.08f)return;
+          if(other!=null&&!englishObjectApplied){
+            englishObjectApplied=true;
+            float nx=other.x-cue.x,nz=other.z-cue.z,nd=(float)Math.sqrt(nx*nx+nz*nz);
+            if(nd>.001f){nx/=nd;nz/=nd;}
+            float tx=v.x+nx*(topSpin*speed*.34f),tz=v.y+nz*(topSpin*speed*.34f);
+            float a=(float)Math.toRadians(sideSpin*7.0f),cs=(float)Math.cos(a),sn=(float)Math.sin(a);
+            cue.body.setLinearVelocity(new Vec2(tx*cs-tz*sn,tx*sn+tz*cs));
+          }else if(other==null&&englishRailCooldown<=0&&Math.abs(sideSpin)>.002f){
+            englishRailCooldown=12;
+            float a=(float)Math.toRadians(sideSpin*6.0f),cs=(float)Math.cos(a),sn=(float)Math.sin(a);
+            cue.body.setLinearVelocity(new Vec2(v.x*cs-v.y*sn,v.x*sn+v.y*cs));
+          }
+        }
+      });
       BodyDef rbd=new BodyDef();rbd.type=BodyType.STATIC;railBody=world.createBody(rbd);
       boolean loaded=false;
       try(BufferedReader br=new BufferedReader(new InputStreamReader(
@@ -636,16 +666,26 @@ public class GalacticServer {
       if(n>.00001f){b.qx=nx/n;b.qy=ny/n;b.qz=nz/n;b.qw=nw/n;}
     }
 
+    boolean arcadePocketAt(float x,float z){
+      final float PX=42.0f,PZ=21.0f;
+      float sideDz=Math.min(Math.abs(z-PZ),Math.abs(z+PZ));
+      if(Math.abs(x)<=3.45f&&sideDz<=3.45f)return true;
+      float cx=x>=0?PX:-PX,cz=z>=0?PZ:-PZ,dx=x-cx,dz=z-cz;
+      return dx*dx+dz*dz<=3.85f*3.85f;
+    }
+
     void checkPocket(Ball b){
       if(!b.active||b.sinking)return;
-      float ax=Math.abs(b.x),az=Math.abs(b.z);
-      if(az>MAXZ+.18f&&Math.abs(b.x)<2.35f){sink(b,0,b.z>0?MAXZ:MINZ);return;}
-      if(ax>MAXX-.55f&&az>MAXZ-.55f){
-        float px=b.x>0?MAXX:MINX,pz=b.z>0?MAXZ:MINZ,dx=b.x-px,dz=b.z-pz;
-        if(dx*dx+dz*dz<2.35f*2.35f&&(ax>MAXX+.08f||az>MAXZ+.08f)){sink(b,px,pz);return;}
+      if(arcadePocketAt(b.x,b.z)){
+        final float PX=42.0f,PZ=21.0f;
+        float px,pz;
+        if(Math.abs(b.x)<=3.45f){px=0f;pz=b.z>=0?PZ:-PZ;}
+        else{px=b.x>=0?PX:-PX;pz=b.z>=0?PZ:-PZ;}
+        sink(b,px,pz);return;
       }
+      float ax=Math.abs(b.x),az=Math.abs(b.z);
       if(ax>MAXX+4||az>MAXZ+4){
-        float px=Math.abs(b.x)<8?0:(b.x>0?MAXX:MINX),pz=b.z>0?MAXZ:MINZ;sink(b,px,pz);
+        float px=Math.abs(b.x)<8?0:(b.x>0?42f:-42f),pz=b.z>0?21f:-21f;sink(b,px,pz);
       }
     }
 
