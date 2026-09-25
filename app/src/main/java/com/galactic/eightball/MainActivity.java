@@ -1241,7 +1241,7 @@ public class MainActivity extends Activity {
     GameView(Context c){
       super(c);
       setEGLContextClientVersion(2);
-      setEGLConfigChooser(8,8,8,8,16,0);
+      setEGLConfigChooser(8,8,8,8,24,0);
       getHolder().setFormat(PixelFormat.TRANSLUCENT);
       setZOrderOnTop(false);
       r=new GameRenderer(c);
@@ -2499,6 +2499,7 @@ public class MainActivity extends Activity {
     final float[] ringDepth={.18f,.22f,.20f,.18f,.22f,.18f,.24f};
     int program,aPos,aUv,aNormal,uMvp,uModel,uUseTex,uColor,uTex,uLit;
     float aspect=16f/9f; int surfaceW=1,surfaceH=1; long last=0; float[] pvCache=new float[16];
+    final float[] falconModel=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
     volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
@@ -2549,10 +2550,17 @@ public class MainActivity extends Activity {
       aPos=GLES20.glGetAttribLocation(program,"aPos");aUv=GLES20.glGetAttribLocation(program,"aUv");aNormal=GLES20.glGetAttribLocation(program,"aNormal");
       uMvp=GLES20.glGetUniformLocation(program,"uMvp");uModel=GLES20.glGetUniformLocation(program,"uModel");uUseTex=GLES20.glGetUniformLocation(program,"uUseTex");
       uColor=GLES20.glGetUniformLocation(program,"uColor");uTex=GLES20.glGetUniformLocation(program,"uTex");uLit=GLES20.glGetUniformLocation(program,"uLit");
-      loadAssets();resetRack();last=System.nanoTime();
+      buildFalconTransform();loadAssets();resetRack();last=System.nanoTime();
     }
 
     int shader(int type,String src){int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);return s;}
+
+    void buildFalconTransform(){
+      android.opengl.Matrix.setIdentityM(falconModel,0);
+      android.opengl.Matrix.translateM(falconModel,0,0f,-6.0953f,0f);
+      android.opengl.Matrix.rotateM(falconModel,0,90f,0,1,0);
+      android.opengl.Matrix.scaleM(falconModel,0,11.25f,6f,11.25f);
+    }
     public void onSurfaceChanged(GL10 gl,int w,int h){GLES20.glViewport(0,0,w,h);surfaceW=Math.max(1,w);surfaceH=Math.max(1,h);aspect=(float)w/Math.max(1,h);}
 
     public void onDrawFrame(GL10 gl){
@@ -2560,7 +2568,7 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.1f,320f);
+      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.75f,320f);
       float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
       float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
       float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*viewDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
@@ -2579,12 +2587,16 @@ public class MainActivity extends Activity {
       }
 
       if(!falconMeshes.isEmpty()){
-        float[] FM=identity();
-        android.opengl.Matrix.translateM(FM,0,0f,-6.0953f,0f);
-        android.opengl.Matrix.rotateM(FM,0,90f,0,1,0);
-        android.opengl.Matrix.scaleM(FM,0,11.25f,6f,11.25f);
+        // Falcon transform is fixed in world space and identical on every device.
+        // Keep the approved footprint/scale; only bias its depth slightly backward
+        // to prevent table/Falcon z-fighting on GPUs with different depth behavior.
+        GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+        GLES20.glDepthMask(true);
+        GLES20.glEnable(GLES20.GL_POLYGON_OFFSET_FILL);
+        GLES20.glPolygonOffset(1.5f,4.0f);
         int ft=tex.getOrDefault("falcon",0);
-        for(Mesh fm:falconMeshes)drawMesh(fm,pvCache,FM,ft,new float[]{1,1,1,1});
+        for(Mesh fm:falconMeshes)drawLitMesh(fm,pvCache,falconModel,ft,new float[]{.90f,.92f,.95f,1f});
+        GLES20.glDisable(GLES20.GL_POLYGON_OFFSET_FILL);
       }
       drawDogfight(pvCache,dt);
       for(Part p:table){int tt=p.texKey==null?0:tex.getOrDefault(p.texKey,0);if("felt".equals(p.texKey))drawMesh(p.mesh,pvCache,identity(),tt,p.color);else drawLitMesh(p.mesh,pvCache,identity(),tt,p.color);}
