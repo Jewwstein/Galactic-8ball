@@ -1349,7 +1349,7 @@ public class MainActivity extends Activity {
       int bi=Math.max(0,Math.min(5,game.r.bladeIndex));
 
       int active=0;
-      for(GameRenderer.Ball b:game.r.balls)if(b!=null&&b.active)active++;
+      for(Ball b:game.r.balls)if(b!=null&&b.active)active++;
       if(lastState>=0&&game.r.state!=lastState)pulse(bladeColors[bi],.62f);
       if(lastTeam>=0&&game.r.currentTeam!=lastTeam)pulse(game.r.currentTeam==1?0xFF55B8FF:0xFFFF6262,.78f);
       if(lastActiveCount>=0&&active<lastActiveCount)pulse(0xFFFFC54A,.92f);
