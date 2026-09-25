@@ -34,6 +34,19 @@ jobs:
           curl -fsS http://127.0.0.1:10000/play | grep -F "iPhone Web Test"
           curl -fsS http://127.0.0.1:10000/play/manifest.webmanifest | grep -F '"display": "standalone"'
           curl -fsS http://127.0.0.1:10000/play/icon.svg | grep -F "<svg"
+      - name: Verify Render deployment
+        run: |
+          for i in {1..60}; do
+            BODY="$(curl -fsS --max-time 20 https://galactic-8ball-server.onrender.com/play 2>/dev/null || true)"
+            if echo "$BODY" | grep -Fq "iPhone Web Test"; then
+              echo "Render web client is live."
+              exit 0
+            fi
+            echo "Waiting for Render deployment ($i/60)..."
+            sleep 5
+          done
+          echo "Render did not expose the new /play client within the verification window."
+          exit 1
       - name: Show server log on failure
         if: failure()
         run: cat /tmp/galactic-server.log || true
