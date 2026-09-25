@@ -1362,11 +1362,14 @@ public class MainActivity extends Activity {
       float thick=Math.max(dpv(10),Math.min(dpv(17),Math.min(w,h)*.019f));
       float corner=Math.max(dpv(60),thick*5.4f);
 
-      // Top and bottom remain one saber each. Extend the blades farther into
-      // both corner hilts so the horizontal bezel reads as one continuous rail.
-      float horizontalInset=Math.max(dpv(18),corner*.34f);
-      drawSaber(c,hilt,blade,edge+horizontalInset,edge+thick*.45f,0,w-(edge+horizontalInset)*2,thick,color);
-      drawSaber(c,hilt,blade,w-edge-horizontalInset,h-edge-thick*.45f,180,w-(edge+horizontalInset)*2,thick,color);
+      // Top and bottom remain one saber each. Keep the horizontal hilts clear
+      // of the vertical corner hilts, but let the ENERGY blade extend farther
+      // toward the opposite end so the rail fills the previous empty gap.
+      float horizontalHiltInset=corner;
+      float horizontalBladeExtra=Math.max(dpv(22),corner*.46f);
+      float horizontalBladeLen=w-(edge+horizontalHiltInset)*2+horizontalBladeExtra;
+      drawSaber(c,hilt,blade,edge+horizontalHiltInset,edge+thick*.45f,0,horizontalBladeLen,thick,color);
+      drawSaber(c,hilt,blade,w-edge-horizontalHiltInset,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
 
       // Split each tall side rail into TWO shorter sabers instead of one
       // stretched blade. Opposing blades meet near the screen midpoint.
