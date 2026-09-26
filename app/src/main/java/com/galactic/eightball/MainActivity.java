@@ -1820,7 +1820,7 @@ public class MainActivity extends Activity {
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false,saberHiltScrolling=false;
-    float saberHiltScroll=0f,saberHiltDownY=0f,saberHiltStartScroll=0f;
+    float saberHiltScroll=0f,saberHiltDownX=0f,saberHiltStartScroll=0f;
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
@@ -1867,7 +1867,7 @@ public class MainActivity extends Activity {
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
       for(int i=0;i<8;i++)aiSubmenuRects[i]=new RectF();
       for(int i=0;i<6;i++){
-        hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
+        hilts[i]=loadPortraitHilt(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
         bladeChoices[i]=new RectF();
       }
       for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadRewardHilt(c,rewardHiltFiles[i]);
@@ -1875,6 +1875,11 @@ public class MainActivity extends Activity {
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
     float hudSafeY(int w,int h,float ui){return (h>w?34f:38f)*ui;}
+
+    Bitmap loadPortraitHilt(Context c,String n){
+      try(InputStream in=c.getAssets().open("ui/"+n)){return BitmapFactory.decodeStream(in);}
+      catch(Exception e){return null;}
+    }
 
     Bitmap loadHorizontal(Context c,String n){
       try(InputStream in=c.getAssets().open("ui/"+n)){
@@ -2301,32 +2306,33 @@ public class MainActivity extends Activity {
       for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        // Two-hilt gallery: large readable artwork, vertically scrollable through
-        // all standard and unlockable hilts. Blade colors stay fixed below it.
+        // Two-card horizontal carousel. One finger tracks 1:1 left/right and the
+        // gallery snaps to a two-hilt page on release.
         float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
         float hs=y+92*ui;
-        float bladeTop=panel.bottom-244*ui;
-        float galleryBottom=bladeTop-18*ui;
+        float bladeTop=panel.bottom-330*ui;
+        float galleryBottom=bladeTop-20*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
-        float rowStep=ch+12*ui;
-        float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*rowStep);
+        float pageStep=pw-side*2+gap;
+        float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*pageStep);
         saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltScroll));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS + REWARDS  •  SWIPE TO BROWSE",x+side,y+80*ui,p);
+        c.drawText("HILTS + REWARDS  •  SWIPE LEFT / RIGHT",x+side,y+80*ui,p);
         c.save();c.clipRect(x+side,hs,panel.right-side,galleryBottom);
         for(int i=0;i<TOTAL_HILT_COUNT;i++){
-          int col=i%2,row=i/2;float lx=x+side+col*(cw+gap),ty=hs+row*rowStep-saberHiltScroll;
+          int page=i/2,col=i%2;
+          float lx=x+side+col*(cw+gap)+page*pageStep-saberHiltScroll,ty=hs;
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
-          if(ty+ch>=hs&&ty<=galleryBottom)drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
+          if(lx+cw>=x+side&&lx<=panel.right-side)drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
         c.restore();
         p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADE COLOR",x+side,bladeTop,p);
-        float bstart=bladeTop+12*ui,bgap=8*ui,bcw=(pw-side*2-bgap*2)/3f;
-        float bh=Math.max(62*ui,(panel.bottom-bstart-18*ui-7*ui)/2f);
+        float bstart=bladeTop+14*ui,bgap=8*ui,bcw=(pw-side*2-bgap*2)/3f;
+        float bh=Math.max(94*ui,(panel.bottom-bstart-24*ui-9*ui)/2f);
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+7*ui);
+          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+9*ui);
           bladeChoices[i].set(lx,ty,lx+bcw,ty+bh);
           drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
@@ -2362,10 +2368,10 @@ public class MainActivity extends Activity {
       c.drawRoundRect(rr,10*ui,10*ui,p);p.setShader(null);
       stroke.setColor(selected?0xFFF4C542:0x667A8494);stroke.setStrokeWidth(selected?2.4f*ui:1.1f*ui);c.drawRoundRect(rr,10*ui,10*ui,stroke);
       if(bmp!=null){
-        RectF img=new RectF(rr.left+7*ui,rr.top+17*ui,rr.right-7*ui,rr.top+41*ui);
+        float bladeH=Math.min(42*ui,rr.height()*.38f); RectF img=new RectF(rr.left+7*ui,rr.centerY()-bladeH*.62f,rr.right-7*ui,rr.centerY()+bladeH*.38f);
         c.drawBitmap(bmp,null,img,p);
       }
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(8.8f*ui);p.setColor(Color.WHITE);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10.5f*ui);p.setColor(Color.WHITE);
       c.drawText(name,rr.centerX(),rr.bottom-5*ui,p);
     }
 
@@ -2467,9 +2473,13 @@ public class MainActivity extends Activity {
       // tall two-column card, matching the in-game up/down presentation.
       Bitmap galleryBmp=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
       if(galleryBmp!=null){
-        c.save();c.rotate(-90f,art.centerX(),art.centerY());
-        RectF rotatedBox=new RectF(art.centerX()-art.height()*.5f,art.centerY()-art.width()*.5f,art.centerX()+art.height()*.5f,art.centerY()+art.width()*.5f);
-        drawBitmapFitCenter(c,galleryBmp,rotatedBox,p);c.restore();
+        if(index<BASE_HILT_COUNT){
+          drawBitmapFitCenter(c,galleryBmp,art,p);
+        }else{
+          c.save();c.rotate(-90f,art.centerX(),art.centerY());
+          RectF rotatedBox=new RectF(art.centerX()-art.height()*.5f,art.centerY()-art.width()*.5f,art.centerX()+art.height()*.5f,art.centerY()+art.width()*.5f);
+          drawBitmapFitCenter(c,galleryBmp,rotatedBox,p);c.restore();
+        }
       }else drawRewardHiltArt(c,art,index,ui);
 
       if(locked){
@@ -2933,18 +2943,14 @@ public class MainActivity extends Activity {
         if(a==MotionEvent.ACTION_MOVE){
           float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
           float side=12*uiNow,gap=12*uiNow;
-          float hs=saberPanelRect.top+92*uiNow;
-          float bladeTop=saberPanelRect.bottom-264*uiNow;
-          float galleryBottom=bladeTop-18*uiNow;
-          float ch=Math.max(150*uiNow,galleryBottom-hs);
-          float rowStep=ch+12*uiNow;
-          float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*rowStep);
-          saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+(saberHiltDownY-y)));
+          float pageStep=saberPanelRect.width()-side*2+gap;
+          float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*pageStep);
+          saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+(saberHiltDownX-x)*1.18f));
           invalidate();
           return true;
         }
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
-          saberHiltScrolling=false;invalidate();return true;
+          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f; float pageStep=saberPanelRect.width()-24*uiNow+12*uiNow; saberHiltScroll=Math.max(0f,Math.round(saberHiltScroll/pageStep)*pageStep); saberHiltScrolling=false;invalidate();return true;
         }
       }
 
@@ -2956,9 +2962,9 @@ public class MainActivity extends Activity {
           // scroll gesture there instead of immediately treating the touch as aim.
           if(getHeight()>getWidth()){
             float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-            float galleryBottom=saberPanelRect.bottom-262*uiNow;
+            float galleryBottom=saberPanelRect.bottom-350*uiNow;
             if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
-              saberHiltScrolling=true;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;
+              saberHiltScrolling=true;saberHiltDownX=x;saberHiltStartScroll=saberHiltScroll;
             }
           }
           for(int i=0;i<TOTAL_HILT_COUNT;i++){
