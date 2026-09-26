@@ -787,7 +787,7 @@ public class MainActivity extends Activity {
       case 4:awardReward(BADGE_SITH_TRIAL,UNLOCK_NIHILUS,"SITH TRIAL","Darth Nihilus");break;
       case 5:awardReward(BADGE_JEDI,UNLOCK_MAUL_REWARD,"JEDI VICTOR","Darth Maul Double Emitter");break;
       case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
-      case 7:awardReward(BADGE_SOLIDS,UNLOCK_BABSY,"SOLID VICTORY","Babsy Blade");break;
+      case 7:awardReward(BADGE_SOLIDS,UNLOCK_BABSY,"SOLID VICTORY","Mystic Ninja Blade");break;
     }
   }
 
@@ -1861,7 +1861,7 @@ public class MainActivity extends Activity {
     final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
-      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","BABSY BLADE"};
+      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","MYSTIC NINJA BLADE"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
     // Slot 3 remains internally valid for old saves, but the original Darth Maul hilt is removed from the loadout gallery.
     final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12,13};
@@ -2100,7 +2100,7 @@ public class MainActivity extends Activity {
         drawPremiumButton(c,aiSubmenuRects[3],"SITH TRIAL","BEAT EXPERT • UNLOCK NIHILUS",ui,0xFFFF667A,r.challengeMode&&r.challengeId==4);
         drawPremiumButton(c,aiSubmenuRects[4],"JEDI VICTOR","WIN WITH JEDI HILT • UNLOCK MAUL DOUBLE",ui,0xFF75C8FF,r.challengeMode&&r.challengeId==5);
         drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
-        drawPremiumButton(c,aiSubmenuRects[6],"SOLID VICTORY","WIN AS SOLIDS • UNLOCK BABSY BLADE",ui,0xFF63D7FF,r.challengeMode&&r.challengeId==7);
+        drawPremiumButton(c,aiSubmenuRects[6],"SOLID VICTORY","WIN AS SOLIDS • UNLOCK MYSTIC NINJA BLADE",ui,0xFF63D7FF,r.challengeMode&&r.challengeId==7);
         drawPremiumButton(c,aiSubmenuRects[7],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
         drawPremiumButton(c,aiSubmenuRects[8],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
         return;
