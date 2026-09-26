@@ -38,7 +38,7 @@ public class MainActivity extends Activity {
   static final int BADGE_CLEAN=1<<0,BADGE_SPEED=1<<1,BADGE_COMBO=1<<2,BADGE_SITH_TRIAL=1<<3,
     BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6;
   static final int UNLOCK_YODA=1<<0,UNLOCK_AHSOKA=1<<1,UNLOCK_ANAKIN=1<<2,UNLOCK_NIHILUS=1<<3,
-    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_REY=1<<6;
+    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6;
   static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=13;
   GameView game;
   HudView hud;
@@ -755,11 +755,11 @@ public class MainActivity extends Activity {
   }
 
   static boolean isJediHiltIndex(int index){
-    return index==0||index==1||index==2||index==4||index==6||index==7||index==8||index==12;
+    return index==0||index==1||index==2||index==4||index==6||index==7||index==8;
   }
 
   static boolean isSithHiltIndex(int index){
-    return index==3||index==5||index==9||index==11;
+    return index==3||index==5||index==9||index==11||index==12;
   }
 
   void awardReward(int badgeBit,int unlockBit,String badgeName,String hiltName){
@@ -784,7 +784,7 @@ public class MainActivity extends Activity {
       case 2:awardReward(BADGE_SPEED,UNLOCK_AHSOKA,"SPEED RUN","Ahsoka Fulcrum");break;
       case 3:awardReward(BADGE_COMBO,UNLOCK_YODA,"COMBO STRIKE","Yoda");break;
       case 4:awardReward(BADGE_SITH_TRIAL,UNLOCK_NIHILUS,"SITH TRIAL","Darth Nihilus");break;
-      case 5:awardReward(BADGE_JEDI,UNLOCK_REY,"JEDI VICTOR","Rey");break;
+      case 5:awardReward(BADGE_JEDI,UNLOCK_MAUL_REWARD,"JEDI VICTOR","Darth Maul Double Emitter");break;
       case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
     }
   }
@@ -1591,7 +1591,7 @@ public class MainActivity extends Activity {
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
     final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[7],blades=new Bitmap[6];
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1857,7 +1857,7 @@ public class MainActivity extends Activity {
     final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
-      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","REY"};
+      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
 
     HudView(Context c,GameView g){
@@ -2092,7 +2092,7 @@ public class MainActivity extends Activity {
         drawPremiumButton(c,aiSubmenuRects[1],"SPEED RUN","≤ 8 SHOTS • UNLOCK AHSOKA",ui,0xFF46C7FF,r.challengeMode&&r.challengeId==2);
         drawPremiumButton(c,aiSubmenuRects[2],"COMBO STRIKE","POCKET 2+ • UNLOCK YODA",ui,0xFFF4C542,r.challengeMode&&r.challengeId==3);
         drawPremiumButton(c,aiSubmenuRects[3],"SITH TRIAL","BEAT EXPERT • UNLOCK NIHILUS",ui,0xFFFF667A,r.challengeMode&&r.challengeId==4);
-        drawPremiumButton(c,aiSubmenuRects[4],"JEDI VICTOR","WIN WITH JEDI HILT • UNLOCK REY",ui,0xFF75C8FF,r.challengeMode&&r.challengeId==5);
+        drawPremiumButton(c,aiSubmenuRects[4],"JEDI VICTOR","WIN WITH JEDI HILT • UNLOCK MAUL DOUBLE",ui,0xFF75C8FF,r.challengeMode&&r.challengeId==5);
         drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
         drawPremiumButton(c,aiSubmenuRects[6],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
         drawPremiumButton(c,aiSubmenuRects[7],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
@@ -2377,7 +2377,7 @@ public class MainActivity extends Activity {
         case 9:return 0xFFFF4052;
         case 10:return 0xFFF2F4F7;
         case 11:return 0xFFFF2D35;
-        case 12:return 0xFFFFD45C;
+        case 12:return 0xFFFF3038;
         default:return 0xFF8DA0B5;
       }
     }
@@ -2400,7 +2400,7 @@ public class MainActivity extends Activity {
       float h=Math.max(8*ui,rr.height()*.22f);
       int accent=rewardHiltAccent(index);
       int body=(index==9||index==11)?0xFF25272D:(index==10?0xFFF0F2F5:0xFFB8BEC8);
-      int grip=(index==12?0xFF6B4A2C:0xFF171A20);
+      int grip=0xFF171A20;
       if(index==7)body=0xFFE7EDF4;
       if(index==8)body=0xFFC7CCD3;
 
@@ -2440,9 +2440,10 @@ public class MainActivity extends Activity {
         p.setColor(0xFF35383E);float ex=right-h*.72f;
         c.drawRoundRect(new RectF(ex-h*.16f,cy-h*1.65f,ex+h*.16f,cy+h*1.65f),h*.14f,h*.14f,p);
         p.setColor(accent);c.drawRect(ex-h*.08f,cy-h*1.55f,ex+h*.08f,cy+h*1.55f,p);
-      }else if(index==12){ // Rey wrapped grip
-        stroke.setStrokeWidth(2.0f*ui);stroke.setColor(0xFFD7B37A);
-        for(int k=0;k<6;k++){float xx=gx1+k*(gx2-gx1)/6f;c.drawLine(xx,cy-h*.72f,xx+h*.30f,cy+h*.72f,stroke);}
+      }else if(index==12){ // Darth Maul double-emitter reward
+        p.setColor(0xFF20242A);c.drawRoundRect(new RectF(left,cy-h*.86f,right,cy+h*.86f),h*.34f,h*.34f,p);
+        p.setColor(0xFFC8CDD4);c.drawRect(left+h*.18f,cy-h*.96f,left+h*.72f,cy+h*.96f,p);c.drawRect(right-h*.72f,cy-h*.96f,right-h*.18f,cy+h*.96f,p);
+        p.setColor(0xFFFF3038);c.drawCircle((left+right)*.5f,cy,h*.16f,p);
       }
     }
 
@@ -2462,12 +2463,14 @@ public class MainActivity extends Activity {
       stroke.setColor(selected?accent:(locked?0x664C5562:0x667A8494));stroke.setStrokeWidth(selected?2.4f*ui:1.1f*ui);c.drawRoundRect(rr,10*ui,10*ui,stroke);
 
       RectF art=new RectF(rr.left+4*ui,rr.top+4*ui,rr.right-4*ui,rr.bottom-17*ui);
-      if(index<BASE_HILT_COUNT&&hilts[index]!=null)drawBitmapFitCenter(c,hilts[index],art,p);
-      else{
-        int ri=index-BASE_HILT_COUNT;
-        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
-        if(reward!=null)drawBitmapFitCenter(c,reward,art,p);else drawRewardHiltArt(c,art,index,ui);
-      }
+      // Gallery cards display hilts vertically so their full silhouette fills the
+      // tall two-column card, matching the in-game up/down presentation.
+      Bitmap galleryBmp=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
+      if(galleryBmp!=null){
+        c.save();c.rotate(90f,art.centerX(),art.centerY());
+        RectF rotatedBox=new RectF(art.centerX()-art.height()*.5f,art.centerY()-art.width()*.5f,art.centerX()+art.height()*.5f,art.centerY()+art.width()*.5f);
+        drawBitmapFitCenter(c,galleryBmp,rotatedBox,p);c.restore();
+      }else drawRewardHiltArt(c,art,index,ui);
 
       if(locked){
         p.setColor(0xA8000000);c.drawRoundRect(rr,10*ui,10*ui,p);
@@ -3809,7 +3812,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,10.8f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:(hiltIndex==11?.83f:.78f);}
     float hiltFrontEmitterOffset(){
       float L=hiltWorldLength();
@@ -3937,7 +3940,7 @@ public class MainActivity extends Activity {
         case 9:body=new float[]{.12f,.13f,.15f,1};grip=black;accent=bone;break; // Nihilus
         case 10:body=white;grip=black;accent=red;break; // Stormtrooper
         case 11:body=new float[]{.12f,.13f,.15f,1};grip=black;accent=red;break; // Kylo
-        case 12:body=silver;grip=brown;accent=gold;break; // Rey
+        case 12:body=dark;grip=black;accent=red;break; // Darth Maul double-emitter reward
       }
       // Multi-material procedural core gives the reward hilts true 3D presence.
       drawHiltPart(pv,0,L*.48f,.73f,y,0,angle,grip);
