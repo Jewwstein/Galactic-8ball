@@ -1819,7 +1819,8 @@ public class MainActivity extends Activity {
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
+    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false,saberHiltScrolling=false;
+    float saberHiltScroll=0f,saberHiltDownY=0f,saberHiltStartScroll=0f;
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
@@ -2300,28 +2301,32 @@ public class MainActivity extends Activity {
       for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        // Portrait is the primary phone layout. Two wide columns give every hilt
-        // substantially more art/label space than the old 3-column HUD grid.
-        float side=11*ui,gap=11*ui,cw=(pw-side*2-gap)/2f;
-        float hs=y+91*ui;
-        float bladeSection=184*ui;
-        float availableForHilts=Math.max(420*ui,panel.bottom-hs-bladeSection);
-        float ch=Math.min(112*ui,Math.max(78*ui,(availableForHilts-6*8*ui)/7f));
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS + REWARDS",x+side,y+80*ui,p);
+        // Two-hilt gallery: large readable artwork, vertically scrollable through
+        // all standard and unlockable hilts. Blade colors stay fixed below it.
+        float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
+        float hs=y+92*ui;
+        float bladeTop=panel.bottom-238*ui;
+        float galleryBottom=bladeTop-18*ui;
+        float ch=Math.max(150*ui,galleryBottom-hs);
+        float rowStep=ch+12*ui;
+        float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*rowStep);
+        saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltScroll));
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS + REWARDS  •  SWIPE TO BROWSE",x+side,y+80*ui,p);
+        c.save();c.clipRect(x+side,hs,panel.right-side,galleryBottom);
         for(int i=0;i<TOTAL_HILT_COUNT;i++){
-          int col=i%2,row=i/2;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+6*ui);
+          int col=i%2,row=i/2;float lx=x+side+col*(cw+gap),ty=hs+row*rowStep-saberHiltScroll;
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
-          drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
+          if(ty+ch>=hs&&ty<=galleryBottom)drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-        float bsY=hs+7*(ch+8*ui)+8*ui;
-        p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("BLADES",x+side,bsY,p);
-        float bstart=bsY+10*ui,bgap=9*ui,bcw=(pw-side*2-bgap)/2f;
-        float bh=Math.max(66*ui,Math.min(88*ui,(panel.bottom-bstart-16*ui)/3f));
+        c.restore();
+        p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("BLADE COLOR",x+side,bladeTop,p);
+        float bstart=bladeTop+12*ui,bgap=8*ui,bcw=(pw-side*2-bgap*2)/3f;
+        float bh=Math.max(62*ui,(panel.bottom-bstart-18*ui-7*ui)/2f);
         for(int i=0;i<6;i++){
-          int col=i%2,row=i/2;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+7*ui);
+          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+7*ui);
           bladeChoices[i].set(lx,ty,lx+bcw,ty+bh);
           drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
@@ -2923,6 +2928,15 @@ public class MainActivity extends Activity {
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
           if(!saberPanelRect.contains(x,y)|| (y<saberPanelRect.top+54*getResources().getDisplayMetrics().density&&x>saberPanelRect.right-125*getResources().getDisplayMetrics().density)){menuOpen=false;invalidate();return true;}
+          // In portrait, the hilt gallery occupies the upper portion. Begin a
+          // scroll gesture there instead of immediately treating the touch as aim.
+          if(getHeight()>getWidth()){
+            float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
+            float galleryBottom=saberPanelRect.bottom-256*uiNow;
+            if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
+              saberHiltScrolling=true;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;
+            }
+          }
           for(int i=0;i<TOTAL_HILT_COUNT;i++){
             if(hiltChoices[i].contains(x,y)){
               final int k=i;
