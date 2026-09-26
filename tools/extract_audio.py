@@ -78,3 +78,24 @@ for idx,outname in mapping.items():
 
 (rawout/"sfx_manifest.json").write_text(json.dumps(manifest,indent=2))
 print("Extracted",len(manifest),"exact v428 gameplay sounds")
+
+
+# Dedicated Death Star Assault blaster. This is generated deterministically at
+# build time so the arcade mode has its own short laser report without reusing
+# a lightsaber effect or adding a large binary source file.
+laser=rawout/"sfx_arcade_laser.wav"
+subprocess.run([
+    "ffmpeg","-hide_banner","-loglevel","error","-y",
+    "-f","lavfi","-i",
+    "sine=frequency=980:duration=0.12:sample_rate=44100",
+    "-af","asetrate=44100*0.72,aresample=44100,volume=0.62,afade=t=out:st=0.08:d=0.08",
+    "-c:a","pcm_s16le",str(laser)
+],check=True)
+laserogg=rawout/"sfx_arcade_laser.ogg"
+subprocess.run([
+    "ffmpeg","-hide_banner","-loglevel","error","-y",
+    "-i",str(laser),"-filter:a","highpass=f=180,lowpass=f=6500",
+    "-c:a","libvorbis","-q:a","5",str(laserogg)
+],check=True)
+laser.unlink()
+print("SFX arcade laser ->",laserogg.name,laserogg.stat().st_size)
