@@ -139,6 +139,10 @@ jobs:
           for n in ahsoka nihilus rey; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
+          # Rey's approved source is WebP; decode it into a canonical RGBA PNG
+          # so every Android canvas (gallery, bezel and thumb control) reads the same asset.
+          python -c 'from PIL import Image; from pathlib import Path; p=Path("app/src/main/assets/reward_hilts/rey.webp"); im=Image.open(p).convert("RGBA"); im.load(); im.save(p.with_suffix(".png"),format="PNG"); print("Rey PNG:",im.size)'
+          test -s app/src/main/assets/reward_hilts/rey.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
