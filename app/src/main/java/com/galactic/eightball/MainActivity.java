@@ -1590,8 +1590,8 @@ public class MainActivity extends Activity {
     final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
     final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[7],blades=new Bitmap[6];
-    final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"hd/yoda.png","hd/ahsoka.png","hd/anakin.png","hd/nihilus.png","hd/stormtrooper.png","hd/kylo.png","hd/maul_double.png"};
+    final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1622,7 +1622,7 @@ public class MainActivity extends Activity {
     }
 
     Bitmap loadHorizontal(Context c,String n,boolean trim){
-      try(InputStream in=c.getAssets().open("ui/"+n)){
+      try(InputStream in=c.getAssets().open("new_hilts/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         if(b==null)return null;
         if(trim){
@@ -1649,7 +1649,7 @@ public class MainActivity extends Activity {
     }
 
     Bitmap loadReward(Context c,String n){
-      try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
+      try(InputStream in=c.getAssets().open("new_hilts/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         // HD reward art is portrait for the selector; bezel presentation is horizontal.
         if(b!=null&&b.getHeight()>b.getWidth()){
@@ -1855,7 +1855,7 @@ public class MainActivity extends Activity {
     };
 
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"hd/yoda.png","hd/ahsoka.png","hd/anakin.png","hd/nihilus.png","hd/stormtrooper.png","hd/kylo.png","hd/maul_double.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
       "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE"};
@@ -1880,12 +1880,12 @@ public class MainActivity extends Activity {
     float hudSafeY(int w,int h,float ui){return (h>w?34f:38f)*ui;}
 
     Bitmap loadPortraitHilt(Context c,String n){
-      try(InputStream in=c.getAssets().open("ui/"+n)){return BitmapFactory.decodeStream(in);}
+      try(InputStream in=c.getAssets().open("new_hilts/"+n)){return BitmapFactory.decodeStream(in);}
       catch(Exception e){return null;}
     }
 
     Bitmap loadHorizontal(Context c,String n){
-      try(InputStream in=c.getAssets().open("ui/"+n)){
+      try(InputStream in=c.getAssets().open("new_hilts/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         if(b!=null && b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
@@ -1896,7 +1896,7 @@ public class MainActivity extends Activity {
     }
 
     Bitmap loadRewardHilt(Context c,String n){
-      try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
+      try(InputStream in=c.getAssets().open("new_hilts/"+n)){
         return BitmapFactory.decodeStream(in);
       }catch(Exception e){return null;}
     }
@@ -2856,11 +2856,12 @@ public class MainActivity extends Activity {
       float grabHalfH=baseH*.72f;
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
-      if(r.hiltIndex>=BASE_HILT_COUNT){
-        // HD reward art is already authored portrait. Draw it directly so the
-        // thumb-strike grip stays vertical instead of reintroducing the legacy horizontal hilt.
-        int ri=r.hiltIndex-BASE_HILT_COUNT;
-        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
+      {
+        // Every selectable hilt now uses the same uploaded portrait PNG source here.
+        // This permanently removes the legacy horizontal/3D Thumb Strike regression.
+        Bitmap reward=null;
+        if(r.hiltIndex>=0&&r.hiltIndex<BASE_HILT_COUNT) reward=hilts[r.hiltIndex];
+        else { int ri=r.hiltIndex-BASE_HILT_COUNT; reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null; }
         float hiltH=baseH*.92f,hiltW=baseW*.82f;
         RectF rewardArt=new RectF(cx-hiltW*.5f,cy-hiltH*.52f,cx+hiltW*.5f,cy+hiltH*.48f);
         if(reward!=null)drawBitmapFitCenter(c,reward,rewardArt,p);else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
@@ -3574,7 +3575,8 @@ public class MainActivity extends Activity {
         drawPlanetRing(pvCache,b);
       }
       if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
-      if(state==CHARGING&&!gameOver&&localCanControl())drawThumbStrike3D();
+      // Thumb Strike hilt/blade is rendered by HudView from the canonical uploaded PNG set.
+      // Do not draw the legacy OpenGL hilt underneath it.
       if(net!=null)net.onFrame(this);
     }
 
