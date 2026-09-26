@@ -107,7 +107,6 @@ jobs:
           file app/src/main/assets/ui/*
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           python -m pip install -q UnityPy Pillow numpy
-          sudo apt-get install -y -qq pngquant
           python tools/make_launcher_icon.py
           python tools/extract_unity.py
           python tools/enhance_table_textures.py
@@ -135,11 +134,17 @@ jobs:
           # our optimized reward-art pipeline on some devices. Normalize every approved
           # reward hilt to true 8-bit RGBA while preserving the exact pixels/transparency.
           python - <<'PY'
-          from PIL import Image
+          from PIL import Image, ImageFile
           from pathlib import Path
+          ImageFile.LOAD_TRUNCATED_IMAGES=True
           for p in Path("app/src/main/assets/reward_hilts").glob("*.png"):
-              im=Image.open(p).convert("RGBA")
-              im.save(p,format="PNG",optimize=True)
+              try:
+                  with Image.open(p) as src:
+                      im=src.convert("RGBA")
+                      im.load()
+                  im.save(p,format="PNG",optimize=True)
+              except Exception as e:
+                  raise RuntimeError(f"reward hilt PNG decode failed: {p}: {e}")
           PY
           file app/src/main/assets/reward_hilts/*.png
           rm -rf app/src/main/assets/sfx_bundle
