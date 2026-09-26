@@ -1207,7 +1207,7 @@ public class MainActivity extends Activity {
     volatile boolean hosting=false,lobbyRequested=false,pendingRegistration=false;
     volatile int localPlayer=0;
     final int[] playerBadgeMasks={0,0},playerUnlockMasks={0,0};
-    volatile String username="",roomId="",roomName="",status="OFFLINE";
+    volatile String username="",roomId="",roomName="",status="OFFLINE",arcadeBoard="";
     WebSocket socket;
 
     MultiplayerManager(MainActivity a,GameView g,HudView h){
@@ -1325,6 +1325,9 @@ public class MainActivity extends Activity {
       send("LEAVE_ROOM");
     }
 
+    void submitArcadeScore(int score){if(authenticated)send("ARCADE_SCORE|"+Math.max(0,score));}
+    void requestArcadeBoard(){if(authenticated)send("ARCADE_BOARD");}
+
     void sendProfile(){
       if(!authenticated)return;
       int badges=activity.localBadgeMask(),unlocks=activity.localUnlockMask();
@@ -1400,6 +1403,10 @@ public class MainActivity extends Activity {
             game.queueEvent(()->game.r.resetRack());
             if(hud!=null)main.post(hud::invalidate);
             main.post(activity::showLobbyScreen);
+          }else if(msg.startsWith("ARCADE_BOARD")){
+            String[] p=msg.split("\\|",-1);StringBuilder b=new StringBuilder();
+            for(int i=1;i<p.length;i++){String[] q=p[i].split(",",2);if(q.length<2)continue;if(b.length()>0)b.append("\n");b.append(i).append(". ").append(unb64(q[0])).append("  ").append(q[1]);}
+            arcadeBoard=b.toString();if(hud!=null)main.post(hud::invalidate);
           }else if(msg.startsWith("PROFILESTATE|")){
             String[] p=msg.split("\\|",-1);
             try{
@@ -2193,6 +2200,13 @@ public class MainActivity extends Activity {
       c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
       p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
       c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+
+      if(r.net!=null&&!r.net.arcadeBoard.isEmpty()){
+        p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10.5f*ui);p.setColor(0xFFD8E2EE);
+        float lx=18f*ui,ly=112f*ui;c.drawText("GALACTIC LEADERBOARD",lx,ly,p);
+        String[] rows=r.net.arcadeBoard.split("\\n");for(int i=0;i<Math.min(5,rows.length);i++)c.drawText(rows[i],lx,ly+(i+1)*16f*ui,p);
+        p.setTextAlign(Paint.Align.CENTER);
+      }
 
       float rr=30f*ui; stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);
       stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
@@ -5467,9 +5481,12 @@ public class MainActivity extends Activity {
       if(balls.isEmpty()||state==ROLLING)return;
       Ball cue=balls.get(0);arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
-      ruleMessage="DEATH STAR ASSAULT";
+      ruleMessage="DEATH STAR ASSAULT";if(net!=null)net.requestArcadeBoard();
     }
-    void exitArcade(){arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeLocked=false;}
+    void exitArcade(){
+      int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeLocked=false;
+      if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
+    }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
 
