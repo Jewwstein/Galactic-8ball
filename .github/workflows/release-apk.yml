@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.7.7 approved reward hilt release - corrected build
+# v0.7.7 reward hilt RGBA + responsive saber proportions release
 on:
   push:
     branches: [ "main" ]
@@ -190,7 +190,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Replaces the temporary procedural challenge-reward hilts with the seven approved transparent hilt artworks for Yoda, Ahsoka Fulcrum, Anakin Classic, Darth Nihilus, Stormtrooper, Kylo Ren, and Rey across the loadout, gameplay hilt, thumb-strike control, and saber bezel.
+            UpdateNotes: Fixes reliable loading of all seven approved reward-hilt PNGs and preserves premium saber-hilt proportions in portrait/landscape loadout and bezel rendering.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
