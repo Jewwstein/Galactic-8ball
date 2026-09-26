@@ -113,12 +113,12 @@ jobs:
           python tools/render_hilt_thumbnails.py
           mkdir -p app/src/main/assets/reward_hilts
           for n in yoda anakin stormtrooper kylo; do
-            python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode(open(sys.argv[1],"rb").read(),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.png"
+            python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.png"
           done
           # These three approved images are stored as Android-safe WebP after their
           # original PNG streams proved malformed/incompatible on-device.
           for n in ahsoka nihilus rey; do
-            python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode(open(sys.argv[1],"rb").read(),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
+            python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
