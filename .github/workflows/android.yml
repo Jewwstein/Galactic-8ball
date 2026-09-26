@@ -34,41 +34,23 @@ jobs:
         run: |
           mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio app/src/main/assets/hilt_materials app/src/main/assets/fighter_bundles app/src/main/assets/fighters
           # Canonical high-resolution portrait hilt art uploaded by the project owner.
-          mkdir -p app/src/main/assets/new_hilts
-          for n in obiwan luke_blue mace luke_green vader yoda ahsoka anakin nihilus stormtrooper kylo maul_double; do
-            test -f "model_assets/reward_hilts/$n.png"
-            cp "model_assets/reward_hilts/$n.png" "app/src/main/assets/new_hilts/$n.png"
-          done
+          python -m pip install --quiet pillow
+          python tools/prepare_canonical_hilts.py
           python - <<'PY'
           from pathlib import Path
-          import struct
+          from PIL import Image
           files=sorted(Path("app/src/main/assets/new_hilts").glob("*.png"))
           assert len(files)==12, f"expected 12 canonical hilts, found {len(files)}"
           for p in files:
-              b=p.read_bytes()[:33]
-              assert b[:8]==b"\\x89PNG\\r\\n\\x1a\\n", f"{p} is not PNG"
-              w,h=struct.unpack(">II",b[16:24]); color_type=b[25]
-              assert w>=700 and h>=1400, (p,(w,h))
-              assert color_type in (4,6), f"{p} must be grayscale+alpha or RGBA, color type={color_type}"
-              print("Canonical hilt:",p.name,(w,h),"PNG color type",color_type)
+              with Image.open(p) as im:
+                  im.load()
+                  assert im.format=="PNG", p
+                  assert im.size==(1024,2048), (p,im.size)
+                  assert im.mode=="RGBA", (p,im.mode)
+                  lo,hi=im.getchannel("A").getextrema()
+                  assert lo==0 and hi==255, f"{p} must contain true transparency"
+                  print("Validated canonical hilt:",p.name,im.size,im.mode)
           PY
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/15879369231482719879/199BF27B1185405D25BBEBEE9257F81E945F9B6D/" -o app/src/main/assets/bundles/03_Mustafar.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14718098737190180358/34B49A25B63E61C3148E001086BF0EB598E204FC/" -o app/src/main/assets/bundles/04_Coruscant.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17665742400197609247/419FEB448B808A0CF9B4E17D19B27FCE32CB8286/" -o app/src/main/assets/bundles/05_Geonosis.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14880608518692260043/3B44B6807614D2185F4C07BF071D4E94C8D1785D/" -o app/src/main/assets/bundles/06_Endor.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16993867354122895066/4A9EFC07FB3C3E7D7597DE352F126389841061F9/" -o app/src/main/assets/bundles/07_Korriban.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9403609087667725004/CA06238A29E6CD582E8D362834DA3613A44C9FDF/" -o app/src/main/assets/bundles/08_Exegol.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14305048939786586138/9AB41D75130ABDA43FB210EC4DDD7DCD60C37D5F/" -o app/src/main/assets/bundles/09_Yavin.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/13603990644295211631/A6B35F17390A857E1838AB2A5C152ED69E4DC022/" -o app/src/main/assets/bundles/10_Bespin.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9942602938829926534/670762419B92366CE6AFECD0D67E168FE838153B/" -o app/src/main/assets/bundles/11_Malastare.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16121601629413341859/E8F9473CD6EFE79D3072E8BD0A2F285ECF225DA2/" -o app/src/main/assets/bundles/12_Kessel.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/16030893891565470498/89B0CAD015E0A6DFCDDA81A9DB92D815F882D7E2/" -o app/src/main/assets/bundles/13_Jakku.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/11922640746717027681/3E7E3A685D08B8A6C454128DAEAA4F7422B133C8/" -o app/src/main/assets/bundles/14_Felucia.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/12102627026755944649/0BD5B4C1F88FBE2C3400E58960CA9D5F38C58E5A/" -o app/src/main/assets/bundles/15_Dathomir.unity3d
-          curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/18019963734976864613/033228830365C3C7DC6A809D52049D969D1BB303/" -o app/src/main/assets/bundles/00_DeathStar.unity3d
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/16592652791177328012/7952F99F19B694422DC410AB62236D57547DA00B/" -o app/src/main/assets/ui/hilt_default.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/11541815155918764269/E6731AB62A972F13292D9837D076FAAAD63AC39B/" -o app/src/main/assets/ui/hilt_2.png
           curl -L --fail --retry 3 "https://steamusercontent-a.akamaihd.net/ugc/14809402903243454095/B801B8DBEC9866F37728D3647692CCAC6C861AA6/" -o app/src/main/assets/ui/hilt_crystal.png
