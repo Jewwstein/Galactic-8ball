@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.7.9 repaired reward hilts + enlarged Galactic UI + bezel hilt sizing
+# v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
 on:
   push:
     branches: [ "main" ]
@@ -197,7 +197,7 @@ PY
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Repairs Ahsoka, Darth Nihilus, and Rey reward hilt assets; enlarges and centers the Galactic menu; enlarges the menu trigger; and corrects bezel hilt scale/alignment.
+            UpdateNotes: Uses the new Millennium Falcon texture, tracks all Galactic AI challenges concurrently in one game, and corrects the object-ball outgoing predictive trajectory.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
