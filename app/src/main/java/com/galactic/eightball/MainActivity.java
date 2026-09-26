@@ -2302,11 +2302,11 @@ public class MainActivity extends Activity {
       if(portrait){
         // Portrait is the primary phone layout. Two wide columns give every hilt
         // substantially more art/label space than the old 3-column HUD grid.
-        float side=13*ui,gap=9*ui,cw=(pw-side*2-gap)/2f;
+        float side=11*ui,gap=11*ui,cw=(pw-side*2-gap)/2f;
         float hs=y+91*ui;
-        float bladeSection=174*ui;
+        float bladeSection=184*ui;
         float availableForHilts=Math.max(420*ui,panel.bottom-hs-bladeSection);
-        float ch=Math.min(92*ui,Math.max(66*ui,(availableForHilts-6*6*ui)/7f));
+        float ch=Math.min(112*ui,Math.max(78*ui,(availableForHilts-6*8*ui)/7f));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("HILTS + REWARDS",x+side,y+80*ui,p);
         for(int i=0;i<TOTAL_HILT_COUNT;i++){
@@ -2315,13 +2315,13 @@ public class MainActivity extends Activity {
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
           drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-        float bsY=hs+7*(ch+6*ui)+6*ui;
+        float bsY=hs+7*(ch+8*ui)+8*ui;
         p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADES",x+side,bsY,p);
-        float bstart=bsY+9*ui,bgap=7*ui,bcw=(pw-side*2-bgap*2)/3f;
-        float bh=Math.max(54*ui,Math.min(76*ui,panel.bottom-bstart-19*ui));
+        float bstart=bsY+10*ui,bgap=9*ui,bcw=(pw-side*2-bgap)/2f;
+        float bh=Math.max(66*ui,Math.min(88*ui,(panel.bottom-bstart-16*ui)/3f));
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+5*ui);
+          int col=i%2,row=i/2;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+7*ui);
           bladeChoices[i].set(lx,ty,lx+bcw,ty+bh);
           drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
@@ -4628,20 +4628,17 @@ public class MainActivity extends Activity {
     void userSelectHilt(int k){
       k=Math.max(0,Math.min(TOTAL_HILT_COUNT-1,k));
       if(ctx instanceof MainActivity&&!((MainActivity)ctx).isHiltUnlocked(k))return;
-      if(net!=null&&net.isFollower()){
-        if(localCanControl()){hiltIndex=k;net.send("CMD|HILT|"+k);}
-        return;
-      }
-      if(localCanControl())hiltIndex=k;
+      // Saber loadout is personal UI state, not turn ownership. Every online
+      // player may choose their own hilt even when it is not their shot.
+      hiltIndex=k;
+      if(net!=null&&net.inRoom)net.send("LOADOUT|HILT|"+k);
     }
 
     void userSelectBlade(int k){
       k=Math.max(0,Math.min(5,k));
-      if(net!=null&&net.isFollower()){
-        if(localCanControl()){bladeIndex=k;net.send("CMD|BLADE|"+k);}
-        return;
-      }
-      if(localCanControl())bladeIndex=k;
+      // Blade color is personal UI state and must remain selectable by Player 2.
+      bladeIndex=k;
+      if(net!=null&&net.inRoom)net.send("LOADOUT|BLADE|"+k);
     }
 
     void userToggleActiveShooter(){
@@ -5090,7 +5087,9 @@ public class MainActivity extends Activity {
         String[] q=line.split("\\|",-1);
         if(q.length<22)return;
         state=Integer.parseInt(q[1]);currentTeam=Integer.parseInt(q[2]);activeShooter=Integer.parseInt(q[3]);
-        hiltIndex=Integer.parseInt(q[4]);bladeIndex=Integer.parseInt(q[5]);
+        // Never let authoritative table snapshots overwrite this device's personal
+        // saber selection. q[4]/q[5] describe the host snapshot, not Player 2's UI.
+        if(net==null||!net.inRoom){hiltIndex=Integer.parseInt(q[4]);bladeIndex=Integer.parseInt(q[5]);}
         teamSuit[0]=Integer.parseInt(q[6]);teamSuit[1]=Integer.parseInt(q[7]);
         tableOpen="1".equals(q[8]);gameOver="1".equals(q[9]);winnerTeam=Integer.parseInt(q[10]);
         aimX=Float.parseFloat(q[11]);aimZ=Float.parseFloat(q[12]);desiredAimX=Float.parseFloat(q[13]);desiredAimZ=Float.parseFloat(q[14]);
