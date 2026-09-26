@@ -1820,8 +1820,9 @@ public class MainActivity extends Activity {
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
-    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false,saberHiltScrolling=false;
-    float saberHiltScroll=0f,saberHiltDownX=0f,saberHiltDownY=0f,saberHiltStartScroll=0f; int saberHiltDownIndex=-1; boolean saberHiltMoved=false;
+    boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
+    int saberHiltPage=0;
+    final RectF saberPrevPageRect=new RectF(),saberNextPageRect=new RectF();
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
@@ -2304,36 +2305,43 @@ public class MainActivity extends Activity {
       for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        // Two-card horizontal carousel. One finger tracks 1:1 left/right and the
-        // gallery snaps to a two-hilt page on release.
+        // Deterministic two-card pages. No drag/swipe state: PREVIOUS/NEXT changes
+        // exactly one page and only the two visible cards are touchable.
         float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
-        float hs=y+92*ui;
+        float hs=y+112*ui;
         float bladeTop=panel.bottom-330*ui;
+        float navTop=y+73*ui,navH=31*ui;
         float galleryBottom=bladeTop-20*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
-        float pageStep=pw-side*2+gap;
-        float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
-        saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltScroll));
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS + REWARDS  •  SWIPE LEFT / RIGHT",x+side,y+80*ui,p);
-        c.save();c.clipRect(x+side,hs,panel.right-side,galleryBottom);
-        for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i].setEmpty();
-        for(int pos=0;pos<visibleHiltOrder.length;pos++){
-          int i=visibleHiltOrder[pos],page=pos/2,col=pos%2;
-          float lx=x+side+col*(cw+gap)+page*pageStep-saberHiltScroll,ty=hs;
-          hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
-          boolean locked=a!=null&&!a.isHiltUnlocked(i);
-          if(lx+cw>=x+side&&lx<=panel.right-side)drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
+        int pageCount=(visibleHiltOrder.length+1)/2;
+        saberHiltPage=Math.max(0,Math.min(pageCount-1,saberHiltPage));
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.CENTER);
+        c.drawText("HILTS + REWARDS  •  PAGE "+(saberHiltPage+1)+" / "+pageCount,w*.5f,navTop+21*ui,p);
+
+        float navW=Math.min(108*ui,(pw-side*2)*.27f);
+        saberPrevPageRect.set(x+side,navTop,x+side+navW,navTop+navH);
+        saberNextPageRect.set(panel.right-side-navW,navTop,panel.right-side,navTop+navH);
+        drawPageButton(c,saberPrevPageRect,"◀ PREVIOUS",saberHiltPage>0,ui);
+        drawPageButton(c,saberNextPageRect,"NEXT ▶",saberHiltPage<pageCount-1,ui);
+
+        for(int pos=0;pos<2;pos++){
+          int orderPos=saberHiltPage*2+pos;
+          if(orderPos>=visibleHiltOrder.length)break;
+          int hi=visibleHiltOrder[orderPos];
+          float lx=x+side+pos*(cw+gap),ty=hs;
+          hiltChoices[hi].set(lx,ty,lx+cw,ty+ch);
+          boolean locked=a!=null&&!a.isHiltUnlocked(hi);
+          drawHiltChoice(c,hiltChoices[hi],hi,hiltNames[hi],hi==r.hiltIndex,locked,ui);
         }
-        c.restore();
+
         p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADE COLOR",x+side,bladeTop,p);
         float bstart=bladeTop+14*ui,bgap=8*ui,bcw=(pw-side*2-bgap*2)/3f;
         float bh=Math.max(94*ui,(panel.bottom-bstart-24*ui-9*ui)/2f);
-        for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+9*ui);
-          bladeChoices[i].set(lx,ty,lx+bcw,ty+bh);
-          drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
+        for(int bi=0;bi<6;bi++){
+          int col=bi%3,row=bi/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+9*ui);
+          bladeChoices[bi].set(lx,ty,lx+bcw,ty+bh);
+          drawBladeChoice(c,bladeChoices[bi],blades[bi],bladeNames[bi],bi==r.bladeIndex,ui);
         }
       }else{
         float side=20*ui,centerGap=22*ui;
@@ -2359,6 +2367,13 @@ public class MainActivity extends Activity {
 
       p.setTextAlign(Paint.Align.CENTER);p.setTextSize((portrait?11.5f:10.5f)*ui);p.setColor(0xFFB9C1CC);
       c.drawText("Locked reward hilts show their challenge source • tap CLOSE to return",w*.5f,y+ph-11*ui,p);
+    }
+
+    void drawPageButton(Canvas c,RectF rr,String label,boolean enabled,float ui){
+      p.setStyle(Paint.Style.FILL);p.setColor(enabled?0xD9293544:0x66303943);c.drawRoundRect(rr,8*ui,8*ui,p);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.5f*ui);stroke.setColor(enabled?0xCCF4C542:0x445D6570);c.drawRoundRect(rr,8*ui,8*ui,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10.5f*ui);p.setColor(enabled?Color.WHITE:0x777E8791);
+      c.drawText(label,rr.centerX(),rr.centerY()+3.8f*ui,p);
     }
 
     void drawBladeChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui){
@@ -2929,48 +2944,18 @@ public class MainActivity extends Activity {
         }
       }
 
-      // Complete the portrait saber-gallery drag gesture. Touch-down arms the
-      // gallery; MOVE scrolls all hilt/reward rows and UP/CANCEL ends the drag.
-      if(menuOpen&&saberHiltScrolling){
-        if(a==MotionEvent.ACTION_MOVE){
-          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-          float side=12*uiNow,gap=12*uiNow;
-          float pageStep=saberPanelRect.width()-side*2+gap;
-          float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
-          float dx=saberHiltDownX-x; if(Math.abs(dx)>screenAimTouchSlop)saberHiltMoved=true; saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+dx));
-          invalidate();
-          return true;
-        }
-        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
-          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-          final float pageStep=saberPanelRect.width()-12*uiNow;
-          final float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
-          final float from=saberHiltScroll;
-          final float target=Math.max(0f,Math.min(maxScroll,Math.round(from/pageStep)*pageStep));
-          final int tapIndex=saberHiltDownIndex; final boolean wasMoved=saberHiltMoved;
-          saberHiltScrolling=false;saberHiltDownIndex=-1;
-          if(!wasMoved&&tapIndex>=0){
-            MainActivity aMain=ctx instanceof MainActivity?(MainActivity)ctx:null;
-            if(aMain!=null&&!aMain.isHiltUnlocked(tapIndex))Toast.makeText(ctx,hiltNames[tapIndex]+" unlocks from "+rewardHiltSource(tapIndex)+".",Toast.LENGTH_SHORT).show();
-            else game.queueEvent(()->r.userSelectHilt(tapIndex));
-          }
-          android.animation.ValueAnimator va=android.animation.ValueAnimator.ofFloat(from,target);va.setDuration(180);va.setInterpolator(new android.view.animation.DecelerateInterpolator());
-          va.addUpdateListener(v->{saberHiltScroll=(Float)v.getAnimatedValue();invalidate();});va.start();return true;
-        }
-      }
-
       if(a==MotionEvent.ACTION_DOWN){
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
           if(!saberPanelRect.contains(x,y)|| (y<saberPanelRect.top+54*getResources().getDisplayMetrics().density&&x>saberPanelRect.right-125*getResources().getDisplayMetrics().density)){menuOpen=false;invalidate();return true;}
-          // In portrait, the hilt gallery occupies the upper portion. Begin a
-          // scroll gesture there instead of immediately treating the touch as aim.
           if(getHeight()>getWidth()){
-            float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-            float galleryBottom=saberPanelRect.bottom-350*uiNow;
-            if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
-              saberHiltScrolling=true;saberHiltDownX=x;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;saberHiltMoved=false;saberHiltDownIndex=-1;
-              for(int i=0;i<TOTAL_HILT_COUNT;i++)if(hiltChoices[i].contains(x,y)){saberHiltDownIndex=i;break;}
+            int pageCount=(visibleHiltOrder.length+1)/2;
+            if(saberPrevPageRect.contains(x,y)){
+              if(saberHiltPage>0){saberHiltPage--;invalidate();}
+              return true;
+            }
+            if(saberNextPageRect.contains(x,y)){
+              if(saberHiltPage<pageCount-1){saberHiltPage++;invalidate();}
               return true;
             }
           }
