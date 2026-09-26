@@ -1591,7 +1591,7 @@ public class MainActivity extends Activity {
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
     final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[7],blades=new Bitmap[6];
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.webp"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1853,7 +1853,7 @@ public class MainActivity extends Activity {
     };
 
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.webp"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
       "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","REY"};
@@ -2271,9 +2271,10 @@ public class MainActivity extends Activity {
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
       float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=portrait?Math.min(availW,500*ui):Math.min(availW,940*ui);
-      float ph=portrait?Math.min(availH,690*ui):Math.min(availH,520*ui);
+      float pw=Math.min(w-12*ui,availW+safeX*1.45f);
+      float ph=Math.min(h-12*ui,availH+safeY*1.45f);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
+      p.setColor(0xF4070B13);c.drawRect(0,0,w,h,p);
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
 
@@ -2287,6 +2288,8 @@ public class MainActivity extends Activity {
       p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);
       p.setTextSize((portrait?20:24)*ui);p.setColor(Color.WHITE);
       c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(13*ui);p.setColor(0xFFF4C542);
+      c.drawText("✕ CLOSE",panel.right-18*ui,y+34*ui,p);
       p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?10.5f:12)*ui);p.setColor(0xFF9FB0C4);
       c.drawText("Challenge hilts unlock permanently for this player",w*.5f,y+52*ui,p);
 
@@ -2295,20 +2298,21 @@ public class MainActivity extends Activity {
       for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        float side=16*ui,gap=7*ui,cw=(pw-side*2-gap*2)/3f,ch=55*ui;
+        float side=16*ui,gap=10*ui,cw=(pw-side*2-gap*2)/3f;
+        float ch=Math.min(100*ui,Math.max(58*ui,(ph-260*ui)/5.5f));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("HILTS",x+side,y+73*ui,p);
-        float hs=y+81*ui;
+        float hs=y+83*ui;
         for(int i=0;i<TOTAL_HILT_COUNT;i++){
           int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+6*ui);
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
           drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-        float bsY=hs+5*(ch+6*ui)+7*ui;
+        float bsY=hs+5*(ch+6*ui)+10*ui;
         p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADES",x+side,bsY,p);
-        float bstart=bsY+8*ui,bh=52*ui;
+        float bstart=bsY+10*ui,bh=Math.min(90*ui,Math.max(42*ui,(panel.bottom-(bsY+10*ui)-25*ui)/2f));
         for(int i=0;i<6;i++){
           int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=bstart+row*(bh+6*ui);
           bladeChoices[i].set(lx,ty,lx+cw,ty+bh);
@@ -2318,7 +2322,7 @@ public class MainActivity extends Activity {
         float side=20*ui,centerGap=22*ui;
         float hiltW=(pw-side*2-centerGap)*.60f,bladeW=(pw-side*2-centerGap)-hiltW;
         float leftX=x+side,rightX=leftX+hiltW+centerGap,startY=y+83*ui;
-        float hgap=7*ui,hcw=(hiltW-hgap*3)/4f,hch=70*ui;
+        float hgap=10*ui,hcw=(hiltW-hgap*3)/4f,hch=Math.min(120*ui,Math.max(65*ui,(ph-150*ui)/4.5f));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(13*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("HILTS + REWARDS",leftX,startY-10*ui,p);
         c.drawText("BLADES",rightX,startY-10*ui,p);
@@ -2328,7 +2332,7 @@ public class MainActivity extends Activity {
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
           drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-        float bgap=8*ui,bcw=(bladeW-bgap*2)/3f,bch=82*ui;
+        float bgap=10*ui,bcw=(bladeW-bgap*2)/3f,bch=Math.min(125*ui,Math.max(75*ui,(ph-155*ui)/2.5f));
         for(int i=0;i<6;i++){
           int col=i%3,row=i/3;float lx=rightX+col*(bcw+bgap),ty=startY+row*(bch+9*ui);
           bladeChoices[i].set(lx,ty,lx+bcw,ty+bch);
@@ -2337,7 +2341,7 @@ public class MainActivity extends Activity {
       }
 
       p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10.5f*ui);p.setColor(0xFFB9C1CC);
-      c.drawText("Locked reward hilts show their challenge source • tap outside to close",w*.5f,y+ph-11*ui,p);
+      c.drawText("Locked reward hilts show their challenge source • tap CLOSE to return",w*.5f,y+ph-11*ui,p);
     }
 
     void drawBladeChoice(Canvas c,RectF rr,Bitmap bmp,String name,boolean selected,float ui){
@@ -2911,7 +2915,7 @@ public class MainActivity extends Activity {
       if(a==MotionEvent.ACTION_DOWN){
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
-          if(!saberPanelRect.contains(x,y)){menuOpen=false;invalidate();return true;}
+          if(!saberPanelRect.contains(x,y)|| (y<saberPanelRect.top+54*getResources().getDisplayMetrics().density&&x>saberPanelRect.right-125*getResources().getDisplayMetrics().density)){menuOpen=false;invalidate();return true;}
           for(int i=0;i<TOTAL_HILT_COUNT;i++){
             if(hiltChoices[i].contains(x,y)){
               final int k=i;
