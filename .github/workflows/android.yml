@@ -119,14 +119,13 @@ jobs:
           for n in yoda anakin stormtrooper kylo; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.png"
           done
-          # These three approved images are stored as Android-safe WebP after their
-          # original PNG streams proved malformed/incompatible on-device.
-          for n in ahsoka nihilus rey; do
+          # Ahsoka/Nihilus are kept under their Android-safe legacy WebP filenames.
+          for n in ahsoka nihilus; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
-          # Rey's approved source is WebP; decode it into a canonical RGBA PNG
-          # so every Android canvas (gallery, bezel and thumb control) reads the same asset.
-          # Rey uses the already-decoded approved PNG source above. Do not re-decode the same PNG bytes as a fake .webp and round-trip them through Pillow.
+          # Rey is loaded by Android as rey.png. Decode the approved source directly
+          # to that exact filename; never require a nonexistent intermediate file.
+          python -c 'import base64; from pathlib import Path; s=Path("model_assets/reward_hilts/rey.png.b64").read_bytes().strip(); Path("app/src/main/assets/reward_hilts/rey.png").write_bytes(base64.b64decode(s+b"="*(-len(s)%4),validate=False))'
           test -s app/src/main/assets/reward_hilts/rey.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
