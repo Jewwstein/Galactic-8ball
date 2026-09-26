@@ -221,3 +221,5 @@ jobs:
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Release trigger: v0.8.12 build 29 paged saber menu
