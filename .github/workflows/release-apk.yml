@@ -178,7 +178,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Adds persistent player accolade badges visible in team boxes, unlockable reward hilts for Clean Run, Speed Run, Combo Strike, Sith Trial, Normal Galactic AI, Jedi Victor, and Sith Victor, two new alignment challenges based on the equipped hilt, live English-aware prediction and shot behavior, refined corner/rail predictor accuracy, and matching multiplayer profile/English/pocket behavior.
+            UpdateNotes: Replaces the temporary procedural challenge-reward hilts with the seven approved transparent hilt artworks for Yoda, Ahsoka Fulcrum, Anakin Classic, Darth Nihilus, Stormtrooper, Kylo Ren, and Rey across the loadout, gameplay hilt, thumb-strike control, and saber bezel.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
