@@ -30,6 +30,7 @@ import java.util.concurrent.*;
 
 public class GalacticServer {
   static final ConcurrentHashMap<String, Room> rooms=new ConcurrentHashMap<>();
+  static final ConcurrentHashMap<String,Integer> arcadeScores=new ConcurrentHashMap<>();
   static final ConcurrentHashMap<WebSocketChannel, Client> clients=new ConcurrentHashMap<>();
   static final SecureRandom RNG=new SecureRandom();
   static final ScheduledExecutorService TICKER=Executors.newSingleThreadScheduledExecutor(r->{
