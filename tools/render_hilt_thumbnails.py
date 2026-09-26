@@ -8,7 +8,7 @@ REAL=ROOT/"real_hilts"
 UI=ROOT/"ui"
 UI.mkdir(parents=True,exist_ok=True)
 
-W,H=1024,2048
+W,H=2048,4096
 
 def read_mesh(path):
     data=path.read_bytes()
@@ -82,7 +82,11 @@ def render(mesh_path,tex_path,out_path):
     final=Image.new("RGBA",(W,H),(0,0,0,0))
     final.alpha_composite(shadow,(3,4))
     final.alpha_composite(canvas)
-    final=ImageEnhance.Sharpness(final).enhance(1.35)
+    final=ImageEnhance.Sharpness(final).enhance(1.28)
+    # 2x supersampled raster -> final 1024x2048 portrait PNG. This removes the
+    # jagged/faceted thumbnail edge treatment caused by rendering at display size.
+    final=final.resize((1024,2048),Image.Resampling.LANCZOS)
+    final=ImageEnhance.Sharpness(final).enhance(1.10)
     final.save(out_path,optimize=True)
     print("thumbnail",out_path)
 
