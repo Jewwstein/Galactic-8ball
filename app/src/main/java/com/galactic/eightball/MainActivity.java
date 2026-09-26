@@ -1559,7 +1559,8 @@ public class MainActivity extends Activity {
     void deactivate(){stopHum();main.postDelayed(()->oneShot("sfx_deactivate",.78f),250);}
     void pocket(){oneShot("sfx_pocket",.82f);}
     void scratch(){oneShot("sfx_scratch",.86f);}
-    void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}\n    void arcadeLaser(){oneShot("sfx_arcade_laser",.48f);}
+    void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
+    void arcadeLaser(){oneShot("sfx_arcade_laser",.48f);}
 
     void stopVictory(){
       main.post(()->{
