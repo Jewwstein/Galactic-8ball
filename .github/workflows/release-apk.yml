@@ -145,6 +145,9 @@ jobs:
           for n in ahsoka nihilus; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
+          python tools/prepare_hd_reward_hilts.py
+          test -f app/src/main/assets/reward_hilts/hd/yoda.png
+          test -f app/src/main/assets/reward_hilts/hd/maul_double.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
