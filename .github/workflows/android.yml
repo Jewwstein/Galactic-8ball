@@ -40,16 +40,17 @@ jobs:
             cp "model_assets/reward_hilts/$n.png" "app/src/main/assets/new_hilts/$n.png"
           done
           python - <<'PY'
-          from PIL import Image
           from pathlib import Path
+          import struct
           files=sorted(Path("app/src/main/assets/new_hilts").glob("*.png"))
           assert len(files)==12, f"expected 12 canonical hilts, found {len(files)}"
           for p in files:
-              im=Image.open(p); im.load()
-              assert im.format=="PNG", p
-              assert im.width>=700 and im.height>=1400, (p,im.size)
-              assert "A" in im.getbands() or im.mode=="P", f"{p} must preserve alpha"
-              print("Canonical hilt:",p.name,im.size,im.mode)
+              b=p.read_bytes()[:33]
+              assert b[:8]==b"\\x89PNG\\r\\n\\x1a\\n", f"{p} is not PNG"
+              w,h=struct.unpack(">II",b[16:24]); color_type=b[25]
+              assert w>=700 and h>=1400, (p,(w,h))
+              assert color_type in (4,6), f"{p} must be grayscale+alpha or RGBA, color type={color_type}"
+              print("Canonical hilt:",p.name,(w,h),"PNG color type",color_type)
           PY
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
