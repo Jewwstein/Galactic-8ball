@@ -3579,6 +3579,7 @@ public class MainActivity extends Activity {
     volatile boolean arcadeActive=false,arcadeLocked=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeSpawnClock=0,arcadeShotClock=0;
+    float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
@@ -3687,6 +3688,10 @@ public class MainActivity extends Activity {
         Ball cue=balls.get(0);
         float[] AM=identity();android.opengl.Matrix.translateM(AM,0,arcadeX,2.22f,arcadeZ);
         android.opengl.Matrix.rotateM(AM,0,-arcadeYaw,0,1,0);
+        // Turn the Death Star texture's superlaser hemisphere from "up" into
+        // the vehicle's forward firing direction without changing the real cue ball.
+        android.opengl.Matrix.rotateM(AM,0,90f,1,0,0);
+        android.opengl.Matrix.rotateM(AM,0,90f,0,1,0);
         android.opengl.Matrix.scaleM(AM,0,R*1.28f,R*1.28f,R*1.28f);
         drawMesh(sphere,pvCache,AM,cue.tex,new float[]{1,1,1,1});
       }
@@ -5490,12 +5495,22 @@ public class MainActivity extends Activity {
 
     void enterArcade(){
       if(balls.isEmpty()||state==ROLLING)return;
-      Ball cue=balls.get(0);arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
+      Ball cue=balls.get(0);
+      arcadeSavedCueX=cue.x;arcadeSavedCueZ=cue.z;arcadeSavedCueVx=cue.vx;arcadeSavedCueVz=cue.vz;
+      arcadeSavedState=state;arcadeSavedCurrentTeam=currentTeam;arcadeSavedActiveShooter=activeShooter;arcadeSavedFirstContact=firstContactBall;arcadeSavedBallInHand=ballInHand;
+      arcadeSavedSunk.clear();arcadeSavedSunk.addAll(ballsSunkThisShot);arcadeSnapshotValid=true;
+      arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";if(net!=null)net.requestArcadeBoard();
     }
     void exitArcade(){
       int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeLocked=false;
+      if(arcadeSnapshotValid&&!balls.isEmpty()){
+        Ball cue=balls.get(0);cue.x=arcadeSavedCueX;cue.z=arcadeSavedCueZ;cue.vx=arcadeSavedCueVx;cue.vz=arcadeSavedCueVz;
+        if(cue.body!=null){cue.body.setTransform(new Vec2(arcadeSavedCueX,arcadeSavedCueZ),0);cue.body.setLinearVelocity(new Vec2(arcadeSavedCueVx,arcadeSavedCueVz));cue.body.setAngularVelocity(0);cue.body.setAwake(true);}
+        state=arcadeSavedState;currentTeam=arcadeSavedCurrentTeam;activeShooter=arcadeSavedActiveShooter;firstContactBall=arcadeSavedFirstContact;ballInHand=arcadeSavedBallInHand;
+        ballsSunkThisShot.clear();ballsSunkThisShot.addAll(arcadeSavedSunk);physicsAccum=0;chargePullPx=chargePullWorld=0;power=0;arcadeSnapshotValid=false;
+      }
       if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
@@ -5534,7 +5549,7 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
         float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
-        if(e.xwing){android.opengl.Matrix.scaleM(M,0,5.2f,5.2f,5.2f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
+        if(e.xwing){android.opengl.Matrix.scaleM(M,0,3.4f,3.4f,3.4f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
         else{android.opengl.Matrix.scaleM(M,0,.58f,.58f,.58f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
       if(arcadeLocked){
