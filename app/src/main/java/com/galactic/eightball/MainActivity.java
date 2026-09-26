@@ -5609,12 +5609,21 @@ public class MainActivity extends Activity {
           float ex=x+dx*ballT,ez=z+dz*ballT;
           drawSaberSegment(pv,x,z,ex,ez,pathBlade);
 
-          // Exact equal-ball collision normal. The object-ball predictor then
-          // traces against the same extracted Unity cushion/jaw geometry used
-          // by physics, so a jaw hit is shown as a jaw hit rather than a pocket.
-          float nx=hit.x-ex,nz=hit.z-ez,nd=(float)Math.sqrt(nx*nx+nz*nz);
-          if(nd>.0001f){nx/=nd;nz/=nd;}
-          drawPredictorFreePath(pv,hit.x,hit.z,nx,nz,predictorAltBlade(2),2,false);
+          // Equal-mass ball collision: the object ball leaves along the line
+          // joining the two ball CENTERS at first contact.  Derive that normal
+          // from the exact same collision radius used by JBox2D instead of from
+          // the rendered contact point.  This keeps cut-shot prediction locked
+          // to the physical collision even when the visual sphere radius differs
+          // slightly from PHYS_R.
+          float contactDx=dx*ballT,contactDz=dz*ballT;
+          float cueContactX=x+contactDx,cueContactZ=z+contactDz;
+          float nx=hit.x-cueContactX,nz=hit.z-cueContactZ;
+          float nd=(float)Math.sqrt(nx*nx+nz*nz);
+          if(nd>.0001f){nx/=nd;nz/=nd;}else{nx=dx;nz=dz;}
+          // Start just outside the object ball so its guide represents the
+          // CENTER trajectory and cannot visually kink through the sphere.
+          float objectStartX=hit.x+nx*.025f,objectStartZ=hit.z+nz*.025f;
+          drawPredictorFreePath(pv,objectStartX,objectStartZ,nx,nz,predictorAltBlade(2),2,false);
 
           // Cue-ball continuation after impact includes the live English selection.
           // Top = follow through the object-ball normal, bottom = draw back from it,
