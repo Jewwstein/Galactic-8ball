@@ -114,16 +114,7 @@ jobs:
           # Override the extracted Falcon diffuse with the user-approved texture
           # committed at app/src/main/falcontexture.png.
           test -f app/src/main/falcontexture.png
-          python - <<'PY'
-from PIL import Image
-from pathlib import Path
-src=Path("app/src/main/falcontexture.png")
-dst=Path("app/src/main/assets/falcon/falcon_diffuse.webp")
-with Image.open(src) as im:
-    im=im.convert("RGB")
-    im.save(dst,"WEBP",quality=96,method=6)
-print("Falcon override:",src,"->",dst,Image.open(dst).size)
-PY
+          python -c 'from PIL import Image; from pathlib import Path; src=Path("app/src/main/falcontexture.png"); dst=Path("app/src/main/assets/falcon/falcon_diffuse.webp"); im=Image.open(src).convert("RGB"); im.save(dst,"WEBP",quality=96,method=6); print("Falcon override:",src,"->",dst,im.size)'
           python tools/extract_balls.py
           python tools/extract_sabers.py
           python tools/extract_audio.py
