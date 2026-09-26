@@ -1821,7 +1821,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
@@ -1830,7 +1830,7 @@ public class MainActivity extends Activity {
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
-    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0;
+    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1; long cueTapAt=0;
     long lastAimTapMs=0;
     int screenAimTouchSlop=8;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
@@ -1940,6 +1940,11 @@ public class MainActivity extends Activity {
       // Reserve a true safe area inside the lightsaber bezel. Every interactive
       // gameplay HUD now lives inside this rectangle instead of touching the screen edge.
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+
+      if(r.arcadeActive){
+        drawArcadeHud(c,w,h,ui,r);
+        return;
+      }
 
       float lockSize=(portrait?104:126)*ui;
       float lockRight=w-safeX-8*ui,lockBottom=h-safeY-10*ui;
@@ -2171,6 +2176,44 @@ public class MainActivity extends Activity {
       p.setShader(null);
     }
 
+
+
+    void drawArcadeHud(Canvas c,int w,int h,float ui,GameRenderer r){
+      float rad=Math.max(62f*ui,Math.min(w,h)*.105f);
+      float mx=rad+24f*ui,my=h-rad-24f*ui,ax=w-rad-24f*ui,ay=my;
+      arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
+      arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
+      drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,"MOVE",ui,0xFF5BD6FF);
+      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,"AIM",ui,0xFFFF5B5B);
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+      p.setTextSize(22f*ui);p.setColor(Color.WHITE);
+      c.drawText("DEATH STAR ASSAULT",w*.5f,38f*ui,p);
+      p.setTextSize(16f*ui);p.setColor(0xFFF4C542);
+      c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
+      p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
+      c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+
+      float rr=30f*ui; stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);
+      stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
+      c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
+      c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
+      c.drawLine(w*.5f,h*.46f-rr*1.35f,w*.5f,h*.46f-rr*.55f,stroke);
+      c.drawLine(w*.5f,h*.46f+rr*.55f,w*.5f,h*.46f+rr*1.35f,stroke);
+
+      arcadeExitRect.set(w-118f*ui,18f*ui,w-18f*ui,58f*ui);
+      p.setColor(0xCC111923);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,p);
+      stroke.setColor(0x88FFFFFF);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,stroke);
+      p.setTextSize(12f*ui);p.setColor(Color.WHITE);c.drawText("EXIT",arcadeExitRect.centerX(),arcadeExitRect.centerY()+4f*ui,p);
+    }
+
+    void setArcadeStick(boolean move,float x,float y){
+      RectF rr=move?arcadeMoveRect:arcadeAimRect;float rad=rr.width()*.5f;
+      float dx=(x-rr.centerX())/Math.max(1f,rad),dy=(y-rr.centerY())/Math.max(1f,rad);
+      float d=(float)Math.sqrt(dx*dx+dy*dy);if(d>1f){dx/=d;dy/=d;}
+      if(move){arcadeMoveX=dx;arcadeMoveY=dy;}else{arcadeAimX=dx;arcadeAimY=dy;}
+      final float fx=dx,fy=dy;game.queueEvent(()->{if(move)game.r.setArcadeMove(fx,fy);else game.r.setArcadeAim(fx,fy);});invalidate();
+    }
 
     void drawAimAnalogStick(Canvas c,int w,int h,float ui){
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
@@ -2938,6 +2981,26 @@ public class MainActivity extends Activity {
       final float ui=Math.max(.90f,Math.min(w/900f,h/640f));
       final GameRenderer r=game.r;
 
+
+      if(r.arcadeActive){
+        int idx=e.getActionIndex(),pid=e.getPointerId(idx);
+        if(a==MotionEvent.ACTION_DOWN||a==MotionEvent.ACTION_POINTER_DOWN){
+          if(arcadeExitRect.contains(x,y)){game.queueEvent(()->r.exitArcade());arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;invalidate();return true;}
+          if(arcadeMoveRect.contains(x,y)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,x,y);return true;}
+          if(arcadeAimRect.contains(x,y)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,x,y);return true;}
+        }
+        if(a==MotionEvent.ACTION_MOVE){
+          for(int i=0;i<e.getPointerCount();i++){int id=e.getPointerId(i);if(id==arcadeMovePointer)setArcadeStick(true,e.getX(i),e.getY(i));if(id==arcadeAimPointer)setArcadeStick(false,e.getX(i),e.getY(i));}
+          return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_CANCEL){
+          if(pid==arcadeMovePointer||a==MotionEvent.ACTION_CANCEL){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
+          if(pid==arcadeAimPointer||a==MotionEvent.ACTION_CANCEL){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
+          invalidate();return true;
+        }
+        return true;
+      }
+
       // Two-finger camera control: orbit + pinch zoom.
       if(e.getPointerCount()>=2 || camGesture){
         if((a==MotionEvent.ACTION_POINTER_DOWN||a==MotionEvent.ACTION_DOWN) && e.getPointerCount()>=2){
@@ -2960,6 +3023,18 @@ public class MainActivity extends Activity {
         }
         if(a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL){
           if(e.getPointerCount()<=2)camGesture=false;return true;
+        }
+      }
+
+      if(a==MotionEvent.ACTION_DOWN&&!r.arcadeActive&&!sideMenuOpen&&!menuOpen){
+        float[] cue=r.balls.isEmpty()?null:r.worldToScreen(r.balls.get(0).x,2.22f,r.balls.get(0).z,w,h);
+        if(cue!=null){
+          float dx=x-cue[0],dy=y-cue[1],hit=Math.max(46f*ui,Math.min(w,h)*.065f);
+          if(dx*dx+dy*dy<=hit*hit){
+            long now=android.os.SystemClock.uptimeMillis();
+            if(now-cueTapAt<420){cueTapAt=0;game.queueEvent(()->r.enterArcade());invalidate();return true;}
+            cueTapAt=now;
+          }
         }
       }
 
@@ -3484,6 +3559,11 @@ public class MainActivity extends Activity {
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
+    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase;int hp=1;boolean xwing=true,active=true;}
+    final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
+    volatile boolean arcadeActive=false,arcadeLocked=false;
+    volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
+    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeSpawnClock=0,arcadeShotClock=0;
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
     static final float TTS_MASS=.375f;
@@ -3533,11 +3613,19 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      android.opengl.Matrix.perspectiveM(P,0,40,aspect,.75f,320f);
-      float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
-      float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
-      float cx=camTargetX+(float)Math.sin(yaw)*flat,cy=-1f+(float)Math.sin(pitch)*viewDist,cz=camTargetZ+(float)Math.cos(yaw)*flat;
-      android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
+      android.opengl.Matrix.perspectiveM(P,0,arcadeActive?58f:40f,aspect,.45f,320f);
+      float cx,cy,cz;
+      if(arcadeActive){
+        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
+        cx=arcadeX;cy=3.15f;cz=arcadeZ;
+        float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
+        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,cx+fx*20f,cy+fy*20f,cz+fz*20f,0,1,0);
+      }else{
+        float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
+        float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
+        cx=camTargetX+(float)Math.sin(yaw)*flat;cy=-1f+(float)Math.sin(pitch)*viewDist;cz=camTargetZ+(float)Math.cos(yaw)*flat;
+        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,camTargetX,-1f,camTargetZ,0,1,0);
+      }
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
 
       int skyTex=tex.getOrDefault("sky",0);
@@ -3563,9 +3651,9 @@ public class MainActivity extends Activity {
         for(Mesh fm:falconMeshes)drawLitMesh(fm,pvCache,falconModel,ft,new float[]{.90f,.92f,.95f,1f});
         GLES20.glDisable(GLES20.GL_POLYGON_OFFSET_FILL);
       }
-      drawDogfight(pvCache,dt);
+      if(arcadeActive)drawArcadeFighters(pvCache);else drawDogfight(pvCache,dt);
       for(Part p:table){int tt=p.texKey==null?0:tex.getOrDefault(p.texKey,0);if("felt".equals(p.texKey))drawMesh(p.mesh,pvCache,identity(),tt,p.color);else drawLitMesh(p.mesh,pvCache,identity(),tt,p.color);}
-      if(state!=ROLLING)drawPredictor(pvCache);
+      if(!arcadeActive&&state!=ROLLING)drawPredictor(pvCache);
       for(Ball b:balls)if(b.active){
         drawTeamAidRing(pvCache,b);
         float sinkEase=b.sinking?(1f-(1f-b.sinkT)*(1f-b.sinkT)):0f;
@@ -3577,7 +3665,7 @@ public class MainActivity extends Activity {
         drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
         drawPlanetRing(pvCache,b);
       }
-      if((state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
+      if(!arcadeActive&&(state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
       // Thumb Strike hilt/blade is rendered by HudView from the canonical uploaded PNG set.
       // Do not draw the legacy OpenGL hilt underneath it.
       if(net!=null)net.onFrame(this);
@@ -5374,7 +5462,64 @@ public class MainActivity extends Activity {
       }
     }
 
+
+    void enterArcade(){
+      if(balls.isEmpty()||state==ROLLING)return;
+      Ball cue=balls.get(0);arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
+      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
+      ruleMessage="DEATH STAR ASSAULT";
+    }
+    void exitArcade(){arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeLocked=false;}
+    void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
+    void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
+
+    void spawnArcadeWave(){
+      int count=Math.min(3+arcadeWave,10);
+      for(int i=0;i<count;i++){
+        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.73f;
+        float side=(i&1)==0?-1f:1f;e.x=side*(30f+(i%3)*4f);e.y=9f+(i%4)*2.2f;e.z=-12f+(i*7f)%28f;
+        e.vx=-side*(5.2f+arcadeWave*.35f);e.vz=(float)Math.sin(i*1.7f)*2.2f;arcadeFighters.add(e);
+        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.1f;t.x=-e.x*.72f;t.y=e.y-1.2f;t.z=e.z+4f;t.vx=e.vx*.7f;t.vz=-e.vz*.6f;arcadeFighters.add(t);
+      }
+    }
+    void stepArcade(float dt){
+      arcadeYaw+=arcadeAimX*92f*dt;arcadePitch=Math.max(-12f,Math.min(38f,arcadePitch-arcadeAimY*62f*dt));
+      float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
+      float speed=12f,dx=(rx*arcadeMoveX+fx*(-arcadeMoveY))*speed*dt,dz=(rz*arcadeMoveX+fz*(-arcadeMoveY))*speed*dt;
+      float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
+      boolean blocked=false;
+      for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
+      if(!blocked){arcadeX=nx;arcadeZ=nz;}
+      arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(5.5f,10f-arcadeWave*.35f);arcadeWave++;}
+      for(ArcadeFighter e:arcadeFighters)if(e.active){e.phase+=dt;e.x+=e.vx*dt;e.z+=e.vz*dt;e.y+=Math.sin(e.phase*2.1f)*.025f;if(Math.abs(e.x)>55||Math.abs(e.z)>34)e.active=false;}
+      float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
+      float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
+      ArcadeFighter best=null;float bestDot=.982f,bestDist=999;
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-3.15f,ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<70){best=e;bestDot=dot;bestDist=d;}}
+      arcadeLocked=best!=null;arcadeShotClock-=dt;
+      if(best!=null&&arcadeShotClock<=0){best.hp--;arcadeShotClock=.18f;if(best.hp<=0){best.active=false;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
+      arcadeFighters.removeIf(e->!e.active);
+    }
+
+    void drawArcadeFighters(float[] pv){
+      for(ArcadeFighter e:arcadeFighters)if(e.active){
+        float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
+        float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
+        if(e.xwing){android.opengl.Matrix.scaleM(M,0,22f,22f,22f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
+        else{android.opengl.Matrix.scaleM(M,0,1.45f,1.45f,1.45f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
+      }
+      if(arcadeLocked){
+        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch),len=38f;
+        float ex=arcadeX+(float)Math.sin(yr)*(float)Math.cos(pr)*len,ey=3.15f+(float)Math.sin(pr)*len,ez=arcadeZ-(float)Math.cos(yr)*(float)Math.cos(pr)*len;
+        float dx=ex-arcadeX,dz=ez-arcadeZ,flat=(float)Math.sqrt(dx*dx+dz*dz),yaw=(float)Math.toDegrees(Math.atan2(dx,dz));
+        float[] B=identity();android.opengl.Matrix.translateM(B,0,(arcadeX+ex)*.5f,(3.15f+ey)*.5f,(arcadeZ+ez)*.5f);android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.scaleM(B,0,.09f,.09f,flat*.5f);
+        drawMesh(dogfightBolt,pv,B,0,new float[]{.25f,1f,.25f,1f});
+      }
+    }
+
     void step(float dt){
+      if(arcadeActive){stepArcade(dt);return;}
       if(net!=null&&net.isFollower())return;
       if(balls.isEmpty()||world==null)return;
       if(state==ROLLING){
