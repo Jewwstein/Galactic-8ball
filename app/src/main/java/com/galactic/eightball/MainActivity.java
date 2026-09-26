@@ -2997,13 +2997,16 @@ public class MainActivity extends Activity {
           for(int i=0;i<6;i++){
             if(aiSubmenuRects[i].contains(x,y)){
               final int challenge=i+1;
-              final int diff=challenge==4?3:(challenge==2?2:1);
               sideMenuOpen=false;aiSubmenu=0;invalidate();
               game.queueEvent(()->{
-                r.aiDifficulty=diff;r.challengeMode=true;r.challengeId=challenge;r.resetRack();
-                r.ruleMessage="CHALLENGE • "+r.challengeName();
+                // Selecting a challenge only focuses its HUD status. Do not reset
+                // the rack or change AI difficulty: all challenges are tracked
+                // concurrently for the current AI game.
+                r.challengeMode=true;r.challengeId=challenge;
+                r.challengeComplete=(r.challengeCompletedThisGameMask&(1<<(challenge-1)))!=0;
+                r.challengeFailed=false;
               });
-              if(ctx instanceof MainActivity)Toast.makeText(ctx,"Challenge started: "+((MainActivity)ctx).challengeDisplayName(challenge),Toast.LENGTH_SHORT).show();
+              if(ctx instanceof MainActivity)Toast.makeText(ctx,"Tracking: "+((MainActivity)ctx).challengeDisplayName(challenge)+" • all challenges remain active",Toast.LENGTH_SHORT).show();
               return true;
             }
           }
@@ -3401,6 +3404,9 @@ public class MainActivity extends Activity {
     volatile int aiDifficulty=1; // 0 easy, 1 normal, 2 hard, 3 expert
     volatile boolean challengeMode=false,challengeComplete=false,challengeFailed=false;
     volatile int challengeId=0,challengePlayerShots=0,challengeScratches=0,challengeObjectsThisShot=0;
+    // Every AI game tracks every accolade simultaneously. challengeId is now
+    // only the challenge the HUD/menu is focused on; it no longer gates rewards.
+    volatile int challengeCompletedThisGameMask=0;
     volatile long aiReadyAt=0;
     volatile String ruleMessage="BREAK • TEAM 1";
     volatile float power=0,englishX=0,englishY=0;
@@ -4461,13 +4467,17 @@ public class MainActivity extends Activity {
       }
     }
 
-    void completeChallenge(){
-      if(!challengeMode||challengeComplete||challengeFailed)return;
-      challengeComplete=true;
-      final int rewardId=challengeId;
+    void completeChallenge(){ completeChallenge(challengeId); }
+
+    void completeChallenge(int rewardId){
+      if(!aiEnabled||rewardId<1||rewardId>6)return;
+      int bit=1<<(rewardId-1);
+      if((challengeCompletedThisGameMask&bit)!=0)return;
+      challengeCompletedThisGameMask|=bit;
+      if(challengeMode&&challengeId==rewardId)challengeComplete=true;
       new Handler(Looper.getMainLooper()).post(()->{
         if(ctx instanceof MainActivity)((MainActivity)ctx).awardChallengeReward(rewardId);
-        else Toast.makeText(ctx,"Challenge complete: "+challengeName()+"!",Toast.LENGTH_LONG).show();
+        else Toast.makeText(ctx,"Challenge complete!",Toast.LENGTH_LONG).show();
       });
     }
 
@@ -4479,20 +4489,18 @@ public class MainActivity extends Activity {
     }
 
     void evaluateChallengeGameOver(){
-      if(!challengeMode||challengeComplete||challengeFailed)return;
-      if(winnerTeam!=1){failChallenge();return;}
-      if(challengeId==1){
-        if(challengeScratches==0)completeChallenge();else failChallenge();
-      }else if(challengeId==2){
-        if(challengePlayerShots<=8)completeChallenge();else failChallenge();
-      }else if(challengeId==4){
-        completeChallenge();
-      }else if(challengeId==5){
-        if(MainActivity.isJediHiltIndex(hiltIndex))completeChallenge();else failChallenge();
-      }else if(challengeId==6){
-        if(MainActivity.isSithHiltIndex(hiltIndex))completeChallenge();else failChallenge();
-      }else if(challengeId==3){
-        failChallenge();
+      if(!aiEnabled)return;
+      if(winnerTeam==1){
+        // A single AI victory may legitimately satisfy several accolades.
+        if(challengeScratches==0)completeChallenge(1);
+        if(challengePlayerShots<=8)completeChallenge(2);
+        if(aiDifficulty==3)completeChallenge(4);
+        if(MainActivity.isJediHiltIndex(hiltIndex))completeChallenge(5);
+        if(MainActivity.isSithHiltIndex(hiltIndex))completeChallenge(6);
+        if(aiDifficulty==1&&ctx instanceof MainActivity)
+          new Handler(Looper.getMainLooper()).post(()->((MainActivity)ctx).awardNormalAiWin());
+      }else if(challengeMode){
+        challengeFailed=true;
       }
     }
 
@@ -4500,19 +4508,19 @@ public class MainActivity extends Activity {
       if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
       currentTeam=1;winnerTeam=0;activeShooter=1;teamSuit[0]=teamSuit[1]=0;
       tableOpen=true;gameOver=false;ballInHand=false;firstContactBall=0;ballsSunkThisShot.clear();
-      challengeComplete=false;challengeFailed=false;challengePlayerShots=0;challengeScratches=0;challengeObjectsThisShot=0;
+      challengeComplete=false;challengeFailed=false;challengePlayerShots=0;challengeScratches=0;challengeObjectsThisShot=0;challengeCompletedThisGameMask=0;
       ruleMessage=challengeMode?("CHALLENGE • "+challengeName()):"BREAK • TEAM 1";
     }
 
     void recordPocket(int index){
       if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
-      if(challengeMode&&currentTeam==1){
+      if(aiEnabled&&currentTeam==1){
         if(index==0){
           challengeScratches++;
-          if(challengeId==1)failChallenge();
+          if(challengeMode&&challengeId==1)challengeFailed=true;
         }else if(index!=8){
           challengeObjectsThisShot++;
-          if(challengeId==3&&challengeObjectsThisShot>=2)completeChallenge();
+          if(challengeObjectsThisShot>=2)completeChallenge(3);
         }
       }
     }
@@ -5211,10 +5219,10 @@ public class MainActivity extends Activity {
     void executeShot(){
       firstContactBall=0;
       ballInHand=false;
-      if(challengeMode&&currentTeam==1){
+      if(aiEnabled&&currentTeam==1){
         challengePlayerShots++;
         challengeObjectsThisShot=0;
-        if(challengeId==2&&challengePlayerShots>8)failChallenge();
+        if(challengeMode&&challengeId==2&&challengePlayerShots>8)challengeFailed=true;
       }
       Ball cue=balls.get(0);
       if(!cue.active){cue.active=true;cue.x=-20;cue.z=0;if(cue.body!=null){cue.body.setActive(true);cue.body.setTransform(new Vec2(-20,0),0);}}
