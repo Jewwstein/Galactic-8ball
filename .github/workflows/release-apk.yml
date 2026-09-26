@@ -59,7 +59,7 @@ jobs:
           from pathlib import Path
           from PIL import Image
           files=sorted(Path("app/src/main/assets/new_hilts").glob("*.png"))
-          assert len(files)==12, f"expected 12 canonical hilts, found {len(files)}"
+          assert len(files)==13, f"expected 13 canonical hilts, found {len(files)}"
           for p in files:
               with Image.open(p) as im:
                   im.load()
