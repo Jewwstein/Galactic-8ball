@@ -52,6 +52,24 @@ jobs:
       - name: Fetch original Galactic table, planets, and Death Star
         run: |
           mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio app/src/main/assets/hilt_materials app/src/main/assets/fighter_bundles app/src/main/assets/fighters
+          # Canonical high-resolution portrait hilt art uploaded by the project owner.
+          mkdir -p app/src/main/assets/new_hilts
+          for n in obiwan luke_blue mace luke_green vader yoda ahsoka anakin nihilus stormtrooper kylo maul_double; do
+            test -f "model_assets/reward_hilts/$n.png"
+            cp "model_assets/reward_hilts/$n.png" "app/src/main/assets/new_hilts/$n.png"
+          done
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          files=sorted(Path("app/src/main/assets/new_hilts").glob("*.png"))
+          assert len(files)==12, f"expected 12 canonical hilts, found {len(files)}"
+          for p in files:
+              im=Image.open(p); im.load()
+              assert im.format=="PNG", p
+              assert im.width>=700 and im.height>=1400, (p,im.size)
+              assert "A" in im.getbands() or im.mode=="P", f"{p} must preserve alpha"
+              print("Canonical hilt:",p.name,im.size,im.mode)
+          PY
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/14726310821852080752/5B54F595EDB4BBEEF6FC3B3CF12E477BB4560E80/" -o app/src/main/assets/bundles/02_Kamino.unity3d
