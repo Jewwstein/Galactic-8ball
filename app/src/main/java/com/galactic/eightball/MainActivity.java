@@ -2270,9 +2270,11 @@ public class MainActivity extends Activity {
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+      // The saber selector is a dedicated full-screen loadout window, not a small
+      // HUD popup. Use nearly the entire display so hilt art and labels stay large.
       float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=Math.min(w-12*ui,availW+safeX*1.45f);
-      float ph=Math.min(h-12*ui,availH+safeY*1.45f);
+      float pw=Math.min(w-4*ui,availW+safeX*1.92f);
+      float ph=Math.min(h-4*ui,availH+safeY*1.92f);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       p.setColor(0xF4070B13);c.drawRect(0,0,w,h,p);
       saberPanelRect.set(x,y,x+pw,y+ph);
@@ -2286,36 +2288,41 @@ public class MainActivity extends Activity {
       c.drawRoundRect(new RectF(panel.left+7*ui,panel.top+7*ui,panel.right-7*ui,panel.bottom-7*ui),20*ui,20*ui,stroke);
 
       p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);
-      p.setTextSize((portrait?20:24)*ui);p.setColor(Color.WHITE);
-      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+34*ui,p);
-      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize(13*ui);p.setColor(0xFFF4C542);
-      c.drawText("✕ CLOSE",panel.right-18*ui,y+34*ui,p);
-      p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?10.5f:12)*ui);p.setColor(0xFF9FB0C4);
-      c.drawText("Challenge hilts unlock permanently for this player",w*.5f,y+52*ui,p);
+      p.setTextSize((portrait?24:27)*ui);p.setColor(Color.WHITE);
+      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+38*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setTextSize((portrait?14:15)*ui);p.setColor(0xFFF4C542);
+      c.drawText("✕ CLOSE",panel.right-16*ui,y+38*ui,p);
+      p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?11.5f:12.5f)*ui);p.setColor(0xFF9FB0C4);
+      c.drawText("Choose your hilt and blade • challenge hilts unlock permanently",w*.5f,y+59*ui,p);
 
       MainActivity a=ctx instanceof MainActivity?(MainActivity)ctx:null;
       for(RectF rr:hiltChoices)rr.setEmpty();
       for(RectF rr:bladeChoices)rr.setEmpty();
 
       if(portrait){
-        float side=16*ui,gap=10*ui,cw=(pw-side*2-gap*2)/3f;
-        float ch=Math.min(100*ui,Math.max(58*ui,(ph-260*ui)/5.5f));
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
-        c.drawText("HILTS",x+side,y+73*ui,p);
-        float hs=y+83*ui;
+        // Portrait is the primary phone layout. Two wide columns give every hilt
+        // substantially more art/label space than the old 3-column HUD grid.
+        float side=13*ui,gap=9*ui,cw=(pw-side*2-gap)/2f;
+        float hs=y+91*ui;
+        float bladeSection=174*ui;
+        float availableForHilts=Math.max(420*ui,panel.bottom-hs-bladeSection);
+        float ch=Math.min(92*ui,Math.max(66*ui,(availableForHilts-6*6*ui)/7f));
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        c.drawText("HILTS + REWARDS",x+side,y+80*ui,p);
         for(int i=0;i<TOTAL_HILT_COUNT;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+6*ui);
+          int col=i%2,row=i/2;float lx=x+side+col*(cw+gap),ty=hs+row*(ch+6*ui);
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
           drawHiltChoice(c,hiltChoices[i],i,hiltNames[i],i==r.hiltIndex,locked,ui);
         }
-        float bsY=hs+5*(ch+6*ui)+10*ui;
-        p.setTextSize(12.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
+        float bsY=hs+7*(ch+6*ui)+6*ui;
+        p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADES",x+side,bsY,p);
-        float bstart=bsY+10*ui,bh=Math.min(90*ui,Math.max(42*ui,(panel.bottom-(bsY+10*ui)-25*ui)/2f));
+        float bstart=bsY+9*ui,bgap=7*ui,bcw=(pw-side*2-bgap*2)/3f;
+        float bh=Math.max(54*ui,Math.min(76*ui,panel.bottom-bstart-19*ui));
         for(int i=0;i<6;i++){
-          int col=i%3,row=i/3;float lx=x+side+col*(cw+gap),ty=bstart+row*(bh+6*ui);
-          bladeChoices[i].set(lx,ty,lx+cw,ty+bh);
+          int col=i%3,row=i/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+5*ui);
+          bladeChoices[i].set(lx,ty,lx+bcw,ty+bh);
           drawBladeChoice(c,bladeChoices[i],blades[i],bladeNames[i],i==r.bladeIndex,ui);
         }
       }else{
@@ -2340,7 +2347,7 @@ public class MainActivity extends Activity {
         }
       }
 
-      p.setTextAlign(Paint.Align.CENTER);p.setTextSize(10.5f*ui);p.setColor(0xFFB9C1CC);
+      p.setTextAlign(Paint.Align.CENTER);p.setTextSize((portrait?11.5f:10.5f)*ui);p.setColor(0xFFB9C1CC);
       c.drawText("Locked reward hilts show their challenge source • tap CLOSE to return",w*.5f,y+ph-11*ui,p);
     }
 
