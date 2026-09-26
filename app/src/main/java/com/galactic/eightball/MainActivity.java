@@ -36,10 +36,10 @@ public class MainActivity extends Activity {
   static final String APK_MIME="application/vnd.android.package-archive";
   static final String REWARD_PREFS="galactic_rewards";
   static final int BADGE_CLEAN=1<<0,BADGE_SPEED=1<<1,BADGE_COMBO=1<<2,BADGE_SITH_TRIAL=1<<3,
-    BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6,BADGE_SOLIDS=1<<7;
+    BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6,BADGE_SOLIDS=1<<7,BADGE_STRIPES=1<<8;
   static final int UNLOCK_YODA=1<<0,UNLOCK_AHSOKA=1<<1,UNLOCK_ANAKIN=1<<2,UNLOCK_NIHILUS=1<<3,
-    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6,UNLOCK_BABSY=1<<7;
-  static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=14;
+    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6,UNLOCK_BABSY=1<<7,UNLOCK_BLUE_WRAITH=1<<8;
+  static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=15;
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
@@ -731,6 +731,7 @@ public class MainActivity extends Activity {
       case 5:return "Jedi Victor";
       case 6:return "Sith Victor";
       case 7:return "Solid Victory";
+      case 8:return "Stripe Victory";
       default:return "Challenge";
     }
   }
@@ -752,7 +753,7 @@ public class MainActivity extends Activity {
   boolean isHiltUnlocked(int index){
     if(index<BASE_HILT_COUNT)return true;
     int bit=index-BASE_HILT_COUNT;
-    return bit>=0&&bit<8&&(localUnlockMask()&(1<<bit))!=0;
+    return bit>=0&&bit<9&&(localUnlockMask()&(1<<bit))!=0;
   }
 
   static boolean isJediHiltIndex(int index){
@@ -788,6 +789,7 @@ public class MainActivity extends Activity {
       case 5:awardReward(BADGE_JEDI,UNLOCK_MAUL_REWARD,"JEDI VICTOR","Darth Maul Double Emitter");break;
       case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
       case 7:awardReward(BADGE_SOLIDS,UNLOCK_BABSY,"SOLID VICTORY","Mystic Ninja Blade");break;
+      case 8:awardReward(BADGE_STRIPES,UNLOCK_BLUE_WRAITH,"STRIPE VICTORY","Blue Wraith");break;
     }
   }
 
@@ -1591,9 +1593,9 @@ public class MainActivity extends Activity {
     final GameView game;
     final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
-    final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[8],blades=new Bitmap[6];
+    final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[9],blades=new Bitmap[6];
     final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1818,9 +1820,9 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[8], blades=new Bitmap[6];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
-    RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[9];
+    RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
     int saberHiltPage=0;
@@ -1858,20 +1860,20 @@ public class MainActivity extends Activity {
     };
 
     final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
-      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","MYSTIC NINJA BLADE"};
+      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","MYSTIC NINJA BLADE","BLUE WRAITH"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
     // Slot 3 remains internally valid for old saves, but the original Darth Maul hilt is removed from the loadout gallery.
-    final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12,13};
+    final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12,13,14};
 
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
-      for(int i=0;i<9;i++)aiSubmenuRects[i]=new RectF();
+      for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
       for(int i=0;i<6;i++){
         hilts[i]=loadPortraitHilt(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
         bladeChoices[i]=new RectF();
@@ -1952,7 +1954,7 @@ public class MainActivity extends Activity {
         // Central, screen-filling Galactic menu with deliberate tap-out space.
         float marginX=(portrait?22:54)*ui;
         float panelW=Math.min(w-marginX*2,portrait?Math.max(340*ui,w*.88f):Math.max(620*ui,w*.76f));
-        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?9:5);
+        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?10:5);
         float availableH=Math.max(300*ui,h-(portrait?150:110)*ui);
         float headerH=(portrait?58:62)*ui;
         float itemGap=(aiSubmenu==0?12:8)*ui;
@@ -2101,8 +2103,9 @@ public class MainActivity extends Activity {
         drawPremiumButton(c,aiSubmenuRects[4],"JEDI VICTOR","WIN WITH JEDI HILT • UNLOCK MAUL DOUBLE",ui,0xFF75C8FF,r.challengeMode&&r.challengeId==5);
         drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
         drawPremiumButton(c,aiSubmenuRects[6],"SOLID VICTORY","WIN AS SOLIDS • UNLOCK MYSTIC NINJA BLADE",ui,0xFF63D7FF,r.challengeMode&&r.challengeId==7);
-        drawPremiumButton(c,aiSubmenuRects[7],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
-        drawPremiumButton(c,aiSubmenuRects[8],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
+        drawPremiumButton(c,aiSubmenuRects[7],"STRIPE VICTORY","WIN AS STRIPES • UNLOCK BLUE WRAITH",ui,0xFF63AFFF,r.challengeMode&&r.challengeId==8);
+        drawPremiumButton(c,aiSubmenuRects[8],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[9],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
         return;
       }
 
@@ -2604,7 +2607,7 @@ public class MainActivity extends Activity {
         {-dx,dy},{0,dy},{dx,dy},
         {-dx*.55f,dy*2},{dx*.55f,dy*2}
       };
-      for(int i=0;i<7;i++){
+      for(int i=0;i<8;i++){
         int n=start+i;
         boolean onTable=r.isBallOnTable(n);
         float x=cx+spots[i][0],y=baseY+spots[i][1];
@@ -3067,7 +3070,7 @@ public class MainActivity extends Activity {
               return true;
             }
           }
-          if(aiSubmenuRects[7].contains(x,y)){
+          if(aiSubmenuRects[8].contains(x,y)){
             sideMenuOpen=false;aiSubmenu=0;invalidate();
             game.queueEvent(()->{
               r.aiDifficulty=1;r.challengeMode=false;r.challengeId=0;r.resetRack();
@@ -3076,7 +3079,7 @@ public class MainActivity extends Activity {
             Toast.makeText(ctx,"Standard Normal AI started. Beat it to unlock the Stormtrooper hilt.",Toast.LENGTH_SHORT).show();
             return true;
           }
-          if(aiSubmenuRects[8].contains(x,y)){aiSubmenu=0;invalidate();return true;}
+          if(aiSubmenuRects[9].contains(x,y)){aiSubmenu=0;invalidate();return true;}
           return true;
         }
 
@@ -3820,7 +3823,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f,11.6f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f,11.6f,11.8f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:(hiltIndex==11?.83f:.78f);}
     float hiltFrontEmitterOffset(){
       float L=hiltWorldLength();
@@ -4506,6 +4509,7 @@ public class MainActivity extends Activity {
         case 5:return "JEDI VICTOR";
         case 6:return "SITH VICTOR";
         case 7:return "SOLID VICTORY";
+        case 8:return "STRIPE VICTORY";
         default:return "GALACTIC CHALLENGE";
       }
     }
@@ -4522,6 +4526,7 @@ public class MainActivity extends Activity {
         case 5:return "JEDI VICTOR • WIN WITH A JEDI HILT";
         case 6:return "SITH VICTOR • WIN WITH A SITH HILT";
         case 7:return "SOLID VICTORY • WIN THE GAME AS SOLIDS";
+        case 8:return "STRIPE VICTORY • WIN THE GAME AS STRIPES";
         default:return challengeName();
       }
     }
@@ -4529,7 +4534,7 @@ public class MainActivity extends Activity {
     void completeChallenge(){ completeChallenge(challengeId); }
 
     void completeChallenge(int rewardId){
-      if(!aiEnabled||rewardId<1||rewardId>7)return;
+      if(!aiEnabled||rewardId<1||rewardId>8)return;
       int bit=1<<(rewardId-1);
       if((challengeCompletedThisGameMask&bit)!=0)return;
       challengeCompletedThisGameMask|=bit;
@@ -4557,6 +4562,7 @@ public class MainActivity extends Activity {
         if(MainActivity.isJediHiltIndex(hiltIndex))completeChallenge(5);
         if(MainActivity.isSithHiltIndex(hiltIndex))completeChallenge(6);
         if(teamSuit[0]==1)completeChallenge(7);
+        if(teamSuit[0]==2)completeChallenge(8);
         if(aiDifficulty==1&&ctx instanceof MainActivity)
           new Handler(Looper.getMainLooper()).post(()->((MainActivity)ctx).awardNormalAiWin());
       }else if(challengeMode){
