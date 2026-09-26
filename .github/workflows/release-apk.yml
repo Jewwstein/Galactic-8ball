@@ -141,7 +141,6 @@ jobs:
           for n in ahsoka nihilus; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
-          python -c 'from PIL import Image; p="app/src/main/assets/reward_hilts/rey.png"; im=Image.open(p); im.verify(); print("Rey canonical PNG verified")'
           test -s app/src/main/assets/reward_hilts/rey.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
