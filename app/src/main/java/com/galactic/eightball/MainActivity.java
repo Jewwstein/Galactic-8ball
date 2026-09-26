@@ -1855,7 +1855,7 @@ public class MainActivity extends Activity {
       }
     };
 
-    final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
+    final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
     final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
@@ -2308,15 +2308,16 @@ public class MainActivity extends Activity {
         // Deterministic two-card pages. No drag/swipe state: PREVIOUS/NEXT changes
         // exactly one page and only the two visible cards are touchable.
         float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
-        float hs=y+112*ui;
+        float hs=y+91*ui;
         float bladeTop=panel.bottom-330*ui;
-        float navTop=y+73*ui,navH=31*ui;
-        float galleryBottom=bladeTop-20*ui;
+        float navH=34*ui;
+        float navTop=bladeTop-54*ui;
+        float galleryBottom=navTop-10*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
         int pageCount=(visibleHiltOrder.length+1)/2;
         saberHiltPage=Math.max(0,Math.min(pageCount-1,saberHiltPage));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("HILTS + REWARDS  •  PAGE "+(saberHiltPage+1)+" / "+pageCount,w*.5f,navTop+21*ui,p);
+        c.drawText("HILTS + REWARDS  •  PAGE "+(saberHiltPage+1)+" / "+pageCount,w*.5f,y+80*ui,p);
 
         float navW=Math.min(108*ui,(pw-side*2)*.27f);
         saberPrevPageRect.set(x+side,navTop,x+side+navW,navTop+navH);
