@@ -126,7 +126,7 @@ jobs:
           done
           # Rey's approved source is WebP; decode it into a canonical RGBA PNG
           # so every Android canvas (gallery, bezel and thumb control) reads the same asset.
-          python -c 'from PIL import Image; from pathlib import Path; p=Path("app/src/main/assets/reward_hilts/rey.webp"); im=Image.open(p).convert("RGBA"); im.load(); im.save(p.with_suffix(".png"),format="PNG"); print("Rey PNG:",im.size)'
+          # Rey uses the already-decoded approved PNG source above. Do not re-decode the same PNG bytes as a fake .webp and round-trip them through Pillow.
           test -s app/src/main/assets/reward_hilts/rey.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
