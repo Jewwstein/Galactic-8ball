@@ -2908,7 +2908,7 @@ public class MainActivity extends Activity {
         }
       }
 
-      float trackTop=Math.max(safeY+8*ui,baseCy-baseH*1.48f),trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel);
+      float trackTop=Math.max(safeY+8*ui,cy-baseH*.72f),trackBottom=Math.min(h-safeY-10*ui,cy+baseH*.72f);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
