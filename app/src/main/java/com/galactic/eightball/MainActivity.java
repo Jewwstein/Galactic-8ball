@@ -2804,12 +2804,18 @@ public class MainActivity extends Activity {
         int ri=r.hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
         if(reward!=null){
-          float dx=worldEmitterX-worldRearEmitterX,dy=worldEmitterY-worldRearEmitterY;
-          float len=(float)Math.sqrt(dx*dx+dy*dy);
-          float ang=(float)Math.toDegrees(Math.atan2(dy,dx));
-          float hh=Math.max(22f,Math.min(72f,len*.28f));
-          RectF dst=new RectF(worldRearEmitterX,worldRearEmitterY-hh*.5f,worldRearEmitterX+Math.max(4f,len),worldRearEmitterY+hh*.5f);
-          c.save();c.rotate(ang,worldRearEmitterX,worldRearEmitterY);c.drawBitmap(reward,null,dst,p);c.restore();
+          // Keep portrait hilt art upright/readable. Its screen position still follows
+          // the projected world hilt as aim orbits the cue ball, but the bitmap itself
+          // never rolls sideways with the table/aim angle.
+          float projectedLen=(float)Math.sqrt(
+            (worldEmitterX-worldRearEmitterX)*(worldEmitterX-worldRearEmitterX)+
+            (worldEmitterY-worldRearEmitterY)*(worldEmitterY-worldRearEmitterY));
+          float artH=Math.max(150f*ui,Math.min(270f*ui,projectedLen*1.35f));
+          float artW=Math.max(74f*ui,Math.min(132f*ui,artH*.46f));
+          float cx=(worldEmitterX+worldRearEmitterX)*.5f;
+          float cy=(worldEmitterY+worldRearEmitterY)*.5f;
+          RectF dst=new RectF(cx-artW*.5f,cy-artH*.5f,cx+artW*.5f,cy+artH*.5f);
+          drawBitmapFitCenter(c,reward,dst,p);
         }
       }
 
@@ -2850,17 +2856,15 @@ public class MainActivity extends Activity {
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
       boolean portrait=h>w;
-      float baseW=(portrait?92:108)*ui,baseH=(portrait?190:210)*ui;
+      // Fixed-size portrait trigger. Power changes the blade/readout, never the
+      // hilt's scale or screen position.
+      float baseW=(portrait?132:148)*ui,baseH=(portrait?270:286)*ui;
 
-      // Keep the visual hilt and its touch geometry in the same screen-space
-      // lane. The previous HUD rectangle sat above part of the OpenGL hilt,
-      // which is why only the top portion reliably began a pull.
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
-      float cx=Math.min(w*(portrait?.77f:.84f),w-safeX-baseW*.50f);
-      float baseCy=h*(portrait?.58f:.56f);
+      float cx=Math.min(w*(portrait?.76f:.83f),w-safeX-baseW*.50f);
+      float cy=h*(portrait?.58f:.56f);
       float maxTravel=Math.max((portrait?210:175)*ui,h*(portrait?.34f:.36f));
       float travel=Math.min(maxTravel,r.chargePullPx);
-      float cy=baseCy+travel;
 
       // Visual bounds roughly follow the rendered hilt.
       thumbHiltRect.set(cx-baseW*.58f,cy-baseH*.52f,cx+baseW*.58f,cy+baseH*.52f);
@@ -2878,14 +2882,14 @@ public class MainActivity extends Activity {
         Bitmap reward=null;
         if(r.hiltIndex>=0&&r.hiltIndex<BASE_HILT_COUNT) reward=hilts[r.hiltIndex];
         else { int ri=r.hiltIndex-BASE_HILT_COUNT; reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null; }
-        float hiltH=baseH*.92f,hiltW=baseW*.82f;
+        float hiltH=baseH*.96f,hiltW=baseW*.92f;
         RectF rewardArt=new RectF(cx-hiltW*.5f,cy-hiltH*.52f,cx+hiltW*.5f,cy+hiltH*.48f);
         if(reward!=null)drawBitmapFitCenter(c,reward,rewardArt,p);else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
 
         // Match the premium pull-down behavior of the six authored hilts: as the
         // grip is pulled down, the selected blade grows upward from the emitter.
         float pullNorm=Math.max(0f,Math.min(1f,r.power/100f));
-        float bladeLen=Math.min(maxTravel*.92f,travel*1.10f);
+        float bladeLen=maxTravel*.92f*pullNorm;
         if(bladeLen>1f){
           Bitmap blade=blades[Math.max(0,Math.min(5,r.bladeIndex))];
           float emitterY=cy-hiltH*.50f;
