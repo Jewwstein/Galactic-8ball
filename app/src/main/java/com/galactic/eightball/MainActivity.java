@@ -1662,7 +1662,7 @@ public class MainActivity extends Activity {
     float dpv(float v){return v*getResources().getDisplayMetrics().density;}
 
     void drawBezelRewardHilt(Canvas c,int hiltIndex,float emitterX,float emitterY,float bladeThick){
-      float hw=Math.max(dpv(58),bladeThick*5.2f),hh=Math.max(dpv(18),bladeThick*1.55f);
+      float hw=Math.max(dpv(92),bladeThick*6.6f),hh=Math.max(dpv(28),bladeThick*2.05f);
       float left=emitterX-hw,right=emitterX+dpv(4),cy=emitterY,h=hh*.34f;
       int accent;
       switch(hiltIndex){
@@ -1723,8 +1723,8 @@ public class MainActivity extends Activity {
       }
 
       if(hilt!=null){
-        float hw=Math.max(dpv(82),bladeThick*7.2f);
-        float maxH=Math.max(dpv(25),bladeThick*2.15f);
+        float hw=Math.max(dpv(126),bladeThick*8.8f);
+        float maxH=Math.max(dpv(38),bladeThick*2.75f);
         float srcAspect=(float)hilt.getWidth()/Math.max(1,hilt.getHeight());
         float drawW=hw+dpv(4),drawH=drawW/Math.max(.25f,srcAspect);
         if(drawH>maxH){drawH=maxH;drawW=drawH*srcAspect;}
@@ -1734,10 +1734,10 @@ public class MainActivity extends Activity {
         int ri=hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
         if(reward!=null){
-          float hw=Math.max(dpv(92),bladeThick*8.0f);
+          float hw=Math.max(dpv(138),bladeThick*9.4f);
           float srcAspect=(float)reward.getWidth()/Math.max(1,reward.getHeight());
           float hh=hw/Math.max(1f,srcAspect);
-          float maxH=Math.max(dpv(30),bladeThick*2.35f);
+          float maxH=Math.max(dpv(42),bladeThick*2.85f);
           if(hh>maxH){hh=maxH;hw=hh*srcAspect;}
           RectF hr=new RectF(emitterX-hw+dpv(5),emitterY-hh*.5f,emitterX+dpv(5),emitterY+hh*.5f);
           c.drawBitmap(reward,null,hr,paint);
@@ -1766,7 +1766,7 @@ public class MainActivity extends Activity {
       int color=bladeColors[bi];
 
       float edge=dpv(8);
-      float thick=Math.max(dpv(10),Math.min(dpv(17),Math.min(w,h)*.019f));
+      float thick=Math.max(dpv(15),Math.min(dpv(25),Math.min(w,h)*.028f));
       float corner=Math.max(dpv(60),thick*5.4f);
 
       // Top and bottom remain one saber each. Keep the horizontal hilts clear
@@ -2274,7 +2274,7 @@ public class MainActivity extends Activity {
       // The saber selector is a dedicated full-screen loadout window, not a small
       // HUD popup. Use nearly the entire display so hilt art and labels stay large.
       float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=Math.min(w-4*ui,availW+safeX*1.92f);
+      float pw=Math.min(w-18*ui,availW+safeX*1.58f);
       float ph=Math.min(h-4*ui,availH+safeY*1.92f);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       p.setColor(0xF4070B13);c.drawRect(0,0,w,h,p);
@@ -2305,7 +2305,7 @@ public class MainActivity extends Activity {
         // all standard and unlockable hilts. Blade colors stay fixed below it.
         float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
         float hs=y+92*ui;
-        float bladeTop=panel.bottom-238*ui;
+        float bladeTop=panel.bottom-264*ui;
         float galleryBottom=bladeTop-18*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
         float rowStep=ch+12*ui;
@@ -2924,6 +2924,27 @@ public class MainActivity extends Activity {
         }
       }
 
+      // Complete the portrait saber-gallery drag gesture. Touch-down arms the
+      // gallery; MOVE scrolls all hilt/reward rows and UP/CANCEL ends the drag.
+      if(menuOpen&&saberHiltScrolling){
+        if(a==MotionEvent.ACTION_MOVE){
+          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
+          float side=12*uiNow,gap=12*uiNow;
+          float hs=saberPanelRect.top+92*uiNow;
+          float bladeTop=saberPanelRect.bottom-264*uiNow;
+          float galleryBottom=bladeTop-18*uiNow;
+          float ch=Math.max(150*uiNow,galleryBottom-hs);
+          float rowStep=ch+12*uiNow;
+          float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*rowStep);
+          saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+(saberHiltDownY-y)));
+          invalidate();
+          return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
+          saberHiltScrolling=false;invalidate();return true;
+        }
+      }
+
       if(a==MotionEvent.ACTION_DOWN){
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
@@ -2932,7 +2953,7 @@ public class MainActivity extends Activity {
           // scroll gesture there instead of immediately treating the touch as aim.
           if(getHeight()>getWidth()){
             float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-            float galleryBottom=saberPanelRect.bottom-256*uiNow;
+            float galleryBottom=saberPanelRect.bottom-282*uiNow;
             if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
               saberHiltScrolling=true;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;
             }
