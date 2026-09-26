@@ -1818,7 +1818,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[7], blades=new Bitmap[6];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[8], blades=new Bitmap[6];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[9];
     float englishCx,englishCy,englishR;
@@ -3820,7 +3820,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f,11.6f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:(hiltIndex==11?.83f:.78f);}
     float hiltFrontEmitterOffset(){
       float L=hiltWorldLength();
