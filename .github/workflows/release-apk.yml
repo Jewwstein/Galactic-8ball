@@ -1,4 +1,5 @@
 name: Publish Galactic 8-Ball APK
+# v0.8.1 full-screen saber gallery and canonical Rey PNG release
 # v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
 on:
   push:
