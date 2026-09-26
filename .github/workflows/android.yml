@@ -132,6 +132,9 @@ jobs:
             echo "Rey reward PNG invalid; using in-app fallback for this build"
             rm -f app/src/main/assets/reward_hilts/rey.png
           fi
+          python tools/prepare_hd_reward_hilts.py
+          test -f app/src/main/assets/reward_hilts/hd/yoda.png
+          test -f app/src/main/assets/reward_hilts/hd/maul_double.png
           file app/src/main/assets/reward_hilts/* || true
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
