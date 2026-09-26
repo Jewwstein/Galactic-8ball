@@ -107,6 +107,7 @@ jobs:
           file app/src/main/assets/ui/*
           test "$(head -c 7 app/src/main/assets/galactic_table.unity3d)" = "UnityFS"
           python -m pip install -q UnityPy Pillow numpy
+          sudo apt-get install -y -qq pngquant
           python tools/make_launcher_icon.py
           python tools/extract_unity.py
           python tools/enhance_table_textures.py
@@ -130,6 +131,16 @@ jobs:
           for n in yoda ahsoka anakin nihilus stormtrooper kylo rey; do
             base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.png"
           done
+          # Android BitmapFactory is unreliable with the palette/indexed PNGs produced by
+          # our optimized reward-art pipeline on some devices. Normalize every approved
+          # reward hilt to true 8-bit RGBA while preserving the exact pixels/transparency.
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          for p in Path("app/src/main/assets/reward_hilts").glob("*.png"):
+              im=Image.open(p).convert("RGBA")
+              im.save(p,format="PNG",optimize=True)
+          PY
           file app/src/main/assets/reward_hilts/*.png
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
