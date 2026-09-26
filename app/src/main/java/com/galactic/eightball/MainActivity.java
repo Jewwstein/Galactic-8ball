@@ -2853,8 +2853,8 @@ public class MainActivity extends Activity {
     }
 
     void drawThumbStrikeHilt(Canvas c,int w,int h,float ui,GameRenderer r){
-      // The hilt/blade itself is rendered with the real 3D model by OpenGL.
-      // HUD only supplies the touch target, subtle track, and power readout.
+      // Fixed HUD artwork for the selected hilt. The image stays static while power
+      // changes only the blade length/readout.
       boolean portrait=h>w;
       // Fixed-size portrait trigger. Power changes the blade/readout, never the
       // hilt's scale or screen position.
@@ -3154,11 +3154,10 @@ public class MainActivity extends Activity {
           float tui=portrait
             ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
             : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
-          float baseW=(portrait?92:108)*tui,baseH=(portrait?190:210)*tui;
-          float tcx=w*(portrait?.77f:.84f);
-          float baseCy=h*(portrait?.58f:.56f);
-          float maxTravel=Math.max((portrait?210:175)*tui,h*(portrait?.34f:.36f));
-          float tcy=baseCy+Math.min(maxTravel,r.chargePullPx);
+          float baseW=(portrait?132:148)*tui,baseH=(portrait?270:286)*tui;
+          float safeXTouch=(portrait?38f:46f)*tui;
+          float tcx=Math.min(w*(portrait?.76f:.83f),w-safeXTouch-baseW*.50f);
+          float tcy=h*(portrait?.58f:.56f);
           thumbGrabRect.set(tcx-baseW*.82f,tcy-baseH*.72f,tcx+baseW*.82f,tcy+baseH*.72f);
 
           if(thumbGrabRect.contains(x,y)){
