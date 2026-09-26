@@ -2830,10 +2830,40 @@ public class MainActivity extends Activity {
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
       if(r.hiltIndex>=BASE_HILT_COUNT){
-        RectF rewardArt=new RectF(cx-baseW*.46f,cy-baseH*.24f,cx+baseW*.46f,cy+baseH*.24f);
+        // Reward art is authored horizontally, but the thumb-strike control is a
+        // vertical pull-down saber. Rotate the approved art 90 degrees and keep
+        // its aspect ratio so the emitter sits above the grip like the authored
+        // 3D thumb hilts.
         int ri=r.hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
-        if(reward!=null)c.drawBitmap(reward,null,rewardArt,p);else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
+        float hiltH=baseH*1.18f,hiltW=Math.min(baseW*.34f,hiltH*.34f);
+        RectF rewardArt=new RectF(cx-hiltW*.5f,cy-hiltH*.52f,cx+hiltW*.5f,cy+hiltH*.48f);
+        c.save();
+        c.rotate(-90f,cx,cy);
+        RectF horizontalBox=new RectF(cx-hiltH*.5f,cy-hiltW*.5f,cx+hiltH*.5f,cy+hiltW*.5f);
+        if(reward!=null)drawBitmapFitCenter(c,reward,horizontalBox,p);else drawRewardHiltArt(c,horizontalBox,r.hiltIndex,ui);
+        c.restore();
+
+        // Match the premium pull-down behavior of the six authored hilts: as the
+        // grip is pulled down, the selected blade grows upward from the emitter.
+        float pullNorm=Math.max(0f,Math.min(1f,r.power/100f));
+        float bladeLen=Math.min(maxTravel*.92f,travel*1.10f);
+        if(bladeLen>1f){
+          Bitmap blade=blades[Math.max(0,Math.min(5,r.bladeIndex))];
+          float emitterY=cy-hiltH*.50f;
+          float bladeW=Math.max(13f*ui,hiltW*.48f);
+          RectF bladeBox=new RectF(cx-bladeW*.5f,emitterY-bladeLen,cx+bladeW*.5f,emitterY+3f*ui);
+          if(blade!=null){
+            c.save();
+            c.rotate(-90f,cx,emitterY);
+            RectF hb=new RectF(cx-(bladeLen+3f*ui)*.5f,emitterY-bladeW*.5f,cx+(bladeLen+3f*ui)*.5f,emitterY+bladeW*.5f);
+            c.drawBitmap(blade,null,hb,p);
+            c.restore();
+          }else{
+            p.setColor(0xEEFFFFFF);
+            c.drawRoundRect(bladeBox,bladeW*.5f,bladeW*.5f,p);
+          }
+        }
       }
 
       float trackTop=Math.max(safeY+8*ui,baseCy-baseH*1.48f),trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel);
