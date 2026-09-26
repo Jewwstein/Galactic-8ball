@@ -127,10 +127,15 @@ jobs:
           python tools/enhance_real_hilt_textures.py
           python tools/render_hilt_thumbnails.py
           mkdir -p app/src/main/assets/reward_hilts
-          for n in yoda ahsoka anakin nihilus stormtrooper kylo rey; do
+          for n in yoda anakin stormtrooper kylo; do
             base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.png"
           done
-          file app/src/main/assets/reward_hilts/*.png
+          # These three approved images are stored as Android-safe WebP after their
+          # original PNG streams proved malformed/incompatible on-device.
+          for n in ahsoka nihilus rey; do
+            base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.webp"
+          done
+          file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
           python -c 'from PIL import Image; p="app/src/main/assets/environment/sky.jpg"; im=Image.open(p).convert("RGB"); im.thumbnail((2048,2048),Image.Resampling.LANCZOS); im.save(p,quality=91,optimize=True)'
