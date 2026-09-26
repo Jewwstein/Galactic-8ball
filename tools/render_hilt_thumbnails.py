@@ -8,7 +8,7 @@ REAL=ROOT/"real_hilts"
 UI=ROOT/"ui"
 UI.mkdir(parents=True,exist_ok=True)
 
-W,H=640,360
+W,H=1024,2048
 
 def read_mesh(path):
     data=path.read_bytes()
@@ -19,10 +19,10 @@ def read_mesh(path):
     return arr[:,:3],arr[:,3:5]
 
 def rotate(p):
-    # Models are normalized with hilt length on +X. Use a shallow three-quarter
-    # view so the thumbnail matches the actual authored 3D mesh rather than old PNG art.
-    yaw=math.radians(24)
-    pitch=math.radians(-10)
+    # HD portrait menu render. Models are authored lengthwise on +X; rotate the
+    # geometry into portrait here instead of rotating a small landscape bitmap in Android.
+    yaw=math.radians(18)
+    pitch=math.radians(-7)
     cy,sy=math.cos(yaw),math.sin(yaw)
     cp,sp=math.cos(pitch),math.sin(pitch)
     Ry=np.array([[cy,0,sy],[0,1,0],[-sy,0,cy]],dtype=np.float32)
@@ -32,15 +32,16 @@ def rotate(p):
 def render(mesh_path,tex_path,out_path):
     pos,uv=read_mesh(mesh_path)
     p=rotate(pos)
+    # Project authored X length vertically and Y thickness horizontally.
     mn=p.min(axis=0);mx=p.max(axis=0);ctr=(mn+mx)*.5
     p-=ctr
 
-    sx=(W-60)/max(1e-5,mx[0]-mn[0])
-    sy=(H-70)/max(1e-5,mx[1]-mn[1])
+    sx=(W-120)/max(1e-5,mx[1]-mn[1])
+    sy=(H-150)/max(1e-5,mx[0]-mn[0])
     scale=min(sx,sy)
     xy=np.empty((len(p),2),dtype=np.float32)
-    xy[:,0]=p[:,0]*scale+W*.5
-    xy[:,1]=-p[:,1]*scale+H*.5
+    xy[:,0]=p[:,1]*scale+W*.5
+    xy[:,1]=-p[:,0]*scale+H*.5
 
     tex=np.asarray(Image.open(tex_path).convert("RGBA"))
     th,tw=tex.shape[:2]
@@ -81,7 +82,7 @@ def render(mesh_path,tex_path,out_path):
     final=Image.new("RGBA",(W,H),(0,0,0,0))
     final.alpha_composite(shadow,(3,4))
     final.alpha_composite(canvas)
-    final=ImageEnhance.Sharpness(final).enhance(1.20)
+    final=ImageEnhance.Sharpness(final).enhance(1.35)
     final.save(out_path,optimize=True)
     print("thumbnail",out_path)
 
