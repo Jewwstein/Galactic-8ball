@@ -223,4 +223,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-# Release trigger: v0.8.13 build 30 hilt menu fix
+
+# Release trigger: v0.8.14 build 31 hilt gameplay rendering fix
