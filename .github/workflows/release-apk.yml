@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.7.7 reward hilt RGBA + responsive saber proportions release
+# v0.7.7 responsive saber proportions + reward thumb-strike release
 on:
   push:
     branches: [ "main" ]
@@ -130,22 +130,6 @@ jobs:
           for n in yoda ahsoka anakin nihilus stormtrooper kylo rey; do
             base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.png"
           done
-          # Android BitmapFactory is unreliable with the palette/indexed PNGs produced by
-          # our optimized reward-art pipeline on some devices. Normalize every approved
-          # reward hilt to true 8-bit RGBA while preserving the exact pixels/transparency.
-          python - <<'PY'
-          from PIL import Image, ImageFile
-          from pathlib import Path
-          ImageFile.LOAD_TRUNCATED_IMAGES=True
-          for p in Path("app/src/main/assets/reward_hilts").glob("*.png"):
-              try:
-                  with Image.open(p) as src:
-                      im=src.convert("RGBA")
-                      im.load()
-                  im.save(p,format="PNG",optimize=True)
-              except Exception as e:
-                  raise RuntimeError(f"reward hilt PNG decode failed: {p}: {e}")
-          PY
           file app/src/main/assets/reward_hilts/*.png
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
@@ -195,7 +179,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Fixes reliable loading of all seven approved reward-hilt PNGs and preserves premium saber-hilt proportions in portrait/landscape loadout and bezel rendering.
+            UpdateNotes: Preserves saber proportions across orientations and brings all seven unlockable reward hilts into the vertical pull-down thumb-strike control with a growing selected blade.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
