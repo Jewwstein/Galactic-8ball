@@ -2275,12 +2275,14 @@ public class MainActivity extends Activity {
     void drawSaberMenu(Canvas c,int w,int h,float ui,GameRenderer r){
       boolean portrait=h>w;
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
-      // The saber selector is a dedicated full-screen loadout window, not a small
-      // HUD popup. Use nearly the entire display so hilt art and labels stay large.
-      float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=Math.min(w-4*ui,availW+safeX*1.92f);
-      float ph=Math.min(h-54*ui,availH+safeY*1.62f);
-      float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
+      // This screen has a much thicker decorative saber bezel than the gameplay
+      // HUD. Treat it as protected chrome: all text/cards/buttons stay inside it.
+      float frameX=(portrait?58f:64f)*ui;
+      float frameTop=(portrait?72f:62f)*ui;
+      float frameBottom=(portrait?76f:64f)*ui;
+      float pw=Math.max(260*ui,w-frameX*2f);
+      float ph=Math.max(320*ui,h-frameTop-frameBottom);
+      float x=frameX,y=frameTop;
       p.setColor(0xF4070B13);c.drawRect(0,0,w,h,p);
       saberPanelRect.set(x,y,x+pw,y+ph);
       RectF panel=saberPanelRect;
@@ -2294,11 +2296,11 @@ public class MainActivity extends Activity {
 
       p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);
       p.setTextSize((portrait?24:27)*ui);p.setColor(Color.WHITE);
-      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+38*ui,p);
+      c.drawText("GALACTIC SABER LOADOUT",w*.5f,y+31*ui,p);
       p.setTextAlign(Paint.Align.RIGHT);p.setTextSize((portrait?14:15)*ui);p.setColor(0xFFF4C542);
-      c.drawText("✕ CLOSE",panel.right-16*ui,y+38*ui,p);
+      c.drawText("✕ CLOSE",panel.right-14*ui,y+31*ui,p);
       p.setTypeface(Typeface.DEFAULT);p.setTextSize((portrait?11.5f:12.5f)*ui);p.setColor(0xFF9FB0C4);
-      c.drawText("Choose your hilt and blade • challenge hilts unlock permanently",w*.5f,y+59*ui,p);
+      c.drawText("Choose your hilt and blade • challenge hilts unlock permanently",w*.5f,y+51*ui,p);
 
       MainActivity a=ctx instanceof MainActivity?(MainActivity)ctx:null;
       for(RectF rr:hiltChoices)rr.setEmpty();
@@ -2307,19 +2309,19 @@ public class MainActivity extends Activity {
       if(portrait){
         // Deterministic two-card pages. No drag/swipe state: PREVIOUS/NEXT changes
         // exactly one page and only the two visible cards are touchable.
-        float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
-        float hs=y+91*ui;
-        float bladeTop=panel.bottom-330*ui;
+        float side=10*ui,gap=10*ui,cw=(pw-side*2-gap)/2f;
+        float hs=y+82*ui;
+        float bladeTop=panel.bottom-318*ui;
         float navH=34*ui;
-        float navTop=bladeTop-54*ui;
+        float navTop=bladeTop-48*ui;
         float galleryBottom=navTop-10*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
         int pageCount=(visibleHiltOrder.length+1)/2;
         saberHiltPage=Math.max(0,Math.min(pageCount-1,saberHiltPage));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(14.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.CENTER);
-        c.drawText("HILTS + REWARDS  •  PAGE "+(saberHiltPage+1)+" / "+pageCount,w*.5f,y+80*ui,p);
+        c.drawText("HILTS + REWARDS  •  PAGE "+(saberHiltPage+1)+" / "+pageCount,w*.5f,y+71*ui,p);
 
-        float navW=Math.min(108*ui,(pw-side*2)*.27f);
+        float navW=Math.min(118*ui,(pw-side*2)*.31f);
         saberPrevPageRect.set(x+side,navTop,x+side+navW,navTop+navH);
         saberNextPageRect.set(panel.right-side-navW,navTop,panel.right-side,navTop+navH);
         drawPageButton(c,saberPrevPageRect,"◀ PREVIOUS",saberHiltPage>0,ui);
@@ -2338,7 +2340,7 @@ public class MainActivity extends Activity {
         p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("BLADE COLOR",x+side,bladeTop,p);
         float bstart=bladeTop+14*ui,bgap=8*ui,bcw=(pw-side*2-bgap*2)/3f;
-        float bh=Math.max(94*ui,(panel.bottom-bstart-24*ui-9*ui)/2f);
+        float bh=Math.max(82*ui,(panel.bottom-bstart-18*ui-9*ui)/2f);
         for(int bi=0;bi<6;bi++){
           int col=bi%3,row=bi/3;float lx=x+side+col*(bcw+bgap),ty=bstart+row*(bh+9*ui);
           bladeChoices[bi].set(lx,ty,lx+bcw,ty+bh);
