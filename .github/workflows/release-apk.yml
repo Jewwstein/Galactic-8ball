@@ -136,14 +136,11 @@ jobs:
           for n in yoda anakin stormtrooper kylo; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.png"
           done
-          # Rey source may be truncated/corrupt. Validate it as an actual image;
-          # if invalid, omit it so the Android procedural fallback is used.
-          if python -c 'import base64,io; from pathlib import Path; from PIL import Image; s=Path("model_assets/reward_hilts/rey.png.b64").read_bytes().strip(); d=base64.b64decode(s+b"="*(-len(s)%4),validate=False); im=Image.open(io.BytesIO(d)); im.load(); Path("app/src/main/assets/reward_hilts/rey.png").write_bytes(d)' ; then
-            echo "Rey reward PNG validated"
-          else
-            echo "Rey reward PNG invalid; using in-app fallback for this release"
-            rm -f app/src/main/assets/reward_hilts/rey.png
-          fi
+          # Darth Maul reward must use the real uploaded transparent PNG.
+          # Fail the release instead of silently shipping procedural/mockup art.
+          test -f model_assets/reward_hilts/file_0000000077c881f5a48018d2dfe8dd90.png
+          cp model_assets/reward_hilts/file_0000000077c881f5a48018d2dfe8dd90.png app/src/main/assets/reward_hilts/maul_double.png
+          python -c 'from PIL import Image; p="app/src/main/assets/reward_hilts/maul_double.png"; im=Image.open(p); im.load(); assert im.format=="PNG"; assert im.mode in ("RGBA","LA","P"), "Maul reward must preserve transparency"; assert "A" in im.getbands() or im.mode=="P", "Maul reward PNG has no alpha channel"; print("Real Maul reward PNG validated:",im.size,im.mode)'
           for n in ahsoka nihilus; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
@@ -196,7 +193,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Multiplayer saber ownership fix, two-hilt scrolling saber gallery, current predictor fixes, and resilient Rey reward-hilt fallback.
+            UpdateNotes: Vertical scrolling saber gallery, multiplayer saber ownership fixes, and real Darth Maul double-emitter challenge reward artwork.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
