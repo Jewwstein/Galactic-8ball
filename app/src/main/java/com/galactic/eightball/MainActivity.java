@@ -1724,8 +1724,11 @@ public class MainActivity extends Activity {
 
       if(hilt!=null){
         float hw=Math.max(dpv(58),bladeThick*5.2f);
-        float hh=Math.max(dpv(18),bladeThick*1.55f);
-        RectF hr=new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f);
+        float maxH=Math.max(dpv(18),bladeThick*1.55f);
+        float srcAspect=(float)hilt.getWidth()/Math.max(1,hilt.getHeight());
+        float drawW=hw+dpv(4),drawH=drawW/Math.max(.25f,srcAspect);
+        if(drawH>maxH){drawH=maxH;drawW=drawH*srcAspect;}
+        RectF hr=new RectF(emitterX-drawW+dpv(4),emitterY-drawH*.5f,emitterX+dpv(4),emitterY+drawH*.5f);
         c.drawBitmap(hilt,null,hr,paint);
       }else if(hiltIndex>=BASE_HILT_COUNT){
         int ri=hiltIndex-BASE_HILT_COUNT;
@@ -2426,6 +2429,14 @@ public class MainActivity extends Activity {
       }
     }
 
+    void drawBitmapFitCenter(Canvas c,Bitmap bmp,RectF box,Paint paint){
+      if(bmp==null||box.width()<=0||box.height()<=0)return;
+      float scale=Math.min(box.width()/Math.max(1f,bmp.getWidth()),box.height()/Math.max(1f,bmp.getHeight()));
+      float dw=bmp.getWidth()*scale,dh=bmp.getHeight()*scale;
+      RectF dst=new RectF(box.centerX()-dw*.5f,box.centerY()-dh*.5f,box.centerX()+dw*.5f,box.centerY()+dh*.5f);
+      c.drawBitmap(bmp,null,dst,paint);
+    }
+
     void drawHiltChoice(Canvas c,RectF rr,int index,String name,boolean selected,boolean locked,float ui){
       int accent=index>=BASE_HILT_COUNT?rewardHiltAccent(index):0xFFF4C542;
       p.setShader(new LinearGradient(rr.left,rr.top,rr.left,rr.bottom,
@@ -2434,11 +2445,11 @@ public class MainActivity extends Activity {
       stroke.setColor(selected?accent:(locked?0x664C5562:0x667A8494));stroke.setStrokeWidth(selected?2.4f*ui:1.1f*ui);c.drawRoundRect(rr,10*ui,10*ui,stroke);
 
       RectF art=new RectF(rr.left+4*ui,rr.top+4*ui,rr.right-4*ui,rr.bottom-17*ui);
-      if(index<BASE_HILT_COUNT&&hilts[index]!=null)c.drawBitmap(hilts[index],null,art,p);
+      if(index<BASE_HILT_COUNT&&hilts[index]!=null)drawBitmapFitCenter(c,hilts[index],art,p);
       else{
         int ri=index-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
-        if(reward!=null)c.drawBitmap(reward,null,art,p);else drawRewardHiltArt(c,art,index,ui);
+        if(reward!=null)drawBitmapFitCenter(c,reward,art,p);else drawRewardHiltArt(c,art,index,ui);
       }
 
       if(locked){
