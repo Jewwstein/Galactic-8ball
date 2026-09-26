@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.7.8 responsive saber proportions + reward thumb-strike release
+# v0.7.9 repaired reward hilts + enlarged Galactic UI + bezel hilt sizing
 on:
   push:
     branches: [ "main" ]
@@ -184,7 +184,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Preserves saber proportions across orientations and brings all seven unlockable reward hilts into the vertical pull-down thumb-strike control with a growing selected blade.
+            UpdateNotes: Repairs Ahsoka, Darth Nihilus, and Rey reward hilt assets; enlarges and centers the Galactic menu; enlarges the menu trigger; and corrects bezel hilt scale/alignment.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
