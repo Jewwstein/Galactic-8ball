@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.8.3 expanded saber gallery + validated Rey PNG release
+# v0.8.4 multiplayer saber ownership + two-hilt gallery + predictor/Rey fixes
 # v0.8.1 full-screen saber gallery and canonical Rey PNG release
 # v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
 on:
@@ -133,15 +133,20 @@ jobs:
           python tools/enhance_real_hilt_textures.py
           python tools/render_hilt_thumbnails.py
           mkdir -p app/src/main/assets/reward_hilts
-          for n in yoda anakin stormtrooper kylo rey; do
+          for n in yoda anakin stormtrooper kylo; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.png"
           done
-          # Ahsoka and Nihilus remain Android-safe WebP sources. Rey is now a
-          # canonical PNG source and is decoded directly with no format conversion.
+          # Rey source may be truncated/corrupt. Validate it as an actual image;
+          # if invalid, omit it so the Android procedural fallback is used.
+          if python -c 'import base64,io; from pathlib import Path; from PIL import Image; s=Path("model_assets/reward_hilts/rey.png.b64").read_bytes().strip(); d=base64.b64decode(s+b"="*(-len(s)%4),validate=False); im=Image.open(io.BytesIO(d)); im.load(); Path("app/src/main/assets/reward_hilts/rey.png").write_bytes(d)' ; then
+            echo "Rey reward PNG validated"
+          else
+            echo "Rey reward PNG invalid; using in-app fallback for this release"
+            rm -f app/src/main/assets/reward_hilts/rey.png
+          fi
           for n in ahsoka nihilus; do
             python -c 'import base64,sys; open(sys.argv[2],"wb").write(base64.b64decode((lambda s:s+b"="*(-len(s)%4))(open(sys.argv[1],"rb").read().strip()),validate=False))' "model_assets/reward_hilts/$n.png.b64" "app/src/main/assets/reward_hilts/$n.webp"
           done
-          test -s app/src/main/assets/reward_hilts/rey.png
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
           python -c 'from PIL import Image,ImageEnhance; from pathlib import Path; [(lambda p: (lambda im: ImageEnhance.Contrast(ImageEnhance.Sharpness(im).enhance(1.28)).enhance(1.06).save(p))(Image.open(p).convert("RGB")))(Path("app/src/main/assets/extracted")/n) for n in ["676837698804938946_Wood.png","-6450490125430097346_Felt.png"] if (Path("app/src/main/assets/extracted")/n).exists()]'
@@ -191,7 +196,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Enlarges the saber selector into a dedicated full-screen loadout gallery and repairs Rey's reward hilt with a validated approved PNG source.
+            UpdateNotes: Multiplayer saber ownership fix, two-hilt scrolling saber gallery, current predictor fixes, and resilient Rey reward-hilt fallback.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
