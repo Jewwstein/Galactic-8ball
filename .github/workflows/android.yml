@@ -132,6 +132,9 @@ jobs:
             echo "Rey reward PNG invalid; using in-app fallback for this build"
             rm -f app/src/main/assets/reward_hilts/rey.png
           fi
+          test -f model_assets/reward_hilts/file_0000000077c881f5a48018d2dfe8dd90.png
+          cp model_assets/reward_hilts/file_0000000077c881f5a48018d2dfe8dd90.png app/src/main/assets/reward_hilts/maul_double.png
+          python -c 'from PIL import Image; p="app/src/main/assets/reward_hilts/maul_double.png"; im=Image.open(p); im.load(); assert im.format=="PNG"; assert im.mode in ("RGBA","LA","P"); assert "A" in im.getbands() or im.mode=="P"; print("Real Maul reward PNG validated:",im.size,im.mode)'
           python tools/prepare_hd_reward_hilts.py
           test -f app/src/main/assets/reward_hilts/hd/yoda.png
           test -f app/src/main/assets/reward_hilts/hd/maul_double.png
