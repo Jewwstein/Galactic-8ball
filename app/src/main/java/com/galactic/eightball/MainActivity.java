@@ -2274,8 +2274,8 @@ public class MainActivity extends Activity {
       // The saber selector is a dedicated full-screen loadout window, not a small
       // HUD popup. Use nearly the entire display so hilt art and labels stay large.
       float availW=Math.max(260*ui,w-safeX*2),availH=Math.max(320*ui,h-safeY*2);
-      float pw=Math.min(w-18*ui,availW+safeX*1.58f);
-      float ph=Math.min(h-4*ui,availH+safeY*1.92f);
+      float pw=Math.min(w-4*ui,availW+safeX*1.92f);
+      float ph=Math.min(h-54*ui,availH+safeY*1.62f);
       float x=w*.5f-pw*.5f,y=h*.5f-ph*.5f;
       p.setColor(0xF4070B13);c.drawRect(0,0,w,h,p);
       saberPanelRect.set(x,y,x+pw,y+ph);
@@ -2305,7 +2305,7 @@ public class MainActivity extends Activity {
         // all standard and unlockable hilts. Blade colors stay fixed below it.
         float side=12*ui,gap=12*ui,cw=(pw-side*2-gap)/2f;
         float hs=y+92*ui;
-        float bladeTop=panel.bottom-264*ui;
+        float bladeTop=panel.bottom-244*ui;
         float galleryBottom=bladeTop-18*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
         float rowStep=ch+12*ui;
@@ -2953,7 +2953,7 @@ public class MainActivity extends Activity {
           // scroll gesture there instead of immediately treating the touch as aim.
           if(getHeight()>getWidth()){
             float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
-            float galleryBottom=saberPanelRect.bottom-282*uiNow;
+            float galleryBottom=saberPanelRect.bottom-262*uiNow;
             if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
               saberHiltScrolling=true;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;
             }
