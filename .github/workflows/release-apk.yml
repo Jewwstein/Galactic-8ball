@@ -20,6 +20,7 @@ jobs:
       ANDROID_SDK_ROOT: /home/runner/android-sdk
     steps:
       - uses: actions/checkout@v4
+      # v0.8.8 build 25 HD saber menu release
       - name: Read app version
         id: version
         run: |
