@@ -1934,27 +1934,24 @@ public class MainActivity extends Activity {
 
       // Portrait and landscape have independent HUD geometry instead of stretching
       // one layout until controls become oversized or tiny after rotation.
-      float tabW=(portrait?58:68)*ui,tabH=(portrait?74:86)*ui;
+      float tabW=(portrait?76:86)*ui,tabH=(portrait?92:102)*ui;
       float tabCY=portrait?h*.34f:h*.43f;
       sideMenuTabRect.set(safeX,tabCY-tabH*.5f,safeX+tabW,tabCY+tabH*.5f);
       if(sideMenuOpen){
-        float maxPanelW=Math.max(160*ui,w-safeX*2);
-        float panelW=portrait?Math.min(maxPanelW,286*ui):Math.min(maxPanelW,330*ui);
+        // Central, screen-filling Galactic menu with deliberate tap-out space.
+        float marginX=(portrait?22:54)*ui;
+        float panelW=Math.min(w-marginX*2,portrait?Math.max(340*ui,w*.88f):Math.max(620*ui,w*.76f));
         int itemCount=aiSubmenu==1?5:(aiSubmenu==2?8:5);
-        float itemH=(aiSubmenu==2?(portrait?46:47):(aiSubmenu==1?(portrait?58:57):(portrait?62:68)))*ui;
-        float itemGap=(aiSubmenu==0?(portrait?9:10):6)*ui;
-        float headerH=(portrait?48:52)*ui;
-        float panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+20*ui;
-        float availableH=Math.max(180*ui,h-safeY*2-16*ui);
-        if(panelHeight>availableH){
-          float over=panelHeight-availableH;
-          itemH=Math.max(46*ui,itemH-over/itemCount);
-          panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+20*ui;
-        }
-        float panelTop=Math.max(safeY+8*ui,h*.5f-panelHeight*.5f);
-        panelTop=Math.min(panelTop,h-safeY-panelHeight);
-        sideMenuPanelRect.set(safeX,panelTop,safeX+panelW,panelTop+panelHeight);
-        float bx=safeX+14*ui,by=panelTop+headerH,bw=panelW-28*ui;
+        float availableH=Math.max(300*ui,h-(portrait?150:110)*ui);
+        float headerH=(portrait?58:62)*ui;
+        float itemGap=(aiSubmenu==0?12:8)*ui;
+        float desiredItemH=(aiSubmenu==2?(portrait?62:60):(portrait?72:70))*ui;
+        float itemH=Math.min(desiredItemH,(availableH-headerH-24*ui-itemGap*(itemCount-1))/itemCount);
+        itemH=Math.max(48*ui,itemH);
+        float panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+24*ui;
+        float panelLeft=w*.5f-panelW*.5f,panelTop=h*.5f-panelHeight*.5f;
+        sideMenuPanelRect.set(panelLeft,panelTop,panelLeft+panelW,panelTop+panelHeight);
+        float bx=panelLeft+22*ui,by=panelTop+headerH,bw=panelW-44*ui;
 
         saberMenuRect.setEmpty();rackRect.setEmpty();activeShooterRect.setEmpty();
         teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
@@ -2149,7 +2146,7 @@ public class MainActivity extends Activity {
       }
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);
-      p.setTextSize(17.5f*ui);p.setColor(0xFFF7FAFC);
+      p.setTextSize(19.5f*ui);p.setColor(0xFFF7FAFC);
       c.drawText(title,rr.left+58*ui,rr.top+29*ui,p);
       p.setTypeface(Typeface.DEFAULT);p.setTextSize(11.5f*ui);p.setColor(active?accent:0xFFB8C1CE);
       c.drawText(sub,rr.left+58*ui,rr.bottom-13*ui,p);
