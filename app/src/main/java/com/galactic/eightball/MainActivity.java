@@ -1589,9 +1589,11 @@ public class MainActivity extends Activity {
     final GameView game;
     final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
-    final Bitmap[] hilts=new Bitmap[6],blades=new Bitmap[6];
+    final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[7],blades=new Bitmap[6];
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","rey.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","rey.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
     volatile int pulseColor=0xFF63D7FF;
@@ -1617,6 +1619,7 @@ public class MainActivity extends Activity {
         hilts[i]=loadHorizontal(c,hiltFiles[i],false);
         blades[i]=loadHorizontal(c,bladeFiles[i],true);
       }
+      for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadReward(c,rewardHiltFiles[i]);
     }
 
     Bitmap loadHorizontal(Context c,String n,boolean trim){
@@ -1639,6 +1642,17 @@ public class MainActivity extends Activity {
           }
         }
         if(b.getHeight()>b.getWidth()){
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
+          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+        }
+        return b;
+      }catch(Exception e){return null;}
+    }
+
+    Bitmap loadReward(Context c,String n){
+      try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
+        Bitmap b=BitmapFactory.decodeStream(in);
+        if(b!=null&&b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
           b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
@@ -1715,7 +1729,13 @@ public class MainActivity extends Activity {
         RectF hr=new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f);
         c.drawBitmap(hilt,null,hr,paint);
       }else if(hiltIndex>=BASE_HILT_COUNT){
-        drawBezelRewardHilt(c,hiltIndex,emitterX,emitterY,bladeThick);
+        int ri=hiltIndex-BASE_HILT_COUNT;
+        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
+        if(reward!=null){
+          float hw=Math.max(dpv(62),bladeThick*5.8f);
+          float hh=hw*Math.max(.20f,Math.min(.42f,(float)reward.getHeight()/Math.max(1,reward.getWidth())));
+          c.drawBitmap(reward,null,new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f),paint);
+        }else drawBezelRewardHilt(c,hiltIndex,emitterX,emitterY,bladeThick);
       }
       c.restore();
     }
@@ -1789,7 +1809,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], blades=new Bitmap[6];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[7], blades=new Bitmap[6];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
@@ -1842,6 +1862,7 @@ public class MainActivity extends Activity {
         hilts[i]=loadHorizontal(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
         bladeChoices[i]=new RectF();
       }
+      for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadRewardHilt(c,rewardHiltFiles[i]);
     }
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
@@ -1853,6 +1874,17 @@ public class MainActivity extends Activity {
         if(b!=null && b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
           return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
+        }
+        return b;
+      }catch(Exception e){return null;}
+    }
+
+    Bitmap loadRewardHilt(Context c,String n){
+      try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
+        Bitmap b=BitmapFactory.decodeStream(in);
+        if(b!=null&&b.getHeight()>b.getWidth()){
+          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
+          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
       }catch(Exception e){return null;}
@@ -2403,7 +2435,11 @@ public class MainActivity extends Activity {
 
       RectF art=new RectF(rr.left+4*ui,rr.top+4*ui,rr.right-4*ui,rr.bottom-17*ui);
       if(index<BASE_HILT_COUNT&&hilts[index]!=null)c.drawBitmap(hilts[index],null,art,p);
-      else drawRewardHiltArt(c,art,index,ui);
+      else{
+        int ri=index-BASE_HILT_COUNT;
+        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
+        if(reward!=null)c.drawBitmap(reward,null,art,p);else drawRewardHiltArt(c,art,index,ui);
+      }
 
       if(locked){
         p.setColor(0xA8000000);c.drawRoundRect(rr,10*ui,10*ui,p);
@@ -2710,6 +2746,19 @@ public class MainActivity extends Activity {
       if(worldHiltRect.isEmpty())return;
       Bitmap blade=blades[r.bladeIndex];
 
+      if(r.hiltIndex>=BASE_HILT_COUNT){
+        int ri=r.hiltIndex-BASE_HILT_COUNT;
+        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
+        if(reward!=null){
+          float dx=worldEmitterX-worldRearEmitterX,dy=worldEmitterY-worldRearEmitterY;
+          float len=(float)Math.sqrt(dx*dx+dy*dy);
+          float ang=(float)Math.toDegrees(Math.atan2(dy,dx));
+          float hh=Math.max(22f,Math.min(72f,len*.28f));
+          RectF dst=new RectF(worldRearEmitterX,worldRearEmitterY-hh*.5f,worldRearEmitterX+Math.max(4f,len),worldRearEmitterY+hh*.5f);
+          c.save();c.rotate(ang,worldRearEmitterX,worldRearEmitterY);c.drawBitmap(reward,null,dst,p);c.restore();
+        }
+      }
+
       if(r.state==GameRenderer.CHARGING && r.power>0.1f){
         // Blade grows from the actual projected emitter of the 3D hilt.
         float ex=worldEmitterX;
@@ -2770,8 +2819,10 @@ public class MainActivity extends Activity {
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
       if(r.hiltIndex>=BASE_HILT_COUNT){
-        RectF rewardArt=new RectF(cx-baseW*.46f,cy-baseH*.20f,cx+baseW*.46f,cy+baseH*.20f);
-        drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
+        RectF rewardArt=new RectF(cx-baseW*.46f,cy-baseH*.24f,cx+baseW*.46f,cy+baseH*.24f);
+        int ri=r.hiltIndex-BASE_HILT_COUNT;
+        Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
+        if(reward!=null)c.drawBitmap(reward,null,rewardArt,p);else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
       }
 
       float trackTop=Math.max(safeY+8*ui,baseCy-baseH*1.48f),trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel);
@@ -3838,7 +3889,11 @@ public class MainActivity extends Activity {
       if(balls.isEmpty())return;
       float angle=(float)Math.toDegrees(Math.atan2(-aimZ,aimX));
       float y=2.72f;
-      if(hiltIndex>=BASE_HILT_COUNT){drawRewardHilt3D(pv,angle,y);return;}
+      if(hiltIndex>=BASE_HILT_COUNT){
+        // Reward hilts use the approved transparent art in the HUD, aligned to
+        // the projected world hilt. Do not draw the old procedural placeholder.
+        return;
+      }
 
       int hi=Math.max(0,Math.min(BASE_HILT_COUNT-1,hiltIndex));
       Mesh authored=realHiltMeshes[hi];
