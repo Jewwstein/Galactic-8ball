@@ -20,7 +20,7 @@ jobs:
       ANDROID_SDK_ROOT: /home/runner/android-sdk
     steps:
       - uses: actions/checkout@v4
-      # v0.8.9 build 26 fluid HD saber carousel release
+      # v0.8.10 build 27 vertical thumb strike hotfix release
       - name: Read app version
         id: version
         run: |
