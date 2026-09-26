@@ -113,12 +113,12 @@ jobs:
           python tools/render_hilt_thumbnails.py
           mkdir -p app/src/main/assets/reward_hilts
           for n in yoda anakin stormtrooper kylo; do
-            base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.png"
+            base64 -d -i "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.png"
           done
           # These three approved images are stored as Android-safe WebP after their
           # original PNG streams proved malformed/incompatible on-device.
           for n in ahsoka nihilus rey; do
-            base64 -d "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.webp"
+            base64 -d -i "model_assets/reward_hilts/$n.png.b64" > "app/src/main/assets/reward_hilts/$n.webp"
           done
           file app/src/main/assets/reward_hilts/*
           rm -rf app/src/main/assets/sfx_bundle
