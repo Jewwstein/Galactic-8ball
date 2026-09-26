@@ -2959,7 +2959,7 @@ public class MainActivity extends Activity {
             if(aMain!=null&&!aMain.isHiltUnlocked(tapIndex))Toast.makeText(ctx,hiltNames[tapIndex]+" unlocks from "+rewardHiltSource(tapIndex)+".",Toast.LENGTH_SHORT).show();
             else game.queueEvent(()->r.userSelectHilt(tapIndex));
           }
-          ValueAnimator va=ValueAnimator.ofFloat(from,target);va.setDuration(180);va.setInterpolator(new android.view.animation.DecelerateInterpolator());
+          android.animation.ValueAnimator va=android.animation.ValueAnimator.ofFloat(from,target);va.setDuration(180);va.setInterpolator(new android.view.animation.DecelerateInterpolator());
           va.addUpdateListener(v->{saberHiltScroll=(Float)v.getAnimatedValue();invalidate();});va.start();return true;
         }
       }
