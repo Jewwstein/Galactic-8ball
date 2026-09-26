@@ -2467,7 +2467,7 @@ public class MainActivity extends Activity {
       // tall two-column card, matching the in-game up/down presentation.
       Bitmap galleryBmp=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
       if(galleryBmp!=null){
-        c.save();c.rotate(90f,art.centerX(),art.centerY());
+        c.save();c.rotate(-90f,art.centerX(),art.centerY());
         RectF rotatedBox=new RectF(art.centerX()-art.height()*.5f,art.centerY()-art.width()*.5f,art.centerX()+art.height()*.5f,art.centerY()+art.width()*.5f);
         drawBitmapFitCenter(c,galleryBmp,rotatedBox,p);c.restore();
       }else drawRewardHiltArt(c,art,index,ui);
