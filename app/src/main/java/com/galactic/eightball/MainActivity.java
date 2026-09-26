@@ -1820,7 +1820,7 @@ public class MainActivity extends Activity {
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[8];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false,saberHiltScrolling=false;
-    float saberHiltScroll=0f,saberHiltDownX=0f,saberHiltStartScroll=0f;
+    float saberHiltScroll=0f,saberHiltDownX=0f,saberHiltDownY=0f,saberHiltStartScroll=0f; int saberHiltDownIndex=-1; boolean saberHiltMoved=false;
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
@@ -1859,6 +1859,8 @@ public class MainActivity extends Activity {
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
       "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
+    // Slot 3 remains internally valid for old saves, but the original Darth Maul hilt is removed from the loadout gallery.
+    final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12};
 
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
@@ -2309,13 +2311,14 @@ public class MainActivity extends Activity {
         float galleryBottom=bladeTop-20*ui;
         float ch=Math.max(150*ui,galleryBottom-hs);
         float pageStep=pw-side*2+gap;
-        float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*pageStep);
+        float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
         saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltScroll));
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(15.5f*ui);p.setColor(0xFFF4C542);p.setTextAlign(Paint.Align.LEFT);
         c.drawText("HILTS + REWARDS  •  SWIPE LEFT / RIGHT",x+side,y+80*ui,p);
         c.save();c.clipRect(x+side,hs,panel.right-side,galleryBottom);
-        for(int i=0;i<TOTAL_HILT_COUNT;i++){
-          int page=i/2,col=i%2;
+        for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i].setEmpty();
+        for(int pos=0;pos<visibleHiltOrder.length;pos++){
+          int i=visibleHiltOrder[pos],page=pos/2,col=pos%2;
           float lx=x+side+col*(cw+gap)+page*pageStep-saberHiltScroll,ty=hs;
           hiltChoices[i].set(lx,ty,lx+cw,ty+ch);
           boolean locked=a!=null&&!a.isHiltUnlocked(i);
@@ -2937,13 +2940,26 @@ public class MainActivity extends Activity {
           float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
           float side=12*uiNow,gap=12*uiNow;
           float pageStep=saberPanelRect.width()-side*2+gap;
-          float maxScroll=Math.max(0f,((TOTAL_HILT_COUNT+1)/2-1)*pageStep);
-          saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+(saberHiltDownX-x)*1.18f));
+          float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
+          float dx=saberHiltDownX-x; if(Math.abs(dx)>screenAimTouchSlop)saberHiltMoved=true; saberHiltScroll=Math.max(0f,Math.min(maxScroll,saberHiltStartScroll+dx));
           invalidate();
           return true;
         }
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_CANCEL||a==MotionEvent.ACTION_POINTER_UP){
-          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f; float pageStep=saberPanelRect.width()-24*uiNow+12*uiNow; saberHiltScroll=Math.max(0f,Math.round(saberHiltScroll/pageStep)*pageStep); saberHiltScrolling=false;invalidate();return true;
+          float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
+          final float pageStep=saberPanelRect.width()-12*uiNow;
+          final float maxScroll=Math.max(0f,((visibleHiltOrder.length+1)/2-1)*pageStep);
+          final float from=saberHiltScroll;
+          final float target=Math.max(0f,Math.min(maxScroll,Math.round(from/pageStep)*pageStep));
+          final int tapIndex=saberHiltDownIndex; final boolean wasMoved=saberHiltMoved;
+          saberHiltScrolling=false;saberHiltDownIndex=-1;
+          if(!wasMoved&&tapIndex>=0){
+            MainActivity aMain=ctx instanceof MainActivity?(MainActivity)ctx:null;
+            if(aMain!=null&&!aMain.isHiltUnlocked(tapIndex))Toast.makeText(ctx,hiltNames[tapIndex]+" unlocks from "+rewardHiltSource(tapIndex)+".",Toast.LENGTH_SHORT).show();
+            else game.queueEvent(()->r.userSelectHilt(tapIndex));
+          }
+          ValueAnimator va=ValueAnimator.ofFloat(from,target);va.setDuration(180);va.setInterpolator(new android.view.animation.DecelerateInterpolator());
+          va.addUpdateListener(v->{saberHiltScroll=(Float)v.getAnimatedValue();invalidate();});va.start();return true;
         }
       }
 
@@ -2957,16 +2973,17 @@ public class MainActivity extends Activity {
             float uiNow=Math.max(.82f,Math.min(1.30f,Math.min(getWidth()/430f,getHeight()/900f)))*1.12f;
             float galleryBottom=saberPanelRect.bottom-350*uiNow;
             if(y>saberPanelRect.top+82*uiNow&&y<galleryBottom){
-              saberHiltScrolling=true;saberHiltDownX=x;saberHiltStartScroll=saberHiltScroll;
+              saberHiltScrolling=true;saberHiltDownX=x;saberHiltDownY=y;saberHiltStartScroll=saberHiltScroll;saberHiltMoved=false;saberHiltDownIndex=-1;
+              for(int i=0;i<TOTAL_HILT_COUNT;i++)if(hiltChoices[i].contains(x,y)){saberHiltDownIndex=i;break;}
+              return true;
             }
           }
           for(int i=0;i<TOTAL_HILT_COUNT;i++){
             if(hiltChoices[i].contains(x,y)){
               final int k=i;
               MainActivity aMain=ctx instanceof MainActivity?(MainActivity)ctx:null;
-              if(aMain!=null&&!aMain.isHiltUnlocked(k)){
-                Toast.makeText(ctx,hiltNames[k]+" unlocks from "+rewardHiltSource(k)+".",Toast.LENGTH_SHORT).show();
-              }else game.queueEvent(()->r.userSelectHilt(k));
+              if(aMain!=null&&!aMain.isHiltUnlocked(k))Toast.makeText(ctx,hiltNames[k]+" unlocks from "+rewardHiltSource(k)+".",Toast.LENGTH_SHORT).show();
+              else game.queueEvent(()->r.userSelectHilt(k));
               return true;
             }
           }
