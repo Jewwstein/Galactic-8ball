@@ -1854,7 +1854,7 @@ public class MainActivity extends Activity {
     };
 
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","rey.png"};
+    final String[] rewardHiltFiles={"hd/yoda.png","hd/ahsoka.png","hd/anakin.png","hd/nihilus.png","hd/stormtrooper.png","hd/kylo.png","hd/maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
       "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE"};
@@ -1894,12 +1894,7 @@ public class MainActivity extends Activity {
 
     Bitmap loadRewardHilt(Context c,String n){
       try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
-        Bitmap b=BitmapFactory.decodeStream(in);
-        if(b!=null&&b.getHeight()>b.getWidth()){
-          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
-          b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
-        }
-        return b;
+        return BitmapFactory.decodeStream(in);
       }catch(Exception e){return null;}
     }
 
@@ -2475,10 +2470,8 @@ public class MainActivity extends Activity {
       if(galleryBmp!=null){
         if(index<BASE_HILT_COUNT){
           drawBitmapFitCenter(c,galleryBmp,art,p);
-        }else{
-          c.save();c.rotate(-90f,art.centerX(),art.centerY());
-          RectF rotatedBox=new RectF(art.centerX()-art.height()*.5f,art.centerY()-art.width()*.5f,art.centerX()+art.height()*.5f,art.centerY()+art.width()*.5f);
-          drawBitmapFitCenter(c,galleryBmp,rotatedBox,p);c.restore();
+}else{
+          drawBitmapFitCenter(c,galleryBmp,art,p);
         }
       }else drawRewardHiltArt(c,art,index,ui);
 
