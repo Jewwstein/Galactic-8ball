@@ -2834,7 +2834,7 @@ public class MainActivity extends Activity {
       // The hilt/blade itself is rendered with the real 3D model by OpenGL.
       // HUD only supplies the touch target, subtle track, and power readout.
       boolean portrait=h>w;
-      float baseW=(portrait?170:216)*ui,baseH=(portrait?116:136)*ui;
+      float baseW=(portrait?92:108)*ui,baseH=(portrait?190:210)*ui;
 
       // Keep the visual hilt and its touch geometry in the same screen-space
       // lane. The previous HUD rectangle sat above part of the OpenGL hilt,
@@ -2847,29 +2847,23 @@ public class MainActivity extends Activity {
       float cy=baseCy+travel;
 
       // Visual bounds roughly follow the rendered hilt.
-      thumbHiltRect.set(cx-baseW*.48f,cy-baseH*.82f,cx+baseW*.48f,cy+baseH*.82f);
+      thumbHiltRect.set(cx-baseW*.58f,cy-baseH*.52f,cx+baseW*.58f,cy+baseH*.52f);
 
       // The WHOLE hilt is a valid grab target, with generous padding around the
       // middle and bottom. During CHARGING this right-side lane has no competing
       // control, so being forgiving is preferable to pixel-perfect hit testing.
-      float grabHalfW=baseW*.64f;
-      float grabHalfH=baseH*1.34f;
+      float grabHalfW=baseW*.82f;
+      float grabHalfH=baseH*.72f;
       thumbGrabRect.set(cx-grabHalfW,cy-grabHalfH,cx+grabHalfW,cy+grabHalfH);
 
       if(r.hiltIndex>=BASE_HILT_COUNT){
-        // Reward art is authored horizontally, but the thumb-strike control is a
-        // vertical pull-down saber. Rotate the approved art 90 degrees and keep
-        // its aspect ratio so the emitter sits above the grip like the authored
-        // 3D thumb hilts.
+        // HD reward art is already authored portrait. Draw it directly so the
+        // thumb-strike grip stays vertical instead of reintroducing the legacy horizontal hilt.
         int ri=r.hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
-        float hiltH=baseH*1.18f,hiltW=Math.min(baseW*.34f,hiltH*.34f);
+        float hiltH=baseH*.92f,hiltW=baseW*.82f;
         RectF rewardArt=new RectF(cx-hiltW*.5f,cy-hiltH*.52f,cx+hiltW*.5f,cy+hiltH*.48f);
-        c.save();
-        c.rotate(-90f,cx,cy);
-        RectF horizontalBox=new RectF(cx-hiltH*.5f,cy-hiltW*.5f,cx+hiltH*.5f,cy+hiltW*.5f);
-        if(reward!=null)drawBitmapFitCenter(c,reward,horizontalBox,p);else drawRewardHiltArt(c,horizontalBox,r.hiltIndex,ui);
-        c.restore();
+        if(reward!=null)drawBitmapFitCenter(c,reward,rewardArt,p);else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
 
         // Match the premium pull-down behavior of the six authored hilts: as the
         // grip is pulled down, the selected blade grows upward from the emitter.
@@ -3169,12 +3163,12 @@ public class MainActivity extends Activity {
           float tui=portrait
             ? Math.max(.78f,Math.min(1.28f,Math.min(w/430f,h/900f)))
             : Math.max(.82f,Math.min(1.24f,Math.min(w/900f,h/500f)));
-          float baseW=(portrait?154:198)*tui,baseH=(portrait?104:122)*tui;
+          float baseW=(portrait?92:108)*tui,baseH=(portrait?190:210)*tui;
           float tcx=w*(portrait?.77f:.84f);
           float baseCy=h*(portrait?.58f:.56f);
           float maxTravel=Math.max((portrait?210:175)*tui,h*(portrait?.34f:.36f));
           float tcy=baseCy+Math.min(maxTravel,r.chargePullPx);
-          thumbGrabRect.set(tcx-baseW*.64f,tcy-baseH*1.34f,tcx+baseW*.64f,tcy+baseH*1.34f);
+          thumbGrabRect.set(tcx-baseW*.82f,tcy-baseH*.72f,tcx+baseW*.82f,tcy+baseH*.72f);
 
           if(thumbGrabRect.contains(x,y)){
             pullingThumbHilt=true;thumbPullStartY=y;
