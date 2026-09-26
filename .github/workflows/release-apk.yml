@@ -1,4 +1,5 @@
 name: Publish Galactic 8-Ball APK
+# release v0.8.7 build 24
 # v0.8.6 vertical hilt gallery and Maul reward
 # v0.8.1 full-screen saber gallery and canonical Rey PNG release
 # v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
@@ -193,7 +194,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Vertical scrolling saber gallery, multiplayer saber ownership fixes, and real Darth Maul double-emitter challenge reward artwork.
+            UpdateNotes: Correct saber-gallery vertical orientation, real Darth Maul double-emitter challenge reward artwork, and current multiplayer saber fixes.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
