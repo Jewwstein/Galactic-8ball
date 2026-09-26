@@ -126,6 +126,16 @@ public class GalacticServer {
           leaveRoomOnly(c,true);
         }
         case "PING" -> send(c.channel,"PONG");
+        case "ARCADE_SCORE" -> {
+          if(!requireAuth(c))return;
+          int score=0;try{if(p.length>1)score=Math.max(0,Math.min(999999999,Integer.parseInt(p[1])));}catch(Exception ignored){}
+          final int fs=score;arcadeScores.merge(c.username,fs,Math::max);
+          sendArcadeLeaderboard(c);
+        }
+        case "ARCADE_BOARD" -> {
+          if(!requireAuth(c))return;
+          sendArcadeLeaderboard(c);
+        }
         case "PROFILE" -> {
           if(!requireAuth(c))return;
           try{
@@ -144,6 +154,14 @@ public class GalacticServer {
     }catch(Exception e){
       error(c,"Bad message");
     }
+  }
+
+  static void sendArcadeLeaderboard(Client c){
+    ArrayList<Map.Entry<String,Integer>> rows=new ArrayList<>(arcadeScores.entrySet());
+    rows.sort((a,b)->Integer.compare(b.getValue(),a.getValue()));
+    StringBuilder out=new StringBuilder("ARCADE_BOARD");
+    for(int i=0;i<Math.min(10,rows.size());i++){Map.Entry<String,Integer> e=rows.get(i);out.append("|").append(encode(e.getKey())).append(",").append(e.getValue());}
+    send(c.channel,out.toString());
   }
 
   static void authenticate(Client c,User u){
