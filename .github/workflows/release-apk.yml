@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# v0.8.2 expanded full-screen saber gallery + canonical Rey PNG release
+# v0.8.3 expanded saber gallery + validated Rey PNG release
 # v0.8.1 full-screen saber gallery and canonical Rey PNG release
 # v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
 on:
@@ -192,7 +192,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Enlarges the saber selector into a dedicated full-screen loadout gallery and replaces Rey's reward hilt with a verified canonical PNG source.
+            UpdateNotes: Enlarges the saber selector into a dedicated full-screen loadout gallery and repairs Rey's reward hilt with a validated approved PNG source.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
