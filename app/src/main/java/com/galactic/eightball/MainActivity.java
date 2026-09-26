@@ -1622,7 +1622,7 @@ public class MainActivity extends Activity {
     }
 
     Bitmap loadHorizontal(Context c,String n,boolean trim){
-      try(InputStream in=c.getAssets().open("new_hilts/"+n)){
+      try(InputStream in=c.getAssets().open((trim?"ui/":"new_hilts/")+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
         if(b==null)return null;
         if(trim){
