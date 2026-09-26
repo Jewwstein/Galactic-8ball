@@ -1591,7 +1591,7 @@ public class MainActivity extends Activity {
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
     final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[7],blades=new Bitmap[6];
     final String[] hiltFiles={"hilt_thumb_0.png","hilt_thumb_1.png","hilt_thumb_2.png","hilt_thumb_3.png","hilt_thumb_4.png","hilt_thumb_5.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.webp","anakin.png","nihilus.webp","stormtrooper.png","kylo.png","maul_double.png"};
+    final String[] rewardHiltFiles={"hd/yoda.png","hd/ahsoka.png","hd/anakin.png","hd/nihilus.png","hd/stormtrooper.png","hd/kylo.png","hd/maul_double.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1651,6 +1651,7 @@ public class MainActivity extends Activity {
     Bitmap loadReward(Context c,String n){
       try(InputStream in=c.getAssets().open("reward_hilts/"+n)){
         Bitmap b=BitmapFactory.decodeStream(in);
+        // HD reward art is portrait for the selector; bezel presentation is horizontal.
         if(b!=null&&b.getHeight()>b.getWidth()){
           android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
           b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
