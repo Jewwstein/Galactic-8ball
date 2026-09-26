@@ -1723,8 +1723,8 @@ public class MainActivity extends Activity {
       }
 
       if(hilt!=null){
-        float hw=Math.max(dpv(58),bladeThick*5.2f);
-        float maxH=Math.max(dpv(18),bladeThick*1.55f);
+        float hw=Math.max(dpv(82),bladeThick*7.2f);
+        float maxH=Math.max(dpv(25),bladeThick*2.15f);
         float srcAspect=(float)hilt.getWidth()/Math.max(1,hilt.getHeight());
         float drawW=hw+dpv(4),drawH=drawW/Math.max(.25f,srcAspect);
         if(drawH>maxH){drawH=maxH;drawW=drawH*srcAspect;}
@@ -1734,9 +1734,13 @@ public class MainActivity extends Activity {
         int ri=hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
         if(reward!=null){
-          float hw=Math.max(dpv(62),bladeThick*5.8f);
-          float hh=hw*Math.max(.20f,Math.min(.42f,(float)reward.getHeight()/Math.max(1,reward.getWidth())));
-          c.drawBitmap(reward,null,new RectF(emitterX-hw,emitterY-hh*.5f,emitterX+dpv(4),emitterY+hh*.5f),paint);
+          float hw=Math.max(dpv(92),bladeThick*8.0f);
+          float srcAspect=(float)reward.getWidth()/Math.max(1,reward.getHeight());
+          float hh=hw/Math.max(1f,srcAspect);
+          float maxH=Math.max(dpv(30),bladeThick*2.35f);
+          if(hh>maxH){hh=maxH;hw=hh*srcAspect;}
+          RectF hr=new RectF(emitterX-hw+dpv(5),emitterY-hh*.5f,emitterX+dpv(5),emitterY+hh*.5f);
+          c.drawBitmap(reward,null,hr,paint);
         }else drawBezelRewardHilt(c,hiltIndex,emitterX,emitterY,bladeThick);
       }
       c.restore();
