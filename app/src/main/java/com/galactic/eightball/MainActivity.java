@@ -2871,9 +2871,13 @@ public class MainActivity extends Activity {
 
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
       float cx=Math.min(w*(portrait?.76f:.83f),w-safeX-baseW*.50f);
-      float cy=h*(portrait?.58f:.56f);
+      float baseCy=h*(portrait?.48f:.47f);
       float maxTravel=Math.max((portrait?210:175)*ui,h*(portrait?.34f:.36f));
-      float travel=Math.min(maxTravel,r.chargePullPx);
+      float travel=Math.min(maxTravel,Math.max(0f,r.chargePullPx));
+      // Follow the player's thumb 1:1. Clamp only before the hilt would enter
+      // the bottom HUD/bezel; size never changes with pull percentage.
+      float maxCy=h-safeY-baseH*.55f-24f*ui;
+      float cy=Math.min(baseCy+travel,maxCy);
 
       // Visual bounds roughly follow the rendered hilt.
       thumbHiltRect.set(cx-baseW*.58f,cy-baseH*.52f,cx+baseW*.58f,cy+baseH*.52f);
@@ -2917,7 +2921,8 @@ public class MainActivity extends Activity {
         }
       }
 
-      float trackTop=Math.max(safeY+8*ui,cy-baseH*.72f),trackBottom=Math.min(h-safeY-10*ui,cy+baseH*.72f);
+      float trackTop=Math.max(safeY+8*ui,baseCy-baseH*.72f);
+      float trackBottom=Math.min(h-safeY-10*ui,baseCy+maxTravel+baseH*.25f);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.4f*ui);
       stroke.setColor(0x4F5BD6FF);c.drawLine(cx,trackTop,cx,trackBottom,stroke);
 
@@ -3166,7 +3171,7 @@ public class MainActivity extends Activity {
           float baseW=(portrait?132:148)*tui,baseH=(portrait?270:286)*tui;
           float safeXTouch=(portrait?38f:46f)*tui;
           float tcx=Math.min(w*(portrait?.76f:.83f),w-safeXTouch-baseW*.50f);
-          float tcy=h*(portrait?.58f:.56f);
+          float tcy=h*(portrait?.48f:.47f);
           thumbGrabRect.set(tcx-baseW*.82f,tcy-baseH*.72f,tcx+baseW*.82f,tcy+baseH*.72f);
 
           if(thumbGrabRect.contains(x,y)){
