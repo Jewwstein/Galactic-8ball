@@ -2,7 +2,7 @@ from pathlib import Path
 from collections import deque
 from PIL import Image
 
-NAMES = ["obiwan","luke_blue","mace","luke_green","vader","yoda","ahsoka","anakin","nihilus","stormtrooper","kylo","maul_double"]
+NAMES = ["obiwan","luke_blue","mace","luke_green","vader","yoda","ahsoka","anakin","nihilus","stormtrooper","kylo","maul_double","babsyblade"]
 SRC=Path("model_assets/reward_hilts")
 DST=Path("app/src/main/assets/new_hilts")
 DST.mkdir(parents=True,exist_ok=True)
