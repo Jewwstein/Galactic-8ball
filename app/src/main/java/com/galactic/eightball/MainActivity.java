@@ -5751,20 +5751,35 @@ public class MainActivity extends Activity {
         float tx=e.x-arcadeX,ty=e.y-(tieMode?arcadeY:2.5f),tz=e.z-arcadeZ,d=(float)Math.sqrt(tx*tx+ty*ty+tz*tz);
         if(d>1f){float dot=(tx*pax+ty*pay+tz*paz)/d;if(dot>nearDot)nearDot=dot;}
       }
-      float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
-      float assist=1f-.30f*proximity*proximity;
+      // Strong precision zone: retain full aim speed in open space, then
+      // progressively brake rotation as the reticle closes on an X-Wing.
+      // This is slowdown only -- no magnetic snap or auto-aim.
+      float proximity=Math.max(0f,Math.min(1f,(nearDot-.965f)/.035f));
+      float assist=tieMode?(1f-.82f*proximity*proximity):1f;
       float yawRate=tieMode?96f:132f,pitchRate=tieMode?76f:92f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
       arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch-arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
       float mx=arcadeMoveSmoothX,my=arcadeMoveSmoothY,mm=(float)Math.sqrt(mx*mx+my*my);if(mm>1f){mx/=mm;my/=mm;}
-      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));float speed=(tieMode?14.5f:18.5f)*(.18f+.82f*inputMag);
-      float dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
-      if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+(float)Math.sin(Math.toRadians(arcadePitch))*(-my)*speed*.42f*dt));
-      float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
-      boolean blocked=false;
-      for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
-      if(!blocked){arcadeX=nx;arcadeZ=nz;}
+      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));
+      if(tieMode){
+        // Free-flight TIE: substantially faster, no table bounds and no ball/table
+        // collision cage. Forward/back follows the full look vector, so pitching
+        // down can carry the fighter below the table and pitching up can climb.
+        float speed=28.5f*(.12f+.88f*inputMag);
+        float prMove=(float)Math.toRadians(arcadePitch);
+        float fmx=(float)Math.sin(yr)*(float)Math.cos(prMove),fmy=(float)Math.sin(prMove),fmz=-(float)Math.cos(yr)*(float)Math.cos(prMove);
+        arcadeX+=(rx*mx+fmx*(-my))*speed*dt;
+        arcadeY+=fmy*(-my)*speed*dt;
+        arcadeZ+=(rz*mx+fmz*(-my))*speed*dt;
+      }else{
+        float speed=18.5f*(.18f+.82f*inputMag);
+        float dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
+        float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
+        boolean blocked=false;
+        for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
+        if(!blocked){arcadeX=nx;arcadeZ=nz;}
+      }
       arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(4.4f,7.4f-arcadeWave*.22f);arcadeWave++;}
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         e.age+=dt;e.phase+=dt;
@@ -5784,15 +5799,17 @@ public class MainActivity extends Activity {
       }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
-      ArcadeFighter best=null;float bestDot=.9935f,bestDist=999;
+      // A shot only counts when the reticle is genuinely on the target.
+      // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
+      ArcadeFighter best=null;float bestDot=tieMode?.9978f:.9935f,bestDist=999;
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
       if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
       arcadeWasLocked=arcadeLocked;
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
       if(tieMode&&tieFire&&arcadeShotClock<=0){
-        // Every tap visibly fires. A centered target takes damage; a miss keeps
-        // traveling through the reticle into space so shooting always has feedback.
+        // Every tap visibly fires, but only a target directly under the reticle
+        // takes damage. Misses continue straight through the reticle into space.
         if(best==null){arcadeTargetX=arcadeX+ax*76f;arcadeTargetY=arcadeY+ay*76f;arcadeTargetZ=arcadeZ+az*76f;}
         arcadeLaserT=.78f;arcadeShotClock=.30f;tieFire=false;if(sfx!=null)sfx.tieLaser();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
@@ -5826,9 +5843,11 @@ public class MainActivity extends Activity {
       if(arcadeLaserT>0){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
-        // First-person TIE shot: start just beyond the cockpit/HUD and travel
-        // forward toward the reticle/locked target instead of flashing at the target.
-        float sx=arcadeX+fx*(tieMode?5.4f:1.58f),sy=(tieMode?arcadeY-.12f:2.38f)+fy*(tieMode?5.4f:.72f),sz=arcadeZ+fz*(tieMode?5.4f:1.58f);
+        // First-person TIE shot: originate just in front of the pilot/cockpit
+        // so the green bolt is visible immediately, then travel to the exact locked
+        // X-Wing position (or straight through the reticle on a miss).
+        float muzzle=tieMode?1.35f:1.58f;
+        float sx=arcadeX+fx*muzzle,sy=(tieMode?arcadeY-.06f:2.38f)+fy*(tieMode?muzzle:.72f),sz=arcadeZ+fz*muzzle;
         float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
         float fullDx=ex-sx,fullDy=ey-sy,fullDz=ez-sz,fullDist=(float)Math.sqrt(fullDx*fullDx+fullDy*fullDy+fullDz*fullDz);
         if(fullDist>.05f){
@@ -5836,8 +5855,8 @@ public class MainActivity extends Activity {
           // arcadeLaserT starts at .78 in TIE mode. Advance a short bright bolt
           // from the muzzle to the target so the player can actually watch it fire.
           float age=tieMode?Math.max(0f,.78f-arcadeLaserT):Math.max(0f,.34f-arcadeLaserT);
-          float travel=tieMode?Math.min(fullDist,age*92f):fullDist;
-          float boltLen=tieMode?Math.min(8.5f,Math.max(2.6f,fullDist*.16f)):fullDist;
+          float travel=tieMode?Math.min(fullDist,age*72f):fullDist;
+          float boltLen=tieMode?Math.min(13.0f,Math.max(4.8f,fullDist*.24f)):fullDist;
           float head=Math.min(fullDist,travel),tail=tieMode?Math.max(0f,head-boltLen):0f;
           float bsx=sx+nx*tail,bsy=sy+ny*tail,bsz=sz+nz*tail;
           float bex=sx+nx*head,bey=sy+ny*head,bez=sz+nz*head;
