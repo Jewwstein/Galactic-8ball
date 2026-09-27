@@ -31,9 +31,9 @@ func build_ui():
 	hud.player_hp = player_hp
 	hud.enemy_hp = bat_hp
 
-	attack_button = make_button("ATTACK", Color(0.68,0.09,0.13,0.82), Vector2(-345,-150))
-	dodge_button = make_button("DODGE", Color(0.08,0.36,0.72,0.82), Vector2(-220,-238))
-	absorb_button = make_button("ABSORB", Color(0.42,0.1,0.68,0.82), Vector2(-112,-135))
+	attack_button = make_button("ATTACK", Color(0.68,0.09,0.13,0.86), Vector2(-448,-166))
+	dodge_button = make_button("DODGE", Color(0.08,0.36,0.72,0.86), Vector2(-286,-282))
+	absorb_button = make_button("ABSORB", Color(0.42,0.1,0.68,0.86), Vector2(-172,-158))
 	attack_button.pressed.connect(do_attack)
 	dodge_button.pressed.connect(do_dodge)
 	absorb_button.pressed.connect(do_absorb)
@@ -41,26 +41,26 @@ func build_ui():
 func make_button(label: String, color: Color, offset: Vector2) -> Button:
 	var b = Button.new()
 	b.text = label
-	b.custom_minimum_size = Vector2(118,72)
+	b.custom_minimum_size = Vector2(164,100)
 	b.anchor_left = 1.0
 	b.anchor_top = 1.0
 	b.anchor_right = 1.0
 	b.anchor_bottom = 1.0
 	b.offset_left = offset.x
 	b.offset_top = offset.y
-	b.offset_right = offset.x + 118
-	b.offset_bottom = offset.y + 72
-	b.add_theme_font_size_override("font_size", 17)
+	b.offset_right = offset.x + 164
+	b.offset_bottom = offset.y + 100
+	b.add_theme_font_size_override("font_size", 23)
 	var style = StyleBoxFlat.new()
 	style.bg_color = color
-	style.corner_radius_top_left = 31
-	style.corner_radius_top_right = 31
-	style.corner_radius_bottom_left = 31
-	style.corner_radius_bottom_right = 31
-	style.border_width_left = 2; style.border_width_top = 2; style.border_width_right = 2; style.border_width_bottom = 2
+	style.corner_radius_top_left = 42
+	style.corner_radius_top_right = 42
+	style.corner_radius_bottom_left = 42
+	style.corner_radius_bottom_right = 42
+	style.border_width_left = 3; style.border_width_top = 3; style.border_width_right = 3; style.border_width_bottom = 3
 	style.border_color = Color(0.68,0.92,1,0.78)
 	style.shadow_color = Color(0.0,0.0,0.0,0.5)
-	style.shadow_size = 7
+	style.shadow_size = 10
 	b.add_theme_stylebox_override("normal", style)
 	var pressed = style.duplicate()
 	pressed.bg_color = color.lightened(0.18)

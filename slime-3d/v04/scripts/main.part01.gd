@@ -3,7 +3,7 @@ extends Node3D
 const SPEED := 4.9
 const DODGE_SPEED := 10.8
 const GRAVITY := 18.0
-const JOY_RADIUS := 85.0
+const JOY_RADIUS := 110.0
 
 var player: CharacterBody3D
 var player_visual: Node3D
@@ -38,6 +38,8 @@ var cave_time := 0.0
 var glow_lights: Array[OmniLight3D] = []
 
 func _ready():
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR)
 	build_world()
 	build_player()
 	build_enemy()

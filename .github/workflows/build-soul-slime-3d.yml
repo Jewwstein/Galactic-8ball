@@ -98,10 +98,10 @@ jobs:
           find . -type f -name '*.apk' -print
           APK=$(find . -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" SoulSlime3DVisual-v0.4.apk
-          ls -lh SoulSlime3DVisual-v0.4.apk
+          cp "$APK" SoulSlime3DVisual-v0.4.1-Mobile.1-Mobile.apk
+          ls -lh SoulSlime3DVisual-v0.4.1-Mobile.1-Mobile.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime3DVisual-v0.4
-          path: SoulSlime3DVisual-v0.4.apk
+          name: SoulSlime3DVisual-v0.4.1-Mobile
+          path: SoulSlime3DVisual-v0.4.1-Mobile.1-Mobile.apk
