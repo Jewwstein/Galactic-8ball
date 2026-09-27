@@ -2217,7 +2217,7 @@ public class MainActivity extends Activity {
 
 
     void drawArcadeHud(Canvas c,int w,int h,float ui,GameRenderer r){
-      float rad=Math.max(62f*ui,Math.min(w,h)*.105f);
+      float rad=Math.max(78f*ui,Math.min(w,h)*.135f);
       float mx=rad+24f*ui,my=h-rad-24f*ui,ax=w-rad-24f*ui,ay=my;
       arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
       arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
@@ -3003,9 +3003,9 @@ public class MainActivity extends Activity {
         float bladeLen=maxTravel*.92f*pullNorm;
         if(bladeLen>1f){
           Bitmap blade=blades[Math.max(0,Math.min(5,r.bladeIndex))];
-          float emitterY=cy-hiltH*.50f;
+          float emitterY=cy+hiltH*.48f;
           float bladeW=Math.max(13f*ui,hiltW*.48f);
-          RectF bladeBox=new RectF(cx-bladeW*.5f,emitterY-bladeLen,cx+bladeW*.5f,emitterY+3f*ui);
+          RectF bladeBox=new RectF(cx-bladeW*.5f,emitterY-3f*ui,cx+bladeW*.5f,emitterY+bladeLen);
           if(blade!=null){
             c.save();
             c.rotate(-90f,cx,emitterY);
@@ -4024,7 +4024,7 @@ public class MainActivity extends Activity {
     void drawThumbBladeOverlay(float[] pv,float x,float emitterY,float bladeLen,int texture,float width,float alpha){
       if(thumbBladeMesh==null||bladeLen<=.002f)return;
       float[] M=identity();
-      android.opengl.Matrix.translateM(M,0,x,emitterY,0);
+      android.opengl.Matrix.translateM(M,0,x,emitterY-bladeLen,0);
       android.opengl.Matrix.scaleM(M,0,width,bladeLen,1f);
       drawMesh(thumbBladeMesh,pv,M,texture,new float[]{1f,1f,1f,alpha});
     }
@@ -4052,9 +4052,9 @@ public class MainActivity extends Activity {
       float hiltTravel=(portrait?.66f:.72f)*pullNorm;
       float hiltY=baseY-hiltTravel;
       float hiltScale=.54f;
-      float emitterAtRest=baseY+hiltScale*.52f;
-      float emitterY=hiltY+hiltScale*.52f;
-      float bladeLen=Math.max(0f,(emitterAtRest-emitterY)*1.12f);
+      float emitterAtRest=baseY-hiltScale*.52f;
+      float emitterY=hiltY-hiltScale*.52f;
+      float bladeLen=Math.max(0f,(baseY-hiltY)*1.12f);
 
       GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
 
@@ -5660,9 +5660,9 @@ public class MainActivity extends Activity {
           android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
           // Deliberately simple solid beam: no saber UV/depth-state dependency.
           // Outer green body plus bright core makes it readable on both orientations.
-          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,.24f,.24f,dist*.5f);
+          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,.34f,.34f,dist*.5f);
           drawMesh(dogfightBolt,pv,H,0,new float[]{.05f,1f,.16f,1f});
-          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,.105f,.105f,dist*.505f);
+          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,.16f,.16f,dist*.505f);
           drawMesh(dogfightBolt,pv,C,0,new float[]{.72f,1f,.76f,1f});
         }
       }
