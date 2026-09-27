@@ -3018,7 +3018,8 @@ public class MainActivity extends Activity {
             c.drawBitmap(blade,null,hb,p);c.restore();
           }else{
             p.setColor(0xEEFFFFFF);
-            c.drawRoundRect(bladeBox,bladeW*.5f,bladeW*.5f,p);
+            RectF fallbackBlade=new RectF(cx-bladeW*.5f,emitterY-bladeLen,cx+bladeW*.5f,emitterY+2f*ui);
+            c.drawRoundRect(fallbackBlade,bladeW*.5f,bladeW*.5f,p);
           }
         }
       }
