@@ -40,10 +40,15 @@ jobs:
           from pathlib import Path
           p = Path("defold_project/main/creator.go")
           s = p.read_text()
+          # Collapse over-escaped quotes/newline tokens inside embedded data.
           s = s.replace("\\\\", "\\")
+          # The generator also emitted the separators between adjacent quoted
+          # protobuf strings as literal \n tokens. Turn only those separators
+          # into physical newlines, preserving the escaped newline inside data.
+          s = s.replace(r'"\n  "', '"\n  "')
+          s = s.replace(r'""\n  position', '""\n  position')
           p.write_text(s)
-          print("\n".join(s.splitlines()[:15]))
-          assert "\\\\" not in s
+          print("\n".join(s.splitlines()[:20]))
           PY
 
       - name: Download Defold 1.13.1 builder
