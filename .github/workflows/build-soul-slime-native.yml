@@ -49,6 +49,14 @@ jobs:
           test -s soulapp/src/main/res/drawable-nodpi/cave_fg.png
           test -s soulapp/src/main/res/drawable-nodpi/crystal_blue.png
           test -s soulapp/src/main/res/drawable-nodpi/cave_mite.png
+          test -s soulapp/src/main/res/drawable-nodpi/anime_spider.png
+          test -s soulapp/src/main/res/drawable-nodpi/anime_lizard.png
+          test -s soulapp/src/main/res/drawable-nodpi/ancient_dragon.png
+          test -s soulapp/src/main/res/drawable-nodpi/essence_orb.png
+          test -s soulapp/src/main/res/drawable-nodpi/cave_crossroads.png
+          test -s soulapp/src/main/res/drawable-nodpi/cave_web.png
+          test -s soulapp/src/main/res/drawable-nodpi/cave_scale.png
+          test -s soulapp/src/main/res/drawable-nodpi/cave_dragon.png
 
       - name: Compile native Soul Slime
         run: gradle :soulapp:assembleDebug --stacktrace
@@ -59,25 +67,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v3.apk
-          zip -q SoulSlime-Native-v3-APK.zip SoulSlime-Native-v3.apk
-          zip -qr SoulSlime-Native-v3-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v3-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v3.apk SoulSlime-Native-v3-APK.zip SoulSlime-Native-v3-source.zip
-          sha256sum SoulSlime-Native-v3.apk SoulSlime-Native-v3-APK.zip
+          cp "$APK" SoulSlime-Native-v4.apk
+          zip -q SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4.apk
+          zip -qr SoulSlime-Native-v4-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-Native-v4-APK.zip >/dev/null
+          ls -lh SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4-source.zip
+          sha256sum SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v3
+          name: SoulSlime-Native-v4
           path: |
-            SoulSlime-Native-v3.apk
-            SoulSlime-Native-v3-APK.zip
-            SoulSlime-Native-v3-source.zip
+            SoulSlime-Native-v4.apk
+            SoulSlime-Native-v4-APK.zip
+            SoulSlime-Native-v4-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v3 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v3 --title "Soul Slime Native v3 — Anime Art Cave" --notes "Native Android anime-art cave test build with generated layered artwork and sprite effects." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v3 SoulSlime-Native-v3.apk SoulSlime-Native-v3-APK.zip SoulSlime-Native-v3-source.zip --clobber
+          gh release view soul-slime-native-v4 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v4 --title "Soul Slime Native v4 — Cave Maze" --notes "Expanded native cave-maze test with anime creatures, essence collection, befriending, absorption, morphs, and dragon progression." --prerelease --target prototype/soul-slime-native
+          gh release upload soul-slime-native-v4 SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4-source.zip --clobber
