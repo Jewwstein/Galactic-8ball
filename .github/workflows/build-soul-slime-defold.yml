@@ -1,0 +1,87 @@
+name: Build Soul Slime Defold Creator
+
+on:
+  push:
+    branches:
+      - 'prototype/soul-slime-defold'
+  workflow_dispatch:
+
+jobs:
+  build_android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install art generator
+        run: python -m pip install --quiet pillow
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Generate Defold project and anime textures
+        run: |
+          rm -rf defold_project
+          DEFOLD_OUT="$GITHUB_WORKSPACE/defold_project" python tools/generate_soul_slime_defold.py
+          test -f defold_project/game.project
+          test -f defold_project/main/creator.go
+          test -f defold_project/assets/body_round.png
+          echo "Generated files:"
+          find defold_project -maxdepth 2 -type f | sort
+
+      - name: Download Defold 1.13.1 builder
+        run: |
+          curl -fL "https://github.com/defold/defold/releases/download/1.13.1/bob.jar" -o bob.jar
+          test -s bob.jar
+          ls -lh bob.jar
+
+      - name: Create Android debug signing key
+        working-directory: defold_project
+        run: |
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+          printf 'android\n' > debug.pass
+
+      - name: Build Defold Android APK
+        working-directory: defold_project
+        run: |
+          rm -rf "$GITHUB_WORKSPACE/defold_bundle"
+          java -jar "$GITHUB_WORKSPACE/bob.jar" \
+            --platform armv7-android \
+            --architectures arm64-android \
+            --variant debug \
+            --bundle-output "$GITHUB_WORKSPACE/defold_bundle" \
+            --keystore debug.keystore \
+            --keystore-alias androiddebugkey \
+            --keystore-pass debug.pass \
+            --bundle-format apk \
+            --archive \
+            resolve build bundle
+
+      - name: Collect and validate APK
+        run: |
+          echo "Bundle output:"
+          find defold_bundle -maxdepth 3 -type f -print
+          APK=$(find defold_bundle -type f -name '*.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" SoulSlime-Defold-Creator-v0.1.apk
+          unzip -t SoulSlime-Defold-Creator-v0.1.apk >/dev/null
+          (cd defold_project && zip -qr "$GITHUB_WORKSPACE/SoulSlime-Defold-Creator-v0.1-source.zip" . -x 'debug.keystore' 'debug.pass')
+          ls -lh SoulSlime-Defold-Creator-v0.1.apk SoulSlime-Defold-Creator-v0.1-source.zip
+          sha256sum SoulSlime-Defold-Creator-v0.1.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoulSlime-Defold-Creator-v0.1
+          path: |
+            SoulSlime-Defold-Creator-v0.1.apk
+            SoulSlime-Defold-Creator-v0.1-source.zip
