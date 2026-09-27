@@ -19,7 +19,7 @@ title = Soul Slime HD Creator
 version = 0.2
 publisher = Soul Slime
 developer = Soul Slime
-bundle_identifier = com.soulslime.defoldcreator.v04
+bundle_identifier = com.soulslime.reincarnation.v05
 
 [bootstrap]
 main_collection = /main/main.collectionc
@@ -39,7 +39,7 @@ update_frequency = 60
 swap_interval = 1
 
 [android]
-package = com.soulslime.defoldcreator.v04
+package = com.soulslime.reincarnation.v05
 minimum_sdk_version = 26
 target_sdk_version = 36
 immersive_mode = 1
@@ -286,9 +286,104 @@ for name,text,col in (
     q.text(((172-w)/2,(64-h)/2-2),text,font=font(14,True),fill=(231,253,255,255))
     im.save(A/f"{name}.png")
 
+
+# ---------- scene backdrops ----------
+# Creator ambient background: visual atmosphere only. UI panels are now live GUI
+# nodes so they stay aligned with the buttons on every aspect ratio.
+ambient=Image.new("RGBA",(W,H),(5,27,45,255))
+ap=ambient.load()
+for y in range(H):
+    for x in range(W):
+        dx=(x-360)/530.0; dy=(y-360)/430.0
+        rr0=(dx*dx+dy*dy)**0.5
+        g=max(0.0,1.0-rr0)
+        ap[x,y]=(int(5+46*g),int(27+132*g),int(45+164*g),255)
+adraw=ImageDraw.Draw(ambient,"RGBA")
+for r0,a0 in ((340,95),(292,112),(244,130),(198,148),(151,172),(110,205)):
+    adraw.ellipse((360-r0,360-r0,360+r0,360+r0),outline=(165,248,255,a0),width=3)
+for deg in range(0,360,12):
+    a=math.radians(deg)
+    adraw.line((360+math.cos(a)*120,360+math.sin(a)*120,
+                360+math.cos(a)*338,360+math.sin(a)*338),
+               fill=(126,238,255,65 if deg%24==0 else 34),width=2)
+for x in range(12,W,54):
+    adraw.line((x,0,x,H),fill=(76,198,231,28),width=1)
+for y in range(12,H,42):
+    adraw.line((0,y,W,y),fill=(76,198,231,24),width=1)
+random.seed(221)
+for i in range(180):
+    x=random.randint(16,W-16); y=random.randint(16,H-16)
+    sz=random.choice((2,3,4,5,7,9))
+    alpha=random.randint(48,135)
+    if i%4==0:
+        adraw.rectangle((x,y,x+sz,y+sz),outline=(160,246,255,alpha),width=1)
+    else:
+        adraw.ellipse((x,y,x+sz,y+sz),fill=(140,242,255,alpha))
+ambient=ambient.filter(ImageFilter.GaussianBlur(0.25))
+ambient.save(A/"ambient.png")
+
+# Modern-world death scene: rainy urban road, defocused lights, cinematic vignette.
+death=Image.new("RGBA",(W,H),(6,10,18,255))
+dd=ImageDraw.Draw(death,"RGBA")
+# distant city blocks
+for bx,bw,bh in ((20,170,330),(205,135,260),(355,210,370),(585,150,285),(750,210,390),(975,125,250),(1115,145,320)):
+    dd.rectangle((bx,80,bx+bw,80+bh),fill=(12,22,36,255))
+    for wx in range(bx+18,bx+bw-10,34):
+        for wy in range(104,70+bh,42):
+            if (wx+wy)//17%3==0:
+                dd.rectangle((wx,wy,wx+9,wy+12),fill=(120,190,220,85))
+# wet road
+dd.polygon([(0,430),(1280,430),(1280,720),(0,720)],fill=(5,14,24,255))
+for y in range(448,720,48):
+    dd.line((0,y,1280,y),fill=(43,92,120,28),width=2)
+# road perspective lines
+dd.line((515,720,612,430),fill=(220,232,235,150),width=8)
+dd.line((760,720,682,430),fill=(220,232,235,150),width=8)
+# blurred headlight glows
+glow=Image.new("RGBA",(W,H),(0,0,0,0)); gd=ImageDraw.Draw(glow,"RGBA")
+for cx,cy,col in ((610,468,(255,238,184,165)),(698,468,(255,238,184,165)),(950,388,(90,196,255,105))):
+    for r0,a0 in ((78,18),(52,35),(26,95)):
+        gd.ellipse((cx-r0,cy-r0,cx+r0,cy+r0),fill=(*col[:3],min(a0,col[3])))
+glow=glow.filter(ImageFilter.GaussianBlur(18))
+death=Image.alpha_composite(death,glow)
+dd=ImageDraw.Draw(death,"RGBA")
+# rain
+random.seed(88)
+for i in range(280):
+    x=random.randint(0,W); y=random.randint(0,H); ln=random.randint(10,28)
+    dd.line((x,y,x-5,y+ln),fill=(155,213,235,random.randint(35,95)),width=1)
+# cyan soul flare in the upper half, hinting at what's next
+for r0,a0 in ((160,18),(110,32),(65,62)):
+    dd.ellipse((640-r0,260-r0,640+r0,260+r0),outline=(110,233,255,a0),width=4)
+death.save(A/"death_bg.png")
+
+# Reincarnation / Sage void: bright white-cyan core in an endless analysis field.
+rebirth=Image.new("RGBA",(W,H),(7,31,55,255))
+rp=rebirth.load()
+for y in range(H):
+    for x in range(W):
+        dx=(x-640)/620.0; dy=(y-340)/470.0
+        rr0=(dx*dx+dy*dy)**0.5
+        core=max(0.0,1.0-rr0)
+        rp[x,y]=(int(7+92*core),int(31+178*core),int(55+196*core),255)
+rd=ImageDraw.Draw(rebirth,"RGBA")
+for r0,a0,w0 in ((315,62,4),(255,92,4),(198,130,5),(140,175,6),(84,220,7)):
+    rd.ellipse((640-r0,330-r0,640+r0,330+r0),outline=(210,252,255,a0),width=w0)
+rd.ellipse((575,265,705,395),fill=(238,255,255,74))
+for deg in range(0,360,18):
+    a=math.radians(deg)
+    rd.line((640+math.cos(a)*95,330+math.sin(a)*95,
+             640+math.cos(a)*310,330+math.sin(a)*310),
+            fill=(175,247,255,72),width=2)
+random.seed(19)
+for i in range(125):
+    x=random.randint(20,1260); y=random.randint(18,700); sz=random.choice((2,3,5,8))
+    rd.ellipse((x,y,x+sz,y+sz),fill=(188,250,255,random.randint(45,130)))
+rebirth.save(A/"reincarnation_bg.png")
+
 # ---------- atlas ----------
 images=[
-"background","scanner","aura",
+"background","ambient","death_bg","reincarnation_bg","scanner","aura",
 "body_round","body_drop","body_wide","body_crest","highlight",
 "eyes_calm","eyes_sharp","eyes_void","eyes_star",
 "mark_none","mark_rune","mark_speckles","mark_crest",
@@ -582,9 +677,9 @@ end
 '''
 (OUT/"main/main.script").write_text(script)
 
-# ---------- GUI-only creator ----------
-# v0.4 intentionally moves *all* visible UI and touchable controls into Defold GUI.
-# This makes gui.pick_node(action.x, action.y) authoritative for every button.
+# ---------- GUI opening flow + creator ----------
+# Everything interactive is in one GUI coordinate system. The stretched scene
+# backdrops contain no menu chrome; live panels and buttons stay aligned.
 
 def gui_box(node_id, x, y, w, h, texture="", color=(1,1,1,1), adjust="ADJUST_MODE_FIT"):
     return f'''nodes {{
@@ -644,6 +739,7 @@ def gui_box(node_id, x, y, w, h, texture="", color=(1,1,1,1), adjust="ADJUST_MOD
 '''
 
 def gui_text(node_id, text, x, y, w, h, scale=1.0, color=(1,1,1,1), adjust="ADJUST_MODE_FIT"):
+    safe=text.replace('"','\\"')
     return f'''nodes {{
   position {{
     x: {x}
@@ -677,7 +773,7 @@ def gui_text(node_id, text, x, y, w, h, scale=1.0, color=(1,1,1,1), adjust="ADJU
   }}
   type: TYPE_TEXT
   blend_mode: BLEND_MODE_ALPHA
-  text: "{text}"
+  text: "{safe}"
   font: "default"
   id: "{node_id}"
   xanchor: XANCHOR_NONE
@@ -696,7 +792,7 @@ def gui_text(node_id, text, x, y, w, h, scale=1.0, color=(1,1,1,1), adjust="ADJU
     w: 1.0
   }}
   adjust_mode: {adjust}
-  line_break: false
+  line_break: true
   layer: ""
   inherit_alpha: true
   alpha: 1.0
@@ -719,49 +815,89 @@ textures {
 }
 background_color {
   x: 0.02
-  y: 0.16
-  z: 0.24
+  y: 0.12
+  z: 0.18
   w: 1.0
 }
 '''
 
-# Guaranteed visible teal fallback layer, then the full analysis-space texture.
-gui+=gui_box("solid_bg",640,360,1280,720,"",(0.02,0.17,0.26,1.0),"ADJUST_MODE_STRETCH")
-gui+=gui_box("analysis_bg",640,360,1280,720,"art/background",(1,1,1,1),"ADJUST_MODE_STRETCH")
+# ----- Death scene -----
+gui+=gui_box("death_bg",640,360,1280,720,"art/death_bg",(1,1,1,1),"ADJUST_MODE_STRETCH")
+gui+=gui_box("death_card",640,170,970,235,"",(0.015,0.05,0.085,0.92),"ADJUST_MODE_FIT")
+gui+=gui_text("death_kicker","FINAL MOMENTS",640,262,800,40,1.15,(0.72,0.94,1.0,1.0))
+gui+=gui_text("death_title","A LIFE ENDS",640,222,850,54,1.55,(1.0,1.0,1.0,1.0))
+gui+=gui_text("death_event","",640,160,890,70,1.0,(0.86,0.94,0.98,1.0))
+gui+=gui_text("death_hint","You feel the world disappear. Something else is listening.",640,112,900,50,0.82,(0.56,0.78,0.88,1.0))
+gui+=gui_box("death_continue",640,52,250,58,"",(0.05,0.32,0.46,0.98))
+gui+=gui_text("death_continue_label","ACCEPT FATE",640,50,220,38,1.0,(0.94,1.0,1.0,1.0))
 
-# Left-side live preview, all in GUI coordinates.
-gui+=gui_box("scanner",360,360,620,620,"art/scanner",(1,1,1,0.95))
-gui+=gui_box("aura",360,360,560,560,"art/aura",(0.35,0.95,1.0,0.75))
-gui+=gui_box("body",360,360,560,560,"art/body_round",(0.14,0.72,1.0,0.82))
-gui+=gui_box("marking",360,360,560,560,"art/mark_rune")
-gui+=gui_box("core",360,360,560,560,"art/core_soul")
-gui+=gui_box("eyes",360,360,560,560,"art/eyes_calm")
-gui+=gui_box("highlight",360,360,560,560,"art/highlight")
+# ----- Reincarnation / Sage-like analysis void -----
+gui+=gui_box("rebirth_bg",640,360,1280,720,"art/reincarnation_bg",(1,1,1,1),"ADJUST_MODE_STRETCH")
+gui+=gui_box("rebirth_panel",640,360,1090,640,"",(0.02,0.11,0.18,0.62))
+gui+=gui_text("rebirth_kicker","SOUL ANALYSIS // CONSCIOUSNESS DETECTED",640,655,1000,40,0.95,(0.73,0.96,1.0,1.0))
+gui+=gui_text("rebirth_title","REINCARNATION PARAMETERS",640,610,1000,56,1.45,(1.0,1.0,1.0,1.0))
+gui+=gui_text("rebirth_text","Your memories remain. Your former body does not. Select one starting ability before your new vessel is formed.",640,552,1000,70,0.86,(0.76,0.91,0.97,1.0))
+skill_x=[260,640,1020]
+for i,x in enumerate(skill_x,1):
+    gui+=gui_box(f"skill{i}",x,350,320,170,"",(0.025,0.18,0.28,0.94))
+    gui+=gui_text(f"skill_name{i}","",x,390,285,38,0.98,(0.92,1.0,1.0,1.0))
+    gui+=gui_text(f"skill_desc{i}","",x,337,275,80,0.72,(0.68,0.86,0.93,1.0))
+gui+=gui_text("skill_status","Choose one skill.",640,225,750,40,0.9,(0.67,0.92,1.0,1.0))
+gui+=gui_box("rebirth_continue",640,145,260,60,"",(0.16,0.52,0.65,1.0))
+gui+=gui_text("rebirth_continue_label","FORM NEW VESSEL",640,143,240,40,0.92,(0.96,1.0,1.0,1.0))
 
-# Right-side parameter buttons.
+# ----- Creator -----
+gui+=gui_box("creator_bg",640,360,1280,720,"art/ambient",(1,1,1,1),"ADJUST_MODE_STRETCH")
+# Live UI chrome: these panels share the same FIT transform as the buttons.
+gui+=gui_box("creator_left_panel",365,360,710,680,"",(0.015,0.10,0.16,0.35))
+gui+=gui_box("creator_panel",1000,360,500,680,"",(0.015,0.09,0.15,0.88))
+gui+=gui_box("creator_cat_panel",1000,470,460,205,"",(0.025,0.16,0.24,0.72))
+gui+=gui_box("creator_opt_panel",1000,245,460,245,"",(0.025,0.16,0.24,0.72))
+gui+=gui_box("creator_action_panel",1000,72,500,92,"",(0.025,0.12,0.20,0.78))
+gui+=gui_text("creator_title","ANALYSIS SPACE // SOUL VESSEL",365,675,680,38,1.05,(0.90,1.0,1.0,1.0))
+gui+=gui_text("creator_subtitle","Customize the vessel. Every visible button is its actual touch target.",365,646,680,34,0.72,(0.60,0.86,0.95,1.0))
+gui+=gui_text("creator_cat_title","1  SELECT PARAMETER",1000,584,420,34,0.80,(0.72,0.96,1.0,1.0))
+gui+=gui_text("creator_opt_title","2  SELECT OPTION",1000,366,420,34,0.80,(0.72,0.96,1.0,1.0))
+
+# Slime preview.
+gui+=gui_box("scanner",365,350,610,610,"art/scanner",(1,1,1,0.96))
+gui+=gui_box("aura",365,350,550,550,"art/aura",(0.35,0.95,1.0,0.75))
+gui+=gui_box("body",365,350,550,550,"art/body_round",(0.14,0.72,1.0,0.82))
+gui+=gui_box("marking",365,350,550,550,"art/mark_rune")
+gui+=gui_box("core",365,350,550,550,"art/core_soul")
+gui+=gui_box("eyes",365,350,550,550,"art/eyes_calm")
+gui+=gui_box("highlight",365,350,550,550,"art/highlight")
+
+# Categories sit inside creator_cat_panel.
 cat_defs=[
-    ("cat_body","cat_body",865,548),("cat_color","cat_color",1080,548),
-    ("cat_eyes","cat_eyes",865,498),("cat_mark","cat_mark",1080,498),
-    ("cat_core","cat_core",865,448),("cat_alpha","cat_alpha",1080,448),
-    ("cat_aura_value","cat_aura",865,398)
+    ("cat_body","BODY",880,535),("cat_color","COLOR",1110,535),
+    ("cat_eyes","EYES",880,485),("cat_mark","MARKINGS",1110,485),
+    ("cat_core","SOUL CORE",880,435),("cat_alpha","TRANSPARENCY",1110,435),
+    ("cat_aura_value","AURA",995,385)
 ]
-for nid,anim,x,y in cat_defs:
-    gui+=gui_box(nid,x,y,206,44,f"art/{anim}")
+for nid,label,x,y in cat_defs:
+    gui+=gui_box(nid,x,y,202,42,"",(0.035,0.23,0.33,0.94))
+    gui+=gui_text(nid+"_label",label,x,y-1,190,30,0.75,(0.90,0.99,1.0,1.0))
 
-opt_pos=[(865,318),(1080,318),(865,254),(1080,254),(865,190),(1080,190)]
+# Options sit inside creator_opt_panel.
+opt_pos=[(880,315),(1110,315),(880,252),(1110,252),(880,189),(1110,189)]
 for i,(x,y) in enumerate(opt_pos,1):
-    gui+=gui_box(f"opt{i}",x,y,206,58,"art/option_button")
-    gui+=gui_text(f"opt_label{i}","",x,y-2,190,34,0.92,(0.90,0.98,1.0,1.0))
+    gui+=gui_box(f"opt{i}",x,y,202,54,"",(0.03,0.20,0.30,0.96))
+    gui+=gui_text(f"opt_label{i}","",x,y-1,188,34,0.80,(0.90,0.98,1.0,1.0))
 
-# Bottom actions.
-gui+=gui_box("btn_random",820,72,158,59,"art/button_random")
-gui+=gui_box("btn_save",1000,72,158,59,"art/button_save")
-gui+=gui_box("btn_lock",1180,72,158,59,"art/button_lock")
-gui+=gui_text("status","GUI INPUT ONLINE // Tap a parameter, then an option.",360,668,700,30,0.84,(0.78,0.97,1.0,1.0))
+# Actions live inside creator_action_panel.
+for nid,label,x,col in (
+    ("btn_random","RANDOMIZE",835,(0.04,0.31,0.45,1.0)),
+    ("btn_save","SAVE PROFILE",1000,(0.06,0.38,0.30,1.0)),
+    ("btn_lock","LOCK FORM",1165,(0.32,0.14,0.50,1.0))
+):
+    gui+=gui_box(nid,x,72,148,56,"",col)
+    gui+=gui_text(nid+"_label",label,x,70,138,34,0.76,(0.97,1.0,1.0,1.0))
+gui+=gui_text("status","",365,40,680,34,0.74,(0.70,0.95,1.0,1.0))
 
 gui+='''material: "/builtins/materials/gui.material"
 adjust_reference: ADJUST_REFERENCE_PARENT
-max_nodes: 512
+max_nodes: 768
 '''
 (OUT/"main/creator.gui").write_text(gui)
 
@@ -784,14 +920,68 @@ local ALPHA_NAMES={"55%","68%","82%","92%"}
 local AURAS={0.20,0.42,0.62,0.82,1.00}
 local AURA_NAMES={"20%","42%","62%","82%","100%"}
 local CATS={"body","color","eyes","mark","core","alpha","aura_value"}
-local SAVE=sys.get_save_file("soul_slime_hd","creator_gui_v04")
+local CREATOR_SAVE=sys.get_save_file("soul_slime_hd","creator_gui_v05")
+local RUN_SAVE=sys.get_save_file("soul_slime_hd","opening_v05")
+
+local DEATHS={
+    "A delivery van loses control on a rain-slick street. Headlights fill your vision.",
+    "A transformer erupts during a storm. Blue-white light swallows the night.",
+    "A construction scaffold gives way above a crowded sidewalk. There is no time to move.",
+    "The last train screams into the station as the platform edge disappears beneath you."
+}
+local SKILLS={
+    {name="MAGIC SENSE",desc="Detect mana, spells, living signatures, and hidden magical traces."},
+    {name="ACCELERATED THOUGHT",desc="Process danger, analysis, and decisions at supernatural speed."},
+    {name="REGENERATION",desc="Recover lost slime mass and repair your vessel over time."},
+    {name="SPATIAL STORAGE",desc="Store absorbed matter inside a hidden personal space."},
+    {name="HEAT RESISTANCE",desc="Reduce damage from fire, heat, and extreme temperature."},
+    {name="NIGHT VISION",desc="See clearly in caves, darkness, and low-light environments."},
+    {name="PREDATOR",desc="Analyze and absorb defeated creatures more efficiently."},
+    {name="WATER AFFINITY",desc="Gain an early advantage with water magic and fluid control."}
+}
+
+local DEATH_NODES={
+"death_bg","death_card","death_kicker","death_title","death_event","death_hint",
+"death_continue","death_continue_label"
+}
+local REBIRTH_NODES={
+"rebirth_bg","rebirth_panel","rebirth_kicker","rebirth_title","rebirth_text",
+"skill1","skill_name1","skill_desc1","skill2","skill_name2","skill_desc2",
+"skill3","skill_name3","skill_desc3","skill_status","rebirth_continue","rebirth_continue_label"
+}
+local CREATOR_NODES={
+"creator_bg","creator_left_panel","creator_panel","creator_cat_panel","creator_opt_panel",
+"creator_action_panel","creator_title","creator_subtitle","creator_cat_title","creator_opt_title",
+"scanner","aura","body","marking","core","eyes","highlight",
+"cat_body","cat_body_label","cat_color","cat_color_label","cat_eyes","cat_eyes_label",
+"cat_mark","cat_mark_label","cat_core","cat_core_label","cat_alpha","cat_alpha_label",
+"cat_aura_value","cat_aura_value_label",
+"opt1","opt_label1","opt2","opt_label2","opt3","opt_label3",
+"opt4","opt_label4","opt5","opt_label5","opt6","opt_label6",
+"btn_random","btn_random_label","btn_save","btn_save_label","btn_lock","btn_lock_label","status"
+}
+
+local function enable_list(list,value)
+    for _,id in ipairs(list) do gui.set_enabled(gui.get_node(id),value) end
+end
+
+local function show_scene(self,scene)
+    self.scene=scene
+    enable_list(DEATH_NODES,scene=="death")
+    enable_list(REBIRTH_NODES,scene=="rebirth")
+    enable_list(CREATOR_NODES,scene=="creator")
+    if scene=="rebirth" then
+        gui.set_enabled(gui.get_node("rebirth_continue"),self.skill_selected~=nil)
+        gui.set_enabled(gui.get_node("rebirth_continue_label"),self.skill_selected~=nil)
+    end
+end
 
 local function set_status(v)
     gui.set_text(gui.get_node("status"),v)
 end
 
-local function load_state(self)
-    local t=sys.load(SAVE)
+local function load_creator(self)
+    local t=sys.load(CREATOR_SAVE)
     self.body=t.body or 1
     self.color=t.color or 1
     self.eyes=t.eyes or 1
@@ -802,8 +992,8 @@ local function load_state(self)
     self.category="body"
 end
 
-local function save_state(self)
-    sys.save(SAVE,{
+local function save_creator(self)
+    sys.save(CREATOR_SAVE,{
         body=self.body,color=self.color,eyes=self.eyes,mark=self.mark,
         core=self.core,alpha=self.alpha,aura=self.aura_value
     })
@@ -829,32 +1019,55 @@ local function select_value(self,key,index)
     else self.aura_value=index end
 end
 
+local function pulse_button(node)
+    gui.cancel_animation(node,gui.PROP_SCALE)
+    gui.set_scale(node,vmath.vector3(1,1,1))
+    gui.animate(node,gui.PROP_SCALE,vmath.vector3(1.06,1.06,1),
+        gui.EASING_OUTQUAD,0.08,0,function()
+            gui.animate(node,gui.PROP_SCALE,vmath.vector3(1,1,1),
+                gui.EASING_OUTBOUNCE,0.16)
+        end)
+end
+
+local function bounce_slime()
+    local ids={"aura","body","marking","core","eyes","highlight"}
+    for _,id in ipairs(ids) do
+        local n=gui.get_node(id)
+        gui.cancel_animation(n,gui.PROP_SCALE)
+        gui.set_scale(n,vmath.vector3(1,1,1))
+        gui.animate(n,gui.PROP_SCALE,vmath.vector3(1.07,0.93,1),
+            gui.EASING_OUTQUAD,0.10,0,function()
+                gui.animate(n,gui.PROP_SCALE,vmath.vector3(1,1,1),
+                    gui.EASING_OUTBOUNCE,0.20)
+            end)
+    end
+end
+
 local function refresh_options(self)
     local names,selected=data_for(self,self.category)
     for _,key in ipairs(CATS) do
-        local node=gui.get_node("cat_"..key)
-        gui.set_color(node,key==self.category and
-            vmath.vector4(0.75,1.0,1.0,1.0) or vmath.vector4(0.72,0.84,0.90,0.82))
+        local box=gui.get_node("cat_"..key)
+        local active=key==self.category
+        gui.set_color(box,active and
+            vmath.vector4(0.10,0.53,0.66,1.0) or vmath.vector4(0.035,0.23,0.33,0.94))
     end
     for i=1,6 do
         local box=gui.get_node("opt"..i)
         local label=gui.get_node("opt_label"..i)
         if i<=#names then
-            gui.set_enabled(box,true)
-            gui.set_enabled(label,true)
+            gui.set_enabled(box,true); gui.set_enabled(label,true)
             gui.set_text(label,names[i])
             gui.set_color(box,i==selected and
-                vmath.vector4(0.66,1.0,1.0,1.0) or vmath.vector4(1,1,1,0.95))
+                vmath.vector4(0.09,0.55,0.68,1.0) or vmath.vector4(0.03,0.20,0.30,0.96))
             gui.set_color(label,i==selected and
-                vmath.vector4(0.98,1.0,1.0,1.0) or vmath.vector4(0.82,0.95,1.0,1.0))
+                vmath.vector4(1,1,1,1) or vmath.vector4(0.90,0.98,1.0,1.0))
         else
-            gui.set_enabled(box,false)
-            gui.set_enabled(label,false)
+            gui.set_enabled(box,false); gui.set_enabled(label,false)
         end
     end
 end
 
-local function refresh(self)
+local function refresh_creator(self)
     gui.play_flipbook(gui.get_node("body"),BODY[self.body])
     gui.play_flipbook(gui.get_node("eyes"),EYES[self.eyes])
     gui.play_flipbook(gui.get_node("marking"),MARKS[self.mark])
@@ -865,34 +1078,97 @@ local function refresh(self)
     refresh_options(self)
 end
 
+local function shuffle_three(self)
+    local pool={}
+    for i=1,#SKILLS do pool[i]=i end
+    for i=#pool,2,-1 do
+        local j=math.random(i)
+        pool[i],pool[j]=pool[j],pool[i]
+    end
+    self.skill_choices={pool[1],pool[2],pool[3]}
+    self.skill_selected=nil
+    for i=1,3 do
+        local sk=SKILLS[self.skill_choices[i]]
+        gui.set_text(gui.get_node("skill_name"..i),sk.name)
+        gui.set_text(gui.get_node("skill_desc"..i),sk.desc)
+        gui.set_color(gui.get_node("skill"..i),vmath.vector4(0.025,0.18,0.28,0.94))
+    end
+    gui.set_text(gui.get_node("skill_status"),"Choose one skill.")
+    gui.set_enabled(gui.get_node("rebirth_continue"),false)
+    gui.set_enabled(gui.get_node("rebirth_continue_label"),false)
+end
+
 function init(self)
     msg.post(".","acquire_input_focus")
     math.randomseed(os.time())
-    load_state(self)
-    refresh(self)
-    set_status("GUI INPUT ONLINE // Touch the visible button itself.")
+    load_creator(self)
+    self.death_index=math.random(#DEATHS)
+    gui.set_text(gui.get_node("death_event"),DEATHS[self.death_index])
+    shuffle_three(self)
+    refresh_creator(self)
+    show_scene(self,"death")
 end
 
 function update(self,dt)
     self.t=(self.t or 0)+dt
-    local c=COLORS[self.color]
-    local pulse=0.76+math.sin(self.t*2.5)*0.18
-    gui.set_color(gui.get_node("aura"),
-        vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]*pulse))
-    local s=1.0+math.sin(self.t*2.0)*0.012
-    gui.set_scale(gui.get_node("body"),vmath.vector3(s,1.0+(1.0-s)*0.25,1))
+    if self.scene=="creator" then
+        local c=COLORS[self.color]
+        local pulse=0.76+math.sin(self.t*2.5)*0.18
+        gui.set_color(gui.get_node("aura"),
+            vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]*pulse))
+    elseif self.scene=="rebirth" then
+        local a=0.82+math.sin(self.t*1.8)*0.10
+        gui.set_color(gui.get_node("rebirth_panel"),vmath.vector4(0.02,0.11,0.18,a))
+    end
 end
 
 function on_input(self,action_id,action)
     if action_id~=hash("touch") or not action.pressed then return false end
 
-    -- Defold GUI picking uses action.x/action.y directly.
+    if self.scene=="death" then
+        if gui.pick_node(gui.get_node("death_continue"),action.x,action.y) then
+            pulse_button(gui.get_node("death_continue"))
+            show_scene(self,"rebirth")
+            return true
+        end
+        return false
+    end
+
+    if self.scene=="rebirth" then
+        for i=1,3 do
+            local node=gui.get_node("skill"..i)
+            if gui.pick_node(node,action.x,action.y) then
+                self.skill_selected=i
+                for n=1,3 do
+                    gui.set_color(gui.get_node("skill"..n),n==i and
+                        vmath.vector4(0.07,0.52,0.66,1.0) or vmath.vector4(0.025,0.18,0.28,0.94))
+                end
+                local sk=SKILLS[self.skill_choices[i]]
+                gui.set_text(gui.get_node("skill_status"),"SELECTED // "..sk.name)
+                gui.set_enabled(gui.get_node("rebirth_continue"),true)
+                gui.set_enabled(gui.get_node("rebirth_continue_label"),true)
+                pulse_button(node)
+                return true
+            end
+        end
+        if self.skill_selected and gui.pick_node(gui.get_node("rebirth_continue"),action.x,action.y) then
+            local chosen=SKILLS[self.skill_choices[self.skill_selected]]
+            sys.save(RUN_SAVE,{death=self.death_index,skill=chosen.name})
+            show_scene(self,"creator")
+            set_status("STARTING SKILL // "..chosen.name)
+            return true
+        end
+        return false
+    end
+
+    -- Creator
     for _,key in ipairs(CATS) do
         local node=gui.get_node("cat_"..key)
         if gui.pick_node(node,action.x,action.y) then
             self.category=key
             refresh_options(self)
-            set_status("PARAMETER SELECTED // "..string.upper(key):gsub("_"," "))
+            pulse_button(node)
+            set_status("PARAMETER // "..string.upper(key):gsub("_"," "))
             return true
         end
     end
@@ -902,7 +1178,9 @@ function on_input(self,action_id,action)
         local node=gui.get_node("opt"..i)
         if i<=#names and gui.pick_node(node,action.x,action.y) then
             select_value(self,self.category,i)
-            refresh(self)
+            refresh_creator(self)
+            pulse_button(node)
+            bounce_slime()
             set_status("SELECTED // "..names[i])
             return true
         end
@@ -912,16 +1190,16 @@ function on_input(self,action_id,action)
         self.body=math.random(#BODY); self.color=math.random(#COLORS); self.eyes=math.random(#EYES)
         self.mark=math.random(#MARKS); self.core=math.random(#CORES)
         self.alpha=math.random(#ALPHAS); self.aura_value=math.random(#AURAS)
-        refresh(self)
+        refresh_creator(self); bounce_slime(); pulse_button(gui.get_node("btn_random"))
         set_status("RANDOM SOUL FORM GENERATED.")
         return true
     elseif gui.pick_node(gui.get_node("btn_save"),action.x,action.y) then
-        save_state(self)
+        save_creator(self); pulse_button(gui.get_node("btn_save"))
         set_status("PROFILE SAVED.")
         return true
     elseif gui.pick_node(gui.get_node("btn_lock"),action.x,action.y) then
-        save_state(self)
-        set_status("FORM LOCKED FOR THE NEXT TEST.")
+        save_creator(self); pulse_button(gui.get_node("btn_lock"))
+        set_status("FORM LOCKED // NEXT BUILD: CAVE AWAKENING.")
         return true
     end
     return false
@@ -936,21 +1214,24 @@ end
 ''')
 (OUT/"main/main.collection").write_text('''name: "main"
 instances {
-  id: "creator"
+  id: "opening"
   prototype: "/main/main.go"
 }
 scale_along_z: 0
 ''')
 
-(OUT/"README.md").write_text("""# Soul Slime HD Creator — Defold
+(OUT/"README.md").write_text("""# Soul Slime Reincarnation Prototype v0.5
 
-Engine-switch prototype.
 - Defold 1.13.1
-- GUI-only creator: no camera-based UI or camera-derived touch coordinates
-- Original layered anime-inspired slime textures
-- Bright cyan/teal analysis-space rendered directly in the GUI layer
-- Buttons use Defold gui.pick_node() against the exact visible GUI nodes
-- Local save + lock form
+- GUI-only rendering/input for exact button hitboxes
+- Menu chrome is live GUI instead of baked into the stretched background
+- Modern-world random death scene
+- Reincarnation / analysis void
+- Three randomized starting skill choices
+- Polished slime creator with live-aligned panels and buttons
+- Slime bounce reaction on creator changes
+- Local creator + opening-state saves
 """)
+
 print("generated project",OUT)
 print("textures",len(list(A.glob("*.png"))))
