@@ -2911,18 +2911,19 @@ public class MainActivity extends Activity {
         int ri=r.hiltIndex-BASE_HILT_COUNT;
         Bitmap reward=(ri>=0&&ri<rewardHilts.length)?rewardHilts[ri]:null;
         if(reward!=null){
-          // Keep portrait hilt art upright/readable. Its screen position still follows
-          // the projected world hilt as aim orbits the cue ball, but the bitmap itself
-          // never rolls sideways with the table/aim angle.
+          // Restore world-attached behavior: the emitter is pinned at the cue
+          // side and the hilt rotates around the cue ball with the projected aim.
           float projectedLen=(float)Math.sqrt(
             (worldEmitterX-worldRearEmitterX)*(worldEmitterX-worldRearEmitterX)+
             (worldEmitterY-worldRearEmitterY)*(worldEmitterY-worldRearEmitterY));
-          float artH=Math.max(150f*ui,Math.min(270f*ui,projectedLen*1.35f));
-          float artW=Math.max(74f*ui,Math.min(132f*ui,artH*.46f));
-          float cx=(worldEmitterX+worldRearEmitterX)*.5f;
-          float cy=(worldEmitterY+worldRearEmitterY)*.5f;
-          RectF dst=new RectF(cx-artW*.5f,cy-artH*.5f,cx+artW*.5f,cy+artH*.5f);
-          drawBitmapFitCenter(c,reward,dst,p);
+          float artLen=Math.max(120f*ui,Math.min(285f*ui,projectedLen*1.08f));
+          float artThick=Math.max(58f*ui,Math.min(112f*ui,artLen*.42f));
+          float dx=worldRearEmitterX-worldEmitterX,dy=worldRearEmitterY-worldEmitterY;
+          float d=(float)Math.sqrt(dx*dx+dy*dy);if(d<.001f)d=1f;dx/=d;dy/=d;
+          float cx=worldEmitterX+dx*artLen*.50f,cy=worldEmitterY+dy*artLen*.50f;
+          float ang=(float)Math.toDegrees(Math.atan2(dy,dx));
+          RectF dst=new RectF(cx-artLen*.5f,cy-artThick*.5f,cx+artLen*.5f,cy+artThick*.5f);
+          c.save();c.rotate(ang,cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
         }
       }
 
