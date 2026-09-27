@@ -19,7 +19,7 @@ title = Soul Slime HD Creator
 version = 0.2
 publisher = Soul Slime
 developer = Soul Slime
-bundle_identifier = com.soulslime.reincarnation.v05
+bundle_identifier = com.soulslime.reincarnation.v06
 
 [bootstrap]
 main_collection = /main/main.collectionc
@@ -39,7 +39,7 @@ update_frequency = 60
 swap_interval = 1
 
 [android]
-package = com.soulslime.reincarnation.v05
+package = com.soulslime.reincarnation.v06
 minimum_sdk_version = 26
 target_sdk_version = 36
 immersive_mode = 1
@@ -619,6 +619,7 @@ end
 
 function update(self,dt)
     self.t=(self.t or 0)+dt
+    self.scene_elapsed=(self.scene_elapsed or 0)+dt
     local c=COLORS[self.color]
     local pulse=0.80+math.sin(self.t*2.5)*0.16
     go.set("#aura","tint",vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]*pulse))
@@ -827,9 +828,9 @@ gui+=gui_box("death_card",640,170,970,235,"",(0.015,0.05,0.085,0.92),"ADJUST_MOD
 gui+=gui_text("death_kicker","FINAL MOMENTS",640,262,800,40,1.15,(0.72,0.94,1.0,1.0))
 gui+=gui_text("death_title","A LIFE ENDS",640,222,850,54,1.55,(1.0,1.0,1.0,1.0))
 gui+=gui_text("death_event","",640,160,890,70,1.0,(0.86,0.94,0.98,1.0))
-gui+=gui_text("death_hint","You feel the world disappear. Something else is listening.",640,112,900,50,0.82,(0.56,0.78,0.88,1.0))
-gui+=gui_box("death_continue",640,52,250,58,"",(0.05,0.32,0.46,0.98))
-gui+=gui_text("death_continue_label","ACCEPT FATE",640,50,220,38,1.0,(0.94,1.0,1.0,1.0))
+gui+=gui_text("death_hint","You feel the world disappear. Something else is listening.\nTouch anywhere when you are ready.",640,154,900,70,0.82,(0.64,0.84,0.92,1.0))
+gui+=gui_box("death_continue",640,96,420,82,"",(0.05,0.32,0.46,0.98))
+gui+=gui_text("death_continue_label","TAP ANYWHERE TO CONTINUE",640,94,390,48,0.92,(0.94,1.0,1.0,1.0))
 
 # ----- Reincarnation / Sage-like analysis void -----
 gui+=gui_box("rebirth_bg",640,360,1280,720,"art/reincarnation_bg",(1,1,1,1),"ADJUST_MODE_STRETCH")
@@ -967,6 +968,7 @@ end
 
 local function show_scene(self,scene)
     self.scene=scene
+    self.scene_elapsed=0
     enable_list(DEATH_NODES,scene=="death")
     enable_list(REBIRTH_NODES,scene=="rebirth")
     enable_list(CREATOR_NODES,scene=="creator")
@@ -1126,12 +1128,12 @@ function on_input(self,action_id,action)
     if action_id~=hash("touch") or not action.pressed then return false end
 
     if self.scene=="death" then
-        if gui.pick_node(gui.get_node("death_continue"),action.x,action.y) then
-            pulse_button(gui.get_node("death_continue"))
-            show_scene(self,"rebirth")
-            return true
-        end
-        return false
+        -- Deliberately bypass button hit-testing here. Any touch advances.
+        -- This keeps the opening from ever becoming a dead-end on phones
+        -- with unusual safe-area / gesture-navigation transforms.
+        pulse_button(gui.get_node("death_continue"))
+        show_scene(self,"rebirth")
+        return true
     end
 
     if self.scene=="rebirth" then
@@ -1225,7 +1227,7 @@ scale_along_z: 0
 - Defold 1.13.1
 - GUI-only rendering/input for exact button hitboxes
 - Menu chrome is live GUI instead of baked into the stretched background
-- Modern-world random death scene
+- Modern-world random death scene; any screen tap advances (no hitbox dependency)
 - Reincarnation / analysis void
 - Three randomized starting skill choices
 - Polished slime creator with live-aligned panels and buttons
