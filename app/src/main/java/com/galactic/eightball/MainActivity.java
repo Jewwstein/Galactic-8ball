@@ -2255,7 +2255,7 @@ public class MainActivity extends Activity {
         c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
       }
 
-      float bezelInset=Math.max(64f*ui,Math.min(w,h)*.082f);
+      float bezelInset=Math.max(92f*ui,Math.min(w,h)*.115f);
       tieModeRect.set(bezelInset,bezelInset,bezelInset+110f*ui,bezelInset+40f*ui);
       p.setColor(0xCC111923);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,p);stroke.setColor(r.tieMode?0xFF78FF8D:0xFF5BD6FF);stroke.setStrokeWidth(2f*ui);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,stroke);
       p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);c.drawText(r.tieMode?"DEATH STAR":"TIE MODE",tieModeRect.centerX(),tieModeRect.centerY()+4f*ui,p);
@@ -3068,12 +3068,15 @@ public class MainActivity extends Activity {
           if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
           if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
           if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
-          else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){
-            arcadeAimPointer=pid;tieAimDownAt=System.currentTimeMillis();tieAimDownX=px;tieAimDownY=py;setArcadeStick(false,px,py);
-            // In TIE mode the right analog is also the trigger: touching it
-            // fires once immediately, while the same pointer stays captured
-            // for continuous micro-aim adjustments.
-            if(r.tieMode)game.queueEvent(()->r.fireTieShot());
+          else if(arcadeAimRect.contains(px,py)){
+            if(arcadeAimPointer<0){
+              arcadeAimPointer=pid;tieAimDownAt=System.currentTimeMillis();tieAimDownX=px;tieAimDownY=py;setArcadeStick(false,px,py);
+              // First thumb captures AIM. It stays down for continuous micro-adjustments.
+            }else if(r.tieMode&&pid!=arcadeAimPointer){
+              // A second tap inside the same AIM pad fires while the primary
+              // aiming thumb remains captured; no need to release/reacquire aim.
+              game.queueEvent(()->r.fireTieShot());
+            }
           }
           return true;
         }
@@ -5679,9 +5682,9 @@ public class MainActivity extends Activity {
         e.age+=dt;e.phase+=dt;
         if(e.dying){
           e.deathT+=dt;
-          float fallBoost=.45f+e.deathT*.95f;
-          e.y-=3.0f*fallBoost*dt;e.x+=e.vx*.38f*dt;e.z+=e.vz*.38f*dt;
-          if(e.deathT>2.85f)e.active=false;
+          float fallBoost=.32f+e.deathT*.52f;
+          e.y-=2.15f*fallBoost*dt;e.x+=e.vx*.38f*dt;e.z+=e.vz*.38f*dt;
+          if(e.deathT>4.35f)e.active=false;
           continue;
         }
         float escape=e.age>e.life?1.42f:1f;
@@ -5697,7 +5700,7 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
-      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.52f:.34f;best.hp--;arcadeShotClock=.42f;if(tieMode)tieFire=false;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.78f:.34f;best.hp--;arcadeShotClock=.42f;if(tieMode)tieFire=false;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
       else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
@@ -5706,20 +5709,20 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
         float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
-        android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*980f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
-        if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*620f,1,0,0);
-        float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-1.55f)/1.25f):1f;
+        android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
+        if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
+        float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-2.25f)/1.85f):1f;
         if(e.xwing){
           float sc=e.dying?2.18f*Math.max(.38f,1f-e.deathT*.30f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null){
             // Long readable destruction burst: hot core first, then an expanding
             // orange shell while the fighter spins/falls away.
-            float burst=Math.min(1f,e.deathT/.38f),decay=Math.max(0f,1f-e.deathT/2.35f);
+            float burst=Math.min(1f,e.deathT/.48f),decay=Math.max(0f,1f-e.deathT/3.65f);
             float[] E=identity();android.opengl.Matrix.translateM(E,0,e.x,e.y,e.z);
             float es=.45f+burst*1.55f;android.opengl.Matrix.scaleM(E,0,es,es,es);
             drawMesh(sphere,pv,E,0,new float[]{1f,.22f,.04f,.82f*decay});
-            if(e.deathT<.78f){
+            if(e.deathT<1.15f){
               float[] K=identity();android.opengl.Matrix.translateM(K,0,e.x,e.y,e.z);
               float ks=.24f+e.deathT*1.8f;android.opengl.Matrix.scaleM(K,0,ks,ks,ks);
               drawMesh(sphere,pv,K,0,new float[]{1f,.92f,.48f,1f});
@@ -5732,7 +5735,7 @@ public class MainActivity extends Activity {
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Dish muzzle -> retained target position. This makes the visible shot
         // agree with the hit calculation instead of drawing a camera-length ray.
-        float sx=arcadeX+fx*(tieMode?1.05f:1.58f),sy=(tieMode?arcadeY-.04f:2.38f)+fy*(tieMode?.05f:.72f),sz=arcadeZ+fz*(tieMode?1.05f:1.58f);
+        float sx=arcadeX+fx*(tieMode?3.2f:1.58f),sy=(tieMode?arcadeY-.18f:2.38f)+fy*(tieMode?3.2f:.72f),sz=arcadeZ+fz*(tieMode?3.2f:1.58f);
         float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
         float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
         if(dist>.05f){
