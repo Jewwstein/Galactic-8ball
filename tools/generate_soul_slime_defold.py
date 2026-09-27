@@ -19,7 +19,7 @@ title = Soul Slime HD Creator
 version = 0.2
 publisher = Soul Slime
 developer = Soul Slime
-bundle_identifier = com.soulslime.defoldcreator.v03
+bundle_identifier = com.soulslime.defoldcreator.v04
 
 [bootstrap]
 main_collection = /main/main.collectionc
@@ -39,7 +39,7 @@ update_frequency = 60
 swap_interval = 1
 
 [android]
-package = com.soulslime.defoldcreator.v03
+package = com.soulslime.defoldcreator.v04
 minimum_sdk_version = 26
 target_sdk_version = 36
 immersive_mode = 1
@@ -581,14 +581,375 @@ function on_input(self,action_id,action)
 end
 '''
 (OUT/"main/main.script").write_text(script)
+
+# ---------- GUI-only creator ----------
+# v0.4 intentionally moves *all* visible UI and touchable controls into Defold GUI.
+# This makes gui.pick_node(action.x, action.y) authoritative for every button.
+
+def gui_box(node_id, x, y, w, h, texture="", color=(1,1,1,1), adjust="ADJUST_MODE_FIT"):
+    return f'''nodes {{
+  position {{
+    x: {x}
+    y: {y}
+    z: 0.0
+    w: 1.0
+  }}
+  rotation {{
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }}
+  scale {{
+    x: 1.0
+    y: 1.0
+    z: 1.0
+    w: 1.0
+  }}
+  size {{
+    x: {w}
+    y: {h}
+    z: 0.0
+    w: 1.0
+  }}
+  color {{
+    x: {color[0]}
+    y: {color[1]}
+    z: {color[2]}
+    w: {color[3]}
+  }}
+  type: TYPE_BOX
+  blend_mode: BLEND_MODE_ALPHA
+  texture: "{texture}"
+  id: "{node_id}"
+  xanchor: XANCHOR_NONE
+  yanchor: YANCHOR_NONE
+  pivot: PIVOT_CENTER
+  adjust_mode: {adjust}
+  layer: ""
+  inherit_alpha: true
+  slice9 {{
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 0.0
+  }}
+  clipping_mode: CLIPPING_MODE_NONE
+  clipping_visible: true
+  clipping_inverted: false
+  alpha: 1.0
+  template_node_child: false
+  size_mode: SIZE_MODE_MANUAL
+}}
+'''
+
+def gui_text(node_id, text, x, y, w, h, scale=1.0, color=(1,1,1,1), adjust="ADJUST_MODE_FIT"):
+    return f'''nodes {{
+  position {{
+    x: {x}
+    y: {y}
+    z: 0.0
+    w: 1.0
+  }}
+  rotation {{
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }}
+  scale {{
+    x: {scale}
+    y: {scale}
+    z: 1.0
+    w: 1.0
+  }}
+  size {{
+    x: {w}
+    y: {h}
+    z: 0.0
+    w: 1.0
+  }}
+  color {{
+    x: {color[0]}
+    y: {color[1]}
+    z: {color[2]}
+    w: {color[3]}
+  }}
+  type: TYPE_TEXT
+  blend_mode: BLEND_MODE_ALPHA
+  text: "{text}"
+  font: "default"
+  id: "{node_id}"
+  xanchor: XANCHOR_NONE
+  yanchor: YANCHOR_NONE
+  pivot: PIVOT_CENTER
+  outline {{
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }}
+  shadow {{
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }}
+  adjust_mode: {adjust}
+  line_break: false
+  layer: ""
+  inherit_alpha: true
+  alpha: 1.0
+  outline_alpha: 0.0
+  shadow_alpha: 0.0
+  template_node_child: false
+  text_leading: 1.0
+  text_tracking: 0.0
+}}
+'''
+
+gui='''script: "/main/creator.gui_script"
+fonts {
+  name: "default"
+  font: "/builtins/fonts/default.font"
+}
+textures {
+  name: "art"
+  texture: "/main/creator.atlas"
+}
+background_color {
+  x: 0.02
+  y: 0.16
+  z: 0.24
+  w: 1.0
+}
+'''
+
+# Guaranteed visible teal fallback layer, then the full analysis-space texture.
+gui+=gui_box("solid_bg",640,360,1280,720,"",(0.02,0.17,0.26,1.0),"ADJUST_MODE_STRETCH")
+gui+=gui_box("analysis_bg",640,360,1280,720,"art/background",(1,1,1,1),"ADJUST_MODE_STRETCH")
+
+# Left-side live preview, all in GUI coordinates.
+gui+=gui_box("scanner",360,360,620,620,"art/scanner",(1,1,1,0.95))
+gui+=gui_box("aura",360,360,560,560,"art/aura",(0.35,0.95,1.0,0.75))
+gui+=gui_box("body",360,360,560,560,"art/body_round",(0.14,0.72,1.0,0.82))
+gui+=gui_box("marking",360,360,560,560,"art/mark_rune")
+gui+=gui_box("core",360,360,560,560,"art/core_soul")
+gui+=gui_box("eyes",360,360,560,560,"art/eyes_calm")
+gui+=gui_box("highlight",360,360,560,560,"art/highlight")
+
+# Right-side parameter buttons.
+cat_defs=[
+    ("cat_body","cat_body",865,548),("cat_color","cat_color",1080,548),
+    ("cat_eyes","cat_eyes",865,498),("cat_mark","cat_mark",1080,498),
+    ("cat_core","cat_core",865,448),("cat_alpha","cat_alpha",1080,448),
+    ("cat_aura_value","cat_aura",865,398)
+]
+for nid,anim,x,y in cat_defs:
+    gui+=gui_box(nid,x,y,206,44,f"art/{anim}")
+
+opt_pos=[(865,318),(1080,318),(865,254),(1080,254),(865,190),(1080,190)]
+for i,(x,y) in enumerate(opt_pos,1):
+    gui+=gui_box(f"opt{i}",x,y,206,58,"art/option_button")
+    gui+=gui_text(f"opt_label{i}","",x,y-2,190,34,0.92,(0.90,0.98,1.0,1.0))
+
+# Bottom actions.
+gui+=gui_box("btn_random",820,72,158,59,"art/button_random")
+gui+=gui_box("btn_save",1000,72,158,59,"art/button_save")
+gui+=gui_box("btn_lock",1180,72,158,59,"art/button_lock")
+gui+=gui_text("status","GUI INPUT ONLINE // Tap a parameter, then an option.",360,668,700,30,0.84,(0.78,0.97,1.0,1.0))
+
+gui+='''material: "/builtins/materials/gui.material"
+adjust_reference: ADJUST_REFERENCE_PARENT
+max_nodes: 512
+'''
+(OUT/"main/creator.gui").write_text(gui)
+
+gui_script=r'''local BODY = {"body_round","body_drop","body_wide","body_crest"}
+local BODY_NAMES = {"ROUND CORE","DROPLET","WIDE FORM","CREST FORM"}
+local COLORS = {
+    vmath.vector4(0.14,0.72,1.00,1), vmath.vector4(0.58,0.34,1.00,1),
+    vmath.vector4(1.00,0.36,0.22,1), vmath.vector4(0.25,0.84,0.52,1),
+    vmath.vector4(0.88,0.94,1.00,1), vmath.vector4(0.18,0.15,0.30,1)
+}
+local COLOR_NAMES={"AZURE","AMETHYST","EMBER","JADE","PEARL","SHADOW"}
+local EYES={"eyes_calm","eyes_sharp","eyes_void","eyes_star"}
+local EYE_NAMES={"CALM","SHARP","VOID","STAR"}
+local MARKS={"mark_none","mark_rune","mark_speckles","mark_crest"}
+local MARK_NAMES={"NONE","RUNE","SPECKLES","CREST"}
+local CORES={"core_soul","core_star","core_moon","core_none"}
+local CORE_NAMES={"SOUL","STAR","MOON","NONE"}
+local ALPHAS={0.55,0.68,0.82,0.92}
+local ALPHA_NAMES={"55%","68%","82%","92%"}
+local AURAS={0.20,0.42,0.62,0.82,1.00}
+local AURA_NAMES={"20%","42%","62%","82%","100%"}
+local CATS={"body","color","eyes","mark","core","alpha","aura_value"}
+local SAVE=sys.get_save_file("soul_slime_hd","creator_gui_v04")
+
+local function set_status(v)
+    gui.set_text(gui.get_node("status"),v)
+end
+
+local function load_state(self)
+    local t=sys.load(SAVE)
+    self.body=t.body or 1
+    self.color=t.color or 1
+    self.eyes=t.eyes or 1
+    self.mark=t.mark or 2
+    self.core=t.core or 1
+    self.alpha=t.alpha or 3
+    self.aura_value=t.aura or 3
+    self.category="body"
+end
+
+local function save_state(self)
+    sys.save(SAVE,{
+        body=self.body,color=self.color,eyes=self.eyes,mark=self.mark,
+        core=self.core,alpha=self.alpha,aura=self.aura_value
+    })
+end
+
+local function data_for(self,key)
+    if key=="body" then return BODY_NAMES,self.body
+    elseif key=="color" then return COLOR_NAMES,self.color
+    elseif key=="eyes" then return EYE_NAMES,self.eyes
+    elseif key=="mark" then return MARK_NAMES,self.mark
+    elseif key=="core" then return CORE_NAMES,self.core
+    elseif key=="alpha" then return ALPHA_NAMES,self.alpha
+    else return AURA_NAMES,self.aura_value end
+end
+
+local function select_value(self,key,index)
+    if key=="body" then self.body=index
+    elseif key=="color" then self.color=index
+    elseif key=="eyes" then self.eyes=index
+    elseif key=="mark" then self.mark=index
+    elseif key=="core" then self.core=index
+    elseif key=="alpha" then self.alpha=index
+    else self.aura_value=index end
+end
+
+local function refresh_options(self)
+    local names,selected=data_for(self,self.category)
+    for _,key in ipairs(CATS) do
+        local node=gui.get_node("cat_"..key)
+        gui.set_color(node,key==self.category and
+            vmath.vector4(0.75,1.0,1.0,1.0) or vmath.vector4(0.72,0.84,0.90,0.82))
+    end
+    for i=1,6 do
+        local box=gui.get_node("opt"..i)
+        local label=gui.get_node("opt_label"..i)
+        if i<=#names then
+            gui.set_enabled(box,true)
+            gui.set_enabled(label,true)
+            gui.set_text(label,names[i])
+            gui.set_color(box,i==selected and
+                vmath.vector4(0.66,1.0,1.0,1.0) or vmath.vector4(1,1,1,0.95))
+            gui.set_color(label,i==selected and
+                vmath.vector4(0.98,1.0,1.0,1.0) or vmath.vector4(0.82,0.95,1.0,1.0))
+        else
+            gui.set_enabled(box,false)
+            gui.set_enabled(label,false)
+        end
+    end
+end
+
+local function refresh(self)
+    gui.play_flipbook(gui.get_node("body"),BODY[self.body])
+    gui.play_flipbook(gui.get_node("eyes"),EYES[self.eyes])
+    gui.play_flipbook(gui.get_node("marking"),MARKS[self.mark])
+    gui.play_flipbook(gui.get_node("core"),CORES[self.core])
+    local c=COLORS[self.color]
+    gui.set_color(gui.get_node("body"),vmath.vector4(c.x,c.y,c.z,ALPHAS[self.alpha]))
+    gui.set_color(gui.get_node("aura"),vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]))
+    refresh_options(self)
+end
+
+function init(self)
+    msg.post(".","acquire_input_focus")
+    math.randomseed(os.time())
+    load_state(self)
+    refresh(self)
+    set_status("GUI INPUT ONLINE // Touch the visible button itself.")
+end
+
+function update(self,dt)
+    self.t=(self.t or 0)+dt
+    local c=COLORS[self.color]
+    local pulse=0.76+math.sin(self.t*2.5)*0.18
+    gui.set_color(gui.get_node("aura"),
+        vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]*pulse))
+    local s=1.0+math.sin(self.t*2.0)*0.012
+    gui.set_scale(gui.get_node("body"),vmath.vector3(s,1.0+(1.0-s)*0.25,1))
+end
+
+function on_input(self,action_id,action)
+    if action_id~=hash("touch") or not action.pressed then return false end
+
+    -- Defold GUI picking uses action.x/action.y directly.
+    for _,key in ipairs(CATS) do
+        local node=gui.get_node("cat_"..key)
+        if gui.pick_node(node,action.x,action.y) then
+            self.category=key
+            refresh_options(self)
+            set_status("PARAMETER SELECTED // "..string.upper(key):gsub("_"," "))
+            return true
+        end
+    end
+
+    local names=data_for(self,self.category)
+    for i=1,6 do
+        local node=gui.get_node("opt"..i)
+        if i<=#names and gui.pick_node(node,action.x,action.y) then
+            select_value(self,self.category,i)
+            refresh(self)
+            set_status("SELECTED // "..names[i])
+            return true
+        end
+    end
+
+    if gui.pick_node(gui.get_node("btn_random"),action.x,action.y) then
+        self.body=math.random(#BODY); self.color=math.random(#COLORS); self.eyes=math.random(#EYES)
+        self.mark=math.random(#MARKS); self.core=math.random(#CORES)
+        self.alpha=math.random(#ALPHAS); self.aura_value=math.random(#AURAS)
+        refresh(self)
+        set_status("RANDOM SOUL FORM GENERATED.")
+        return true
+    elseif gui.pick_node(gui.get_node("btn_save"),action.x,action.y) then
+        save_state(self)
+        set_status("PROFILE SAVED.")
+        return true
+    elseif gui.pick_node(gui.get_node("btn_lock"),action.x,action.y) then
+        save_state(self)
+        set_status("FORM LOCKED FOR THE NEXT TEST.")
+        return true
+    end
+    return false
+end
+'''
+(OUT/"main/creator.gui_script").write_text(gui_script)
+
+(OUT/"main/main.go").write_text('''components {
+  id: "gui"
+  component: "/main/creator.gui"
+}
+''')
+(OUT/"main/main.collection").write_text('''name: "main"
+instances {
+  id: "creator"
+  prototype: "/main/main.go"
+}
+scale_along_z: 0
+''')
+
 (OUT/"README.md").write_text("""# Soul Slime HD Creator — Defold
 
 Engine-switch prototype.
 - Defold 1.13.1
-- Android landscape / immersive fullscreen with Auto Fit camera and screen-projected hitboxes
+- GUI-only creator: no camera-based UI or camera-derived touch coordinates
 - Original layered anime-inspired slime textures
-- Bright cyan/teal analysis-space UI with luminous core, scan rings, data grid and particles
-- Large direct-touch category and option buttons
+- Bright cyan/teal analysis-space rendered directly in the GUI layer
+- Buttons use Defold gui.pick_node() against the exact visible GUI nodes
 - Local save + lock form
 """)
 print("generated project",OUT)
