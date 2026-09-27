@@ -1859,7 +1859,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6];
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
@@ -1868,7 +1868,7 @@ public class MainActivity extends Activity {
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
-    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1; volatile boolean arcadeUiActive=false; long cueTapAt=0;
+    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1,tieFirePointer=-1; volatile boolean arcadeUiActive=false; long cueTapAt=0;
     long lastAimTapMs=0;
     int screenAimTouchSlop=8;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
@@ -3640,9 +3640,9 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false;
+    volatile boolean arcadeActive=false,arcadeLocked=false,tieMode=false,tieFire=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
-    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
+    float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -3693,18 +3693,23 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      float arcadeFov=aspect>=1f?61f:72f;
+      float arcadeFov=tieMode?68f:(aspect>=1f?61f:72f);
       android.opengl.Matrix.perspectiveM(P,0,arcadeActive?arcadeFov:40f,aspect,.45f,320f);
       float cx,cy,cz;
       if(arcadeActive){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
-        // Portrait and landscape need independent framing: landscape uses a
-        // closer chase camera so the wider viewport does not miniaturize combat.
-        float chase=aspect>=1f?10.7f:16.8f;
-        float camY=aspect>=1f?7.0f:8.4f;
-        cx=arcadeX-fx*chase;cy=camY-fy*2.0f;cz=arcadeZ-fz*chase;
-        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*15f,3.6f+fy*10f,arcadeZ+fz*15f,0,1,0);
+        if(tieMode){
+          // True first-person TIE pilot camera: eye at fighter center, looking
+          // directly through the HUD reticle. The player TIE is intentionally hidden.
+          cx=arcadeX;cy=arcadeY;cz=arcadeZ;
+          android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,cx+fx*30f,cy+fy*30f,cz+fz*30f,0,1,0);
+        }else{
+          float chase=aspect>=1f?10.7f:16.8f;
+          float camY=aspect>=1f?7.0f:8.4f;
+          cx=arcadeX-fx*chase;cy=camY-fy*2.0f;cz=arcadeZ-fz*chase;
+          android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*15f,3.6f+fy*10f,arcadeZ+fz*15f,0,1,0);
+        }
       }else{
         float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
         float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
@@ -3756,7 +3761,7 @@ public class MainActivity extends Activity {
         drawMesh(sphere,pvCache,M,b.tex,new float[]{1,1,1,1});
         drawPlanetRing(pvCache,b);
       }
-      if(arcadeActive&&!balls.isEmpty()){
+      if(arcadeActive&&!tieMode&&!balls.isEmpty()){
         Ball cue=balls.get(0);
         float[] AM=identity();android.opengl.Matrix.translateM(AM,0,arcadeX,2.22f,arcadeZ);
         // Orient the arcade copy so the dish hemisphere faces away from the
@@ -5589,16 +5594,19 @@ public class MainActivity extends Activity {
       // Arcade is a read-only overlay on pool state. Never touch Box2D or rule
       // bookkeeping on entry/exit; only copy the cue position for the arcade avatar.
       arcadeSnapshotValid=false;
-      arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
+      arcadeActive=true;tieMode=false;tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
     void exitArcade(){
-      int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
+      int finalScore=arcadeScore;arcadeActive=false;tieMode=false;tieFire=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
       MainActivity.writeCrashPhase("ARCADE_EXIT score="+finalScore);android.util.Log.i("GalacticArcade","EXIT arcade score="+finalScore);if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
+    void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;}
+    void setTieFire(boolean on){tieFire=on;}
+    void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
 
     void spawnArcadeWave(){
       int count=Math.min(3+arcadeWave,8);
@@ -5623,16 +5631,19 @@ public class MainActivity extends Activity {
       float pax=(float)Math.sin(preYr)*(float)Math.cos(prePr),pay=(float)Math.sin(prePr),paz=-(float)Math.cos(preYr)*(float)Math.cos(prePr);
       float nearDot=.94f;
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){
-        float tx=e.x-arcadeX,ty=e.y-2.5f,tz=e.z-arcadeZ,d=(float)Math.sqrt(tx*tx+ty*ty+tz*tz);
+        float tx=e.x-arcadeX,ty=e.y-(tieMode?arcadeY:2.5f),tz=e.z-arcadeZ,d=(float)Math.sqrt(tx*tx+ty*ty+tz*tz);
         if(d>1f){float dot=(tx*pax+ty*pay+tz*paz)/d;if(dot>nearDot)nearDot=dot;}
       }
       float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
       float assist=1f-.56f*proximity*proximity;
-      arcadeYaw+=arcadeAimSmoothX*142f*assist*dt;
-      arcadePitch=Math.max(-18f,Math.min(42f,arcadePitch-arcadeAimSmoothY*98f*assist*dt));
+      float yawRate=tieMode?105f:142f,pitchRate=tieMode?82f:98f;
+      arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
+      arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch-arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
       float mx=arcadeMoveSmoothX,my=arcadeMoveSmoothY,mm=(float)Math.sqrt(mx*mx+my*my);if(mm>1f){mx/=mm;my/=mm;}
-      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));float speed=18.5f*(.18f+.82f*inputMag),dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
+      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));float speed=(tieMode?14.5f:18.5f)*(.18f+.82f*inputMag);
+      float dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
+      if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+(float)Math.sin(Math.toRadians(arcadePitch))*(-my)*speed*.42f*dt));
       float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
       boolean blocked=false;
       for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
@@ -5655,10 +5666,10 @@ public class MainActivity extends Activity {
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       ArcadeFighter best=null;float bestDot=.979f,bestDist=999;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-2.5f,ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
-      if(best!=null&&arcadeShotClock<=0){arcadeLaserT=.34f;best.hp--;arcadeShotClock=.42f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.16f:.34f;best.hp--;arcadeShotClock=.42f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
       else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
@@ -5678,7 +5689,7 @@ public class MainActivity extends Activity {
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Dish muzzle -> retained target position. This makes the visible shot
         // agree with the hit calculation instead of drawing a camera-length ray.
-        float sx=arcadeX+fx*1.58f,sy=2.38f+fy*.72f,sz=arcadeZ+fz*1.58f;
+        float sx=arcadeX+fx*(tieMode?.72f:1.58f),sy=(tieMode?arcadeY:2.38f)+fy*(tieMode?.25f:.72f),sz=arcadeZ+fz*(tieMode?.72f:1.58f);
         float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
         float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
         if(dist>.05f){
