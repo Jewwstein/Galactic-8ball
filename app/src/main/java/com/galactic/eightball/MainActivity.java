@@ -53,9 +53,16 @@ public class MainActivity extends Activity {
   boolean updateCheckStarted=false,updateDialogShowing=false;
   long pendingUpdateDownloadId=-1L;
   BroadcastReceiver updateDownloadReceiver;
+  static volatile String crashPhase="APP_START"; static File crashBreadcrumb;
 
   public void onCreate(Bundle b){
     super.onCreate(b);
+    crashBreadcrumb=new File(getFilesDir(),"galactic_crash_phase.txt");
+    final Thread.UncaughtExceptionHandler previous=Thread.getDefaultUncaughtExceptionHandler();
+    Thread.setDefaultUncaughtExceptionHandler((t,e)->{
+      writeCrashPhase("UNCAUGHT "+t.getName()+" :: "+e.getClass().getSimpleName()+" :: "+String.valueOf(e.getMessage()));
+      if(previous!=null)previous.uncaughtException(t,e);
+    });
     getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
     game=new GameView(this);
@@ -94,6 +101,11 @@ public class MainActivity extends Activity {
 
     setContentView(appRoot);
     showHomeScreen();
+    String priorPhase=readCrashPhase();
+    if(priorPhase!=null&&!priorPhase.isEmpty()&&!priorPhase.endsWith("|CLEAN_EXIT")){
+      new Handler(Looper.getMainLooper()).postDelayed(()->Toast.makeText(this,"Last diagnostic: "+priorPhase,Toast.LENGTH_LONG).show(),700);
+    }
+    writeCrashPhase("HOME_READY");
     setupAutoUpdater();
     new Handler(Looper.getMainLooper()).postDelayed(this::checkForAppUpdate,1200);
     // Trigger 8 is the app's signature launch/UI transition cue.
@@ -101,6 +113,16 @@ public class MainActivity extends Activity {
       if(game!=null&&game.r!=null&&game.r.sfx!=null)game.r.sfx.uiTransition();
       if(saberBezel!=null)saberBezel.pulse(0xFF7BE8FF,1f);
     },260);
+  }
+
+  static void writeCrashPhase(String phase){
+    crashPhase=phase;
+    File f=crashBreadcrumb;if(f==null)return;
+    try(FileOutputStream out=new FileOutputStream(f,false)){out.write((System.currentTimeMillis()+"|"+phase).getBytes(StandardCharsets.UTF_8));out.flush();}catch(Exception ignored){}
+  }
+  String readCrashPhase(){
+    File f=crashBreadcrumb;if(f==null||!f.exists())return "";
+    try(FileInputStream in=new FileInputStream(f)){byte[] b=new byte[(int)Math.min(2048,f.length())];int n=in.read(b);return n>0?new String(b,0,n,StandardCharsets.UTF_8):"";}catch(Exception e){return "";}
   }
 
   void setupAutoUpdater(){
@@ -885,6 +907,7 @@ public class MainActivity extends Activity {
   }
 
   @Override protected void onDestroy(){
+    writeCrashPhase("CLEAN_EXIT");
     if(updateDownloadReceiver!=null){
       try{unregisterReceiver(updateDownloadReceiver);}catch(Exception ignored){}
       updateDownloadReceiver=null;
@@ -5515,11 +5538,11 @@ public class MainActivity extends Activity {
       arcadeSnapshotValid=false;
       arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
-      ruleMessage="DEATH STAR ASSAULT";android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
+      ruleMessage="DEATH STAR ASSAULT";MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
     void exitArcade(){
       int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
-      android.util.Log.i("GalacticArcade","EXIT arcade score="+finalScore);if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
+      MainActivity.writeCrashPhase("ARCADE_EXIT score="+finalScore);android.util.Log.i("GalacticArcade","EXIT arcade score="+finalScore);if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
@@ -5598,9 +5621,11 @@ public class MainActivity extends Activity {
           physicsAccum-=FIXED_DT;loops++;
         }
         if(allStopped()){
+          MainActivity.writeCrashPhase("POOL_STOPPED_BEFORE_RESOLVE state="+state+" sunk="+ballsSunkThisShot.size()+" first="+firstContactBall);
           android.util.Log.i("GalacticArcade","POOL_STOPPED begin resolve state="+state+" sunk="+ballsSunkThisShot.size()+" first="+firstContactBall);
           try{resolveShotRules();}catch(Throwable t){android.util.Log.e("GalacticArcade","resolveShotRules crash prevented",t);ballsSunkThisShot.clear();firstContactBall=0;}
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
+          MainActivity.writeCrashPhase("POOL_RESOLVED team="+currentTeam+" gameOver="+gameOver);
           android.util.Log.i("GalacticArcade","POOL_STOPPED resolved currentTeam="+currentTeam+" gameOver="+gameOver);
           if(aiEnabled&&!gameOver&&currentTeam==2){
             aiThinking=true;
@@ -5621,8 +5646,9 @@ public class MainActivity extends Activity {
             ruleMessage="GALACTIC AI • "+aiDifficultyName()+" THINKING";
           }else if(System.currentTimeMillis()>=aiReadyAt){
             aiThinking=false;
+            MainActivity.writeCrashPhase("AI_SHOT_BEGIN");
             android.util.Log.i("GalacticArcade","AI_SHOT begin");
-            try{performAiShot();android.util.Log.i("GalacticArcade","AI_SHOT complete");}
+            try{performAiShot();MainActivity.writeCrashPhase("AI_SHOT_COMPLETE");android.util.Log.i("GalacticArcade","AI_SHOT complete");}
             catch(Throwable t){android.util.Log.e("GalacticArcade","AI shot crash prevented",t);aiThinking=false;currentTeam=1;activeShooter=1;ruleMessage="AI RECOVERY • PLAYER TURN";}
           }
         }
