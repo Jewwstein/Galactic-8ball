@@ -2299,6 +2299,16 @@ public class MainActivity extends Activity {
         p.setTextSize((22f+10f*(1f-q))*ui);p.setColor((((int)(255*(1f-q)))<<24)|0x00FFE36A);
         c.drawText("+"+r.arcadeLastPoints,px,py,p);
       }
+      if(System.currentTimeMillis()<r.arcadePoolNoticeUntil && r.arcadePoolNotice!=null && !r.arcadePoolNotice.isEmpty()){
+        float nw=Math.min(w*.76f,620f*ui),nh=48f*ui,nx=w*.5f-nw*.5f,ny=Math.max(104f*ui,h*.105f);
+        RectF nr=new RectF(nx,ny,nx+nw,ny+nh);
+        p.setColor(0xE51A2533);c.drawRoundRect(nr,14f*ui,14f*ui,p);
+        stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2f*ui);
+        stroke.setColor(r.arcadePoolNotice.startsWith("YOUR TURN")?0xFFFFD75A:0xFF66D9FF);c.drawRoundRect(nr,14f*ui,14f*ui,stroke);
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(14f*ui);p.setColor(Color.WHITE);
+        c.drawText(r.arcadePoolNotice,w*.5f,ny+30f*ui,p);
+        postInvalidateDelayed(80);
+      }
       if(arcadeSummaryOpen){
         p.setColor(0xE9080D16);c.drawRect(0,0,w,h,p);
         float pw=Math.min(w*.78f,760f*ui),ph=Math.min(h*.72f,430f*ui),l=w*.5f-pw*.5f,t=h*.5f-ph*.5f;
@@ -3756,7 +3766,7 @@ public class MainActivity extends Activity {
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
-    volatile float arcadeImpactFlash=0; volatile long arcadeScoreFlashAt=0; volatile int arcadeLastPoints=0; volatile float arcadePointsX=0,arcadePointsY=0,arcadePointsZ=0;
+    volatile float arcadeImpactFlash=0; volatile long arcadeScoreFlashAt=0; volatile int arcadeLastPoints=0; volatile float arcadePointsX=0,arcadePointsY=0,arcadePointsZ=0; volatile String arcadePoolNotice=""; volatile long arcadePoolNoticeUntil=0; int arcadeObservedTeam=-1; final boolean[] arcadeObservedActive=new boolean[16];
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -5497,6 +5507,7 @@ public class MainActivity extends Activity {
           b.sinkT=Float.parseFloat(a[11]);b.spin=Float.parseFloat(a[12]);
           if(b.body!=null)b.body.setActive(false);
         }
+        if(arcadeActive)pollArcadePoolEvents();
       }catch(Exception ignored){}
     }
 
@@ -5702,6 +5713,37 @@ public class MainActivity extends Activity {
     }
 
 
+    String arcadeBallName(int index){
+      if(index==0)return "cue ball";
+      if(index==8)return "8-ball";
+      return "ball "+index;
+    }
+    void arcadeNotice(String msg,long ms){
+      arcadePoolNotice=msg==null?"":msg;arcadePoolNoticeUntil=System.currentTimeMillis()+Math.max(1200L,ms);
+    }
+    void captureArcadePoolObservation(){
+      arcadeObservedTeam=currentTeam;
+      for(int i=0;i<arcadeObservedActive.length;i++)arcadeObservedActive[i]=false;
+      for(Ball b:balls)if(b.index>=0&&b.index<arcadeObservedActive.length)arcadeObservedActive[b.index]=b.active||b.sinking;
+    }
+    void pollArcadePoolEvents(){
+      if(!arcadeActive)return;
+      int local=(net!=null&&net.inRoom)?net.localPlayer:1;
+      if(arcadeObservedTeam>0&&currentTeam!=arcadeObservedTeam&&currentTeam==local)
+        arcadeNotice("YOUR TURN • RETURN TO THE TABLE WHEN READY",5200L);
+      arcadeObservedTeam=currentTeam;
+      for(Ball b:balls){
+        if(b.index<=0||b.index>=arcadeObservedActive.length)continue;
+        boolean now=b.active||b.sinking;
+        if(arcadeObservedActive[b.index]&&!now){
+          int opponent=(local==1?2:1);
+          String who=aiEnabled&&opponent==2?"AI":"OPPONENT";
+          arcadeNotice(who+" SUNK "+arcadeBallName(b.index).toUpperCase(),3300L);
+        }
+        arcadeObservedActive[b.index]=now;
+      }
+    }
+
     void enterArcade(){
       if(balls.isEmpty()||state==ROLLING)return;
       Ball cue=balls.get(0);
@@ -5710,7 +5752,7 @@ public class MainActivity extends Activity {
       arcadeSnapshotValid=false;
       arcadeActive=true;tieMode=false;
       tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
-      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
+      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();captureArcadePoolObservation();arcadePoolNotice="";arcadePoolNoticeUntil=0;
       ruleMessage="DEATH STAR ASSAULT";arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=1;arcadeImpactFlash=0;if(sfx!=null)sfx.arcadeTransition();MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
     void beginArcadeExit(){if(sfx!=null)sfx.stopTieEngine();if(net!=null){net.submitArcadeScore(arcadeScore);net.requestArcadeBoard();}}
@@ -5877,8 +5919,8 @@ public class MainActivity extends Activity {
     }
 
     void step(float dt){
-      if(arcadeActive){stepArcade(dt);return;}
-      if(net!=null&&net.isFollower())return;
+      if(arcadeActive)stepArcade(dt);
+      if(net!=null&&net.isFollower()){if(arcadeActive)pollArcadePoolEvents();return;}
       if(balls.isEmpty()||world==null)return;
       if(state==ROLLING){
         physicsAccum=Math.min(.08f,physicsAccum+dt);
@@ -5924,6 +5966,7 @@ public class MainActivity extends Activity {
           }
         }
       }
+      if(arcadeActive)pollArcadePoolEvents();
     }
 
     void startPocketSink(int index,Ball b,float px,float pz){
