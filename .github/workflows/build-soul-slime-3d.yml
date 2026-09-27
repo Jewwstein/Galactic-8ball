@@ -1,0 +1,91 @@
+name: Build Soul Slime 3D Android Test
+
+on:
+  push:
+    branches:
+      - 'prototype/soul-slime-3d'
+  workflow_dispatch:
+
+jobs:
+  export_android:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android SDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "build-tools;35.0.1" "platforms;android-35"
+          mkdir -p "$HOME/.android"
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore "$HOME/.android/debug.keystore" -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12 || true
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
+
+      - name: Unpack 3D prototype source
+        run: |
+          rm -rf slime-3d/build
+          mkdir -p slime-3d/build
+          unzip -q slime-3d/SoulSlime3DTest-v0.3-source.zip -d slime-3d/build
+
+      - name: Fetch verified CC0 3D assets
+        run: |
+          P="slime-3d/build/SoulSlime3DTest"
+          mkdir -p "$P/assets/cave" "$P/assets/characters"
+          BASE="https://raw.githubusercontent.com/shorepine/kenney/main/3d/modular-cave"
+          curl -fL "$BASE/room-large.glb" -o "$P/assets/cave/room-large.glb"
+          curl -fL "$BASE/room-small.glb" -o "$P/assets/cave/room-small.glb"
+          curl -fL "$BASE/corridor-wide.glb" -o "$P/assets/cave/corridor-wide.glb"
+          curl -fL "$BASE/corridor-corner.glb" -o "$P/assets/cave/corridor-corner.glb"
+          QBASE="https://raw.githubusercontent.com/euuuuuuan/cairnfall-public/main/assets/vendor/quaternius_monsters"
+          curl -fL "$QBASE/Slime.glb" -o "$P/assets/characters/Slime.glb"
+          curl -fL "$QBASE/Bat.glb" -o "$P/assets/characters/Bat.glb"
+          curl -fL "$QBASE/LICENSE.txt" -o "$P/assets/characters/QUATERNIUS_LICENSE.txt"
+
+      - name: Configure Godot Android paths
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<SETTINGS
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "/usr/local/lib/android/sdk"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          SETTINGS
+
+      - name: Export Godot Android APK
+        id: export
+        uses: firebelley/godot-export@v8.0.0
+        with:
+          godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+          relative_project_path: ./slime-3d/build/SoulSlime3DTest
+          relative_export_path: ./slime-3d/exported
+          archive_output: false
+          export_debug: true
+          presets_to_export: Android
+          verbose: true
+          cache: true
+
+      - name: Collect APK
+        run: |
+          find . -type f -name '*.apk' -print
+          APK=$(find . -type f -name '*.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" SoulSlime3DTest-v0.3.apk
+          ls -lh SoulSlime3DTest-v0.3.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoulSlime3DTest-v0.3
+          path: SoulSlime3DTest-v0.3.apk
