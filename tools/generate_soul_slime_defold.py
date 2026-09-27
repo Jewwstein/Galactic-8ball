@@ -828,7 +828,7 @@ gui+=gui_box("death_card",640,170,970,235,"",(0.015,0.05,0.085,0.92),"ADJUST_MOD
 gui+=gui_text("death_kicker","FINAL MOMENTS",640,262,800,40,1.15,(0.72,0.94,1.0,1.0))
 gui+=gui_text("death_title","A LIFE ENDS",640,222,850,54,1.55,(1.0,1.0,1.0,1.0))
 gui+=gui_text("death_event","",640,160,890,70,1.0,(0.86,0.94,0.98,1.0))
-gui+=gui_text("death_hint","You feel the world disappear. Something else is listening.\nTouch anywhere when you are ready.",640,154,900,70,0.82,(0.64,0.84,0.92,1.0))
+gui+=gui_text("death_hint","You feel the world disappear. Something else is listening. Touch anywhere when you are ready.",640,154,900,70,0.82,(0.64,0.84,0.92,1.0))
 gui+=gui_box("death_continue",640,96,420,82,"",(0.05,0.32,0.46,0.98))
 gui+=gui_text("death_continue_label","TAP ANYWHERE TO CONTINUE",640,94,390,48,0.92,(0.94,1.0,1.0,1.0))
 
