@@ -1868,7 +1868,7 @@ public class MainActivity extends Activity {
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
-    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1,tieFirePointer=-1; volatile boolean arcadeUiActive=false; long cueTapAt=0;
+    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1,tieFirePointer=-1; volatile boolean arcadeUiActive=false; long cueTapAt=0,tieAimDownAt=0; float tieAimDownX=0,tieAimDownY=0;
     long lastAimTapMs=0;
     int screenAimTouchSlop=8;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
@@ -2222,7 +2222,7 @@ public class MainActivity extends Activity {
       arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
       arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
       drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,r.tieMode?"FLIGHT":"MOVE",ui,0xFF5BD6FF);
-      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"STEER":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
+      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"AIM / TAP FIRE":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
@@ -2246,10 +2246,7 @@ public class MainActivity extends Activity {
         p.setTextSize(13f*ui);p.setColor(r.arcadeLocked?0xFFFF6262:0xFF9BFFAA);
         c.drawText(r.arcadeLocked?"TARGET IN SIGHTS":"ACQUIRE X-WING",w*.5f,57f*ui,p);
 
-        float fireR=42f*ui,fireCx=w*.5f,fireCy=h-fireR-16f*ui;
-        tieFireRect.set(fireCx-fireR,fireCy-fireR,fireCx+fireR,fireCy+fireR);
-        p.setColor(0xCC173A20);c.drawCircle(fireCx,fireCy,fireR,p);stroke.setColor(0xFF78FF8D);stroke.setStrokeWidth(3f*ui);c.drawCircle(fireCx,fireCy,fireR,stroke);
-        p.setTextSize(15f*ui);p.setColor(Color.WHITE);c.drawText("FIRE",fireCx,fireCy+5f*ui,p);
+        tieFireRect.setEmpty(); // firing is integrated into the right AIM stick
 
         float bh=38f*ui,bw=58f*ui;
         tieUpRect.set(mx+rad*.58f,my-rad-bh-8f*ui,mx+rad*.58f+bw,my-rad-8f*ui);
@@ -2267,11 +2264,12 @@ public class MainActivity extends Activity {
         c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
       }
 
-      tieModeRect.set(18f*ui,18f*ui,128f*ui,58f*ui);
+      float bezelInset=Math.max(42f*ui,Math.min(w,h)*.055f);
+      tieModeRect.set(bezelInset,bezelInset,bezelInset+110f*ui,bezelInset+40f*ui);
       p.setColor(0xCC111923);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,p);stroke.setColor(r.tieMode?0xFF78FF8D:0xFF5BD6FF);stroke.setStrokeWidth(2f*ui);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,stroke);
       p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);c.drawText(r.tieMode?"DEATH STAR":"TIE MODE",tieModeRect.centerX(),tieModeRect.centerY()+4f*ui,p);
 
-      arcadeExitRect.set(w-118f*ui,18f*ui,w-18f*ui,58f*ui);
+      arcadeExitRect.set(w-bezelInset-100f*ui,bezelInset,w-bezelInset,bezelInset+40f*ui);
       p.setColor(0xCC111923);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,p);stroke.setColor(0x88FFFFFF);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,stroke);
       p.setTextSize(12f*ui);p.setColor(Color.WHITE);c.drawText("EXIT",arcadeExitRect.centerX(),arcadeExitRect.centerY()+4f*ui,p);
     }
@@ -3076,11 +3074,12 @@ public class MainActivity extends Activity {
           float px=e.getX(idx),py=e.getY(idx);
           if(arcadeExitRect.contains(px,py)){clearArcadeUiState();game.queueEvent(()->r.exitArcade());return true;}
           if(tieModeRect.contains(px,py)){game.queueEvent(()->r.setTieMode(!r.tieMode));invalidate();return true;}
-          if(r.tieMode&&tieFireRect.contains(px,py)){tieFirePointer=pid;game.queueEvent(()->r.setTieFire(true));return true;}
           if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
           if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
           if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
-          else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,px,py);}
+          else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){
+            arcadeAimPointer=pid;tieAimDownAt=System.currentTimeMillis();tieAimDownX=px;tieAimDownY=py;setArcadeStick(false,px,py);
+          }
           return true;
         }
         if(a==MotionEvent.ACTION_MOVE){
@@ -3103,7 +3102,14 @@ public class MainActivity extends Activity {
           final int pid=e.getPointerId(idx);
           if(pid==tieFirePointer){tieFirePointer=-1;game.queueEvent(()->r.setTieFire(false));}
           if(pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
-          if(pid==arcadeAimPointer){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
+          if(pid==arcadeAimPointer){
+            if(r.tieMode){
+              float ux=e.getX(idx)-tieAimDownX,uy=e.getY(idx)-tieAimDownY;
+              long held=System.currentTimeMillis()-tieAimDownAt;
+              if(held<260&&ux*ux+uy*uy<(34f*ui)*(34f*ui))game.queueEvent(()->r.fireTieShot());
+            }
+            arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));
+          }
           invalidate();return true;
         }
         return true;
@@ -5635,6 +5641,7 @@ public class MainActivity extends Activity {
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
     void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;}
     void setTieFire(boolean on){tieFire=on;}
+    void fireTieShot(){if(tieMode){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
     void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
 
     void spawnArcadeWave(){
@@ -5681,8 +5688,10 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         e.age+=dt;e.phase+=dt;
         if(e.dying){
-          e.deathT+=dt;e.y-=5.2f*dt;e.x+=e.vx*.28f*dt;e.z+=e.vz*.28f*dt;
-          if(e.deathT>.52f)e.active=false;
+          e.deathT+=dt;
+          float fallBoost=.45f+e.deathT*.95f;
+          e.y-=3.0f*fallBoost*dt;e.x+=e.vx*.38f*dt;e.z+=e.vz*.38f*dt;
+          if(e.deathT>1.65f)e.active=false;
           continue;
         }
         float escape=e.age>e.life?1.42f:1f;
@@ -5698,7 +5707,7 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
-      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.16f:.34f;best.hp--;arcadeShotClock=.42f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.30f:.34f;best.hp--;arcadeShotClock=.42f;if(tieMode)tieFire=false;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
       else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
@@ -5709,8 +5718,8 @@ public class MainActivity extends Activity {
         float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
         android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*980f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*620f,1,0,0);
-        float fade=e.dying?Math.max(0f,1f-e.deathT/.52f):1f;
-        if(e.xwing){float sc=e.dying?2.18f*(1f-e.deathT*.55f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});}
+        float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.85f)/.80f):1f;
+        if(e.xwing){float sc=e.dying?2.18f*Math.max(.38f,1f-e.deathT*.30f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});}
         else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
       if(arcadeLaserT>0){
@@ -5718,7 +5727,7 @@ public class MainActivity extends Activity {
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Dish muzzle -> retained target position. This makes the visible shot
         // agree with the hit calculation instead of drawing a camera-length ray.
-        float sx=arcadeX+fx*(tieMode?.72f:1.58f),sy=(tieMode?arcadeY:2.38f)+fy*(tieMode?.25f:.72f),sz=arcadeZ+fz*(tieMode?.72f:1.58f);
+        float sx=arcadeX+fx*(tieMode?2.85f:1.58f),sy=(tieMode?arcadeY+.02f:2.38f)+fy*(tieMode?.12f:.72f),sz=arcadeZ+fz*(tieMode?2.85f:1.58f);
         float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
         float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
         if(dist>.05f){
@@ -5727,9 +5736,9 @@ public class MainActivity extends Activity {
           android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
           // Deliberately simple solid beam: no saber UV/depth-state dependency.
           // Outer green body plus bright core makes it readable on both orientations.
-          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,.34f,.34f,dist*.5f);
+          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,tieMode?.46f:.34f,tieMode?.46f:.34f,dist*.5f);
           drawMesh(dogfightBolt,pv,H,0,new float[]{.05f,1f,.16f,1f});
-          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,.16f,.16f,dist*.505f);
+          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,tieMode?.22f:.16f,tieMode?.22f:.16f,dist*.505f);
           drawMesh(dogfightBolt,pv,C,0,new float[]{.72f,1f,.76f,1f});
         }
       }
