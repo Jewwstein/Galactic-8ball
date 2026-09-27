@@ -12,7 +12,7 @@ import android.widget.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    enum Scene { DEATH, REBIRTH, CREATOR, COMPLETE }
+    enum Scene { DEATH, REBIRTH, CREATOR, CAVE, COMPLETE }
 
     static final int CYAN = Color.rgb(92, 226, 255);
     static final int CYAN_BRIGHT = Color.rgb(205, 250, 255);
@@ -34,6 +34,8 @@ public class MainActivity extends Activity {
 
     LinearLayout optionsContainer;
     TextView creatorStatus;
+    TextView caveObjective, caveStats;
+    Button caveContinue;
     final ArrayList<Button> categoryButtons = new ArrayList<>();
 
     static final String[] DEATHS = {
@@ -363,7 +365,7 @@ public class MainActivity extends Activity {
         });
         lock.setOnClickListener(v->{
             saveCreator();
-            showComplete();
+            showCave();
         });
 
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(panelWidth,-1,Gravity.RIGHT|Gravity.CENTER_VERTICAL);
@@ -478,6 +480,105 @@ public class MainActivity extends Activity {
         canvas.invalidate();
     }
 
+
+    void showCave(){
+        scene=Scene.CAVE;
+        clearOverlay();
+        canvas.startCave();
+
+        LinearLayout hud=new LinearLayout(this);
+        hud.setOrientation(LinearLayout.VERTICAL);
+        hud.setPadding(dp(12),dp(9),dp(12),dp(9));
+        hud.setBackground(panelDrawable(Color.argb(196,4,18,31),Color.argb(185,92,226,255),16));
+
+        TextView zone=text("CRYSTAL CAVE // AWAKENING",12,CYAN_BRIGHT);
+        zone.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        caveObjective=text("OBJECTIVE  •  Absorb 5 crystals and defeat the Cave Mite.",11,Color.WHITE);
+        caveObjective.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        caveStats=text("",10,Color.rgb(164,224,241));
+        caveStats.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        caveContinue=button("AWAKENING COMPLETE  •  CONTINUE",Color.rgb(126,238,255),true);
+        caveContinue.setVisibility(View.GONE);
+        caveContinue.setOnClickListener(v->showComplete());
+
+        hud.addView(zone,new LinearLayout.LayoutParams(-1,dp(25)));
+        hud.addView(caveObjective,new LinearLayout.LayoutParams(-1,dp(27)));
+        hud.addView(caveStats,new LinearLayout.LayoutParams(-1,dp(25)));
+        hud.addView(caveContinue,new LinearLayout.LayoutParams(-1,dp(44)));
+
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(Math.min(dp(520),(int)(screenW()*.48f)),-2,Gravity.TOP|Gravity.LEFT);
+        hp.setMargins(dp(18),dp(14),0,0);
+        root.addView(hud,hp);
+
+        // Native movement pad: actual Android Buttons, separate from the art layer.
+        FrameLayout pad=new FrameLayout(this);
+        int key=dp(62), gap=dp(5);
+        Button up=button("▲",CYAN,false);
+        Button down=button("▼",CYAN,false);
+        Button left=button("◀",CYAN,false);
+        Button right=button("▶",CYAN,false);
+        up.setTextSize(21);down.setTextSize(21);left.setTextSize(21);right.setTextSize(21);
+
+        FrameLayout.LayoutParams upLp=new FrameLayout.LayoutParams(key,key,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
+        FrameLayout.LayoutParams downLp=new FrameLayout.LayoutParams(key,key,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+        FrameLayout.LayoutParams leftLp=new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.LEFT);
+        FrameLayout.LayoutParams rightLp=new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.RIGHT);
+        pad.addView(up,upLp);pad.addView(down,downLp);pad.addView(left,leftLp);pad.addView(right,rightLp);
+
+        bindMove(up,0,-1);
+        bindMove(down,0,1);
+        bindMove(left,-1,0);
+        bindMove(right,1,0);
+
+        FrameLayout.LayoutParams padLp=new FrameLayout.LayoutParams(dp(194),dp(194),Gravity.BOTTOM|Gravity.LEFT);
+        padLp.setMargins(dp(22),0,0,dp(18));
+        root.addView(pad,padLp);
+
+        Button attack=button("MAGIC\nBURST",Color.rgb(107,178,255),true);
+        attack.setTextSize(14);
+        attack.setOnClickListener(v->canvas.attack());
+        FrameLayout.LayoutParams aLp=new FrameLayout.LayoutParams(dp(112),dp(82),Gravity.BOTTOM|Gravity.RIGHT);
+        aLp.setMargins(0,0,dp(28),dp(32));
+        root.addView(attack,aLp);
+
+        Button absorb=button("ABSORB",Color.rgb(97,232,178),false);
+        absorb.setTextSize(12);
+        absorb.setOnClickListener(v->canvas.absorbPulse());
+        FrameLayout.LayoutParams abLp=new FrameLayout.LayoutParams(dp(104),dp(58),Gravity.BOTTOM|Gravity.RIGHT);
+        abLp.setMargins(0,0,dp(154),dp(44));
+        root.addView(absorb,abLp);
+
+        updateCaveHud();
+    }
+
+    void bindMove(Button b,float x,float y){
+        b.setOnTouchListener((v,e)->{
+            if(scene!=Scene.CAVE)return false;
+            if(e.getAction()==MotionEvent.ACTION_DOWN){
+                canvas.setMove(x,y);
+                v.setScaleX(.94f);v.setScaleY(.94f);
+                return true;
+            }
+            if(e.getAction()==MotionEvent.ACTION_UP||e.getAction()==MotionEvent.ACTION_CANCEL){
+                canvas.setMove(0,0);
+                v.setScaleX(1f);v.setScaleY(1f);
+                return true;
+            }
+            return true;
+        });
+    }
+
+    void updateCaveHud(){
+        if(caveStats==null||canvas==null)return;
+        caveStats.setText("Crystals  "+canvas.caveCrystals+"/5     Enemy HP  "+Math.max(0,canvas.enemyHp)+"/5     Skill  "+prefs.getString("starting_skill","UNASSIGNED"));
+        boolean done=canvas.caveCrystals>=5 && canvas.enemyHp<=0;
+        if(done){
+            caveObjective.setText("AWAKENING COMPLETE  •  Vessel stable. First threat defeated.");
+            caveObjective.setTextColor(Color.rgb(188,255,220));
+            caveContinue.setVisibility(View.VISIBLE);
+        }
+    }
+
     void showComplete(){
         scene=Scene.COMPLETE;
         clearOverlay();
@@ -514,9 +615,10 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed(){
+        if(scene==Scene.CAVE){ showCreator(); return; }
         if(scene==Scene.CREATOR){ showRebirth(); return; }
         if(scene==Scene.REBIRTH){ showDeath(); return; }
-        if(scene==Scene.COMPLETE){ showCreator(); return; }
+        if(scene==Scene.COMPLETE){ showCave(); return; }
         super.onBackPressed();
     }
 
@@ -528,6 +630,14 @@ public class MainActivity extends Activity {
         Scene drawScene=Scene.DEATH;
         long reactionStart=0, corePulseStart=0;
         boolean fullSpin=false;
+
+        float moveX=0,moveY=0,playerX=-1,playerY=-1,enemyX=-1,enemyY=-1;
+        float enemyVx=0,enemyVy=0,lastFacing=1f;
+        int enemyHp=5,caveCrystals=0;
+        final boolean[] crystalTaken=new boolean[5];
+        final float[][] crystalNorm={{.22f,.66f},{.39f,.34f},{.57f,.72f},{.74f,.42f},{.86f,.66f}};
+        long lastFrame=0,attackStart=0,enemyHitStart=0,absorbStart=0,playerTrailStart=0;
+        boolean caveInitialized=false;
 
         SoulCanvas(Context c){
             super(c);
@@ -542,6 +652,57 @@ public class MainActivity extends Activity {
         void react(boolean spin){ reactionStart=SystemClock.uptimeMillis(); fullSpin=spin; invalidate(); }
         void pulseCore(){ corePulseStart=SystemClock.uptimeMillis(); invalidate(); }
 
+        void startCave(){
+            setScene(Scene.CAVE);
+            caveInitialized=false;
+            Arrays.fill(crystalTaken,false);
+            caveCrystals=0;
+            enemyHp=5;
+            moveX=moveY=0;
+            attackStart=enemyHitStart=absorbStart=0;
+            lastFrame=0;
+        }
+
+        void setMove(float x,float y){
+            moveX=x;moveY=y;
+            if(Math.abs(x)>.01f)lastFacing=Math.signum(x);
+        }
+
+        void attack(){
+            if(drawScene!=Scene.CAVE)return;
+            long now=SystemClock.uptimeMillis();
+            if(now-attackStart<420)return;
+            attackStart=now;
+            float dx=enemyX-playerX,dy=enemyY-playerY;
+            float dist=(float)Math.sqrt(dx*dx+dy*dy);
+            float range=Math.max(120,getHeight()*.26f);
+            boolean inFront=(lastFacing>=0?dx>-40:dx<40);
+            if(enemyHp>0&&dist<range&&inFront){
+                enemyHp=Math.max(0,enemyHp-1);
+                enemyHitStart=now;
+                enemyVx=lastFacing*getWidth()*.12f;
+                enemyVy=-getHeight()*.045f;
+                runOnUiThread(()->updateCaveHud());
+            }
+            invalidate();
+        }
+
+        void absorbPulse(){
+            if(drawScene!=Scene.CAVE)return;
+            absorbStart=SystemClock.uptimeMillis();
+            float radius=Math.max(120,getHeight()*.25f);
+            for(int i=0;i<crystalNorm.length;i++){
+                if(crystalTaken[i])continue;
+                float cx=crystalNorm[i][0]*getWidth(),cy=crystalNorm[i][1]*getHeight();
+                float dx=cx-playerX,dy=cy-playerY;
+                if(dx*dx+dy*dy<=radius*radius){
+                    crystalTaken[i]=true;caveCrystals++;
+                }
+            }
+            runOnUiThread(()->updateCaveHud());
+            invalidate();
+        }
+
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);
             int w=getWidth(),h=getHeight();
@@ -552,7 +713,8 @@ public class MainActivity extends Activity {
             else if(drawScene==Scene.CREATOR){
                 drawAnalysis(c,w,h,now,w*.29f,h*.52f,false);
                 drawSlime(c,w,h,now);
-            }else drawCave(c,w,h,now);
+            }else if(drawScene==Scene.CAVE) drawCaveGameplay(c,w,h,now);
+            else drawCave(c,w,h,now);
             postInvalidateDelayed(16);
         }
 
@@ -642,16 +804,27 @@ public class MainActivity extends Activity {
         void drawSlime(Canvas c,int w,int h,long now){
             float cx=w*.29f, cy=h*.56f;
             float r=Math.min(w*.18f,h*.34f);
-            float breath=1f+.018f*(float)Math.sin(now/420.0);
+            drawAnimeSlime(c,cx,cy,r,now,0,0,false);
+        }
+
+        void drawAnimeSlime(Canvas c,float cx,float cy,float r,long now,float vx,float vy,boolean gameplay){
+            float speed=(float)Math.sqrt(vx*vx+vy*vy);
+            float breath=1f+.022f*(float)Math.sin(now/360.0);
             float sx=breath, sy=2f-breath, rot=0;
 
+            if(gameplay&&speed>.01f){
+                float lean=Math.max(-1f,Math.min(1f,vx/(Math.max(1f,getWidth()*.25f))));
+                rot=lean*8f;
+                sx*=1.035f;sy*=.965f;
+            }
+
             long age=now-reactionStart;
-            if(age>=0 && age<520){
+            if(!gameplay&&age>=0&&age<520){
                 float t=age/520f;
                 float wave=(float)Math.sin(Math.PI*t);
-                sx*=1f+.11f*wave;
-                sy*=1f-.13f*wave;
-                rot=fullSpin?360f*t:14f*(float)Math.sin(Math.PI*2*t);
+                sx*=1f+.13f*wave;
+                sy*=1f-.15f*wave;
+                rot=fullSpin?360f*t:15f*(float)Math.sin(Math.PI*2*t);
             }
 
             c.save();
@@ -660,39 +833,64 @@ public class MainActivity extends Activity {
             c.scale(sx,sy);
 
             float auraA=new float[]{.20f,.42f,.62f,.82f,1f}[Math.max(0,Math.min(4,aura))];
-            for(int i=3;i>=1;i--){
-                stroke.setStrokeWidth(3+i*2);
-                stroke.setColor(Color.argb((int)(42*auraA*i),90,235,255));
-                c.drawCircle(0,0,r*(1.00f+i*.10f),stroke);
+            for(int i=4;i>=1;i--){
+                stroke.setStrokeWidth(2+i*2.5f);
+                stroke.setColor(Color.argb((int)(28*auraA*i),72,226,255));
+                c.drawCircle(0,0,r*(1.00f+i*.085f),stroke);
             }
 
             Path shape=slimePath(r);
             int baseColor=slimeColor();
-            int bodyA=new int[]{140,173,209,235}[Math.max(0,Math.min(3,alpha))];
-            int light=blend(baseColor,Color.WHITE,.42f);
-            int dark=blend(baseColor,Color.BLACK,.38f);
-            p.setShader(new RadialGradient(-r*.32f,-r*.42f,r*1.45f,
-                new int[]{Color.argb(bodyA,Color.red(light),Color.green(light),Color.blue(light)),
-                          Color.argb(bodyA,Color.red(baseColor),Color.green(baseColor),Color.blue(baseColor)),
-                          Color.argb(bodyA,Color.red(dark),Color.green(dark),Color.blue(dark))},
-                new float[]{0f,.52f,1f},Shader.TileMode.CLAMP));
-            c.drawPath(shape,p); p.setShader(null);
+            int bodyA=new int[]{165,190,220,242}[Math.max(0,Math.min(3,alpha))];
+            int light=blend(baseColor,Color.WHITE,.60f);
+            int mid=blend(baseColor,Color.WHITE,.15f);
+            int dark=blend(baseColor,Color.rgb(6,24,48),.48f);
 
+            // Anime outer keyline.
+            stroke.setStrokeWidth(Math.max(6f,r*.045f));
+            stroke.setColor(Color.argb(238,17,39,72));
+            c.drawPath(shape,stroke);
+
+            // Clean cel-shaded base.
+            p.setShader(new LinearGradient(-r,-r,r,r,
+                new int[]{
+                    Color.argb(bodyA,Color.red(light),Color.green(light),Color.blue(light)),
+                    Color.argb(bodyA,Color.red(mid),Color.green(mid),Color.blue(mid)),
+                    Color.argb(bodyA,Color.red(dark),Color.green(dark),Color.blue(dark))
+                },new float[]{0f,.55f,1f},Shader.TileMode.CLAMP));
+            c.drawPath(shape,p);p.setShader(null);
+
+            // Hard-edged cel shadow clipped to lower/right side.
             c.save();
             c.clipPath(shape);
-            p.setColor(Color.argb(86,255,255,255));
-            c.drawOval(new RectF(-r*.58f,-r*.68f,r*.12f,-r*.30f),p);
-            p.setColor(Color.argb(48,255,255,255));
-            c.drawOval(new RectF(-r*.72f,-r*.26f,-r*.42f,-r*.06f),p);
+            p.setColor(Color.argb(58,6,22,55));
+            Path shade=new Path();
+            shade.moveTo(-r*1.1f,r*.20f);
+            shade.cubicTo(-r*.25f,r*.08f,r*.15f,r*.36f,r*1.05f,-r*.05f);
+            shade.lineTo(r*1.1f,r*1.2f);shade.lineTo(-r*1.1f,r*1.2f);shade.close();
+            c.drawPath(shade,p);
+
+            // Big anime glossy highlight.
+            p.setColor(Color.argb(150,255,255,255));
+            c.drawOval(new RectF(-r*.58f,-r*.68f,r*.06f,-r*.34f),p);
+            p.setColor(Color.argb(72,255,255,255));
+            c.drawOval(new RectF(-r*.62f,-r*.24f,-r*.38f,-r*.05f),p);
             c.restore();
 
             drawMarkings(c,r);
             drawCore(c,r);
             drawEyes(c,r);
 
-            stroke.setStrokeWidth(3.5f);
-            stroke.setColor(Color.argb(185,198,247,255));
-            c.drawPath(shape,stroke);
+            // Tiny expression line gives the slime a more animated/chibi face.
+            stroke.setStrokeWidth(Math.max(2.5f,r*.020f));
+            stroke.setColor(Color.argb(175,16,31,55));
+            RectF mouth=new RectF(-r*.12f,r*.08f,r*.12f,r*.22f);
+            c.drawArc(mouth,15,150,false,stroke);
+
+            // Cyan rim light.
+            stroke.setStrokeWidth(Math.max(2f,r*.014f));
+            stroke.setColor(Color.argb(210,190,249,255));
+            c.drawArc(new RectF(-r*.77f,-r*.84f,r*.77f,r*.86f),198,118,false,stroke);
 
             c.restore();
         }
@@ -756,12 +954,15 @@ public class MainActivity extends Activity {
                 p.setColor(Color.rgb(255,231,112));
                 drawStar(c,-dx,y,r*.12f,p);drawStar(c,dx,y,r*.12f,p);
             }else{
-                p.setColor(Color.rgb(5,16,30));
-                c.drawOval(new RectF(-dx-r*.10f,y-r*.14f,-dx+r*.10f,y+r*.14f),p);
-                c.drawOval(new RectF(dx-r*.10f,y-r*.14f,dx+r*.10f,y+r*.14f),p);
-                p.setColor(Color.WHITE);
-                c.drawCircle(-dx-r*.03f,y-r*.05f,r*.030f,p);
-                c.drawCircle(dx-r*.03f,y-r*.05f,r*.030f,p);
+                p.setColor(Color.rgb(8,18,37));
+                c.drawOval(new RectF(-dx-r*.115f,y-r*.165f,-dx+r*.115f,y+r*.165f),p);
+                c.drawOval(new RectF(dx-r*.115f,y-r*.165f,dx+r*.115f,y+r*.165f),p);
+                p.setColor(Color.rgb(220,252,255));
+                c.drawCircle(-dx-r*.035f,y-r*.060f,r*.037f,p);
+                c.drawCircle(dx-r*.035f,y-r*.060f,r*.037f,p);
+                p.setColor(Color.argb(140,255,255,255));
+                c.drawCircle(-dx+r*.025f,y+r*.045f,r*.018f,p);
+                c.drawCircle(dx+r*.025f,y+r*.045f,r*.018f,p);
             }
         }
 
@@ -801,6 +1002,228 @@ public class MainActivity extends Activity {
                 stroke.setStrokeWidth(3);stroke.setColor(Color.WHITE);c.drawCircle(x,y,r*.105f,stroke);
                 p.setColor(Color.WHITE);c.drawCircle(x-r*.032f,y-r*.035f,r*.026f,p);
             }
+        }
+
+
+        void drawCaveGameplay(Canvas c,int w,int h,long now){
+            if(!caveInitialized){
+                playerX=w*.18f;playerY=h*.62f;
+                enemyX=w*.76f;enemyY=h*.55f;
+                enemyVx=enemyVy=0;
+                caveInitialized=true;lastFrame=now;
+            }
+            float dt=lastFrame==0?0f:Math.min(.033f,(now-lastFrame)/1000f);
+            lastFrame=now;
+
+            // Movement: responsive anime glide with slight hop/squash handled in slime renderer.
+            float m=(float)Math.sqrt(moveX*moveX+moveY*moveY);
+            float nx=m>.01f?moveX/m:0,ny=m>.01f?moveY/m:0;
+            float speed=Math.min(w,h)*.48f;
+            float vx=nx*speed,vy=ny*speed;
+            playerX+=vx*dt;playerY+=vy*dt;
+            playerX=Math.max(w*.07f,Math.min(w*.93f,playerX));
+            playerY=Math.max(h*.24f,Math.min(h*.82f,playerY));
+
+            if(m>.01f)playerTrailStart=now;
+
+            // Enemy floats toward the player, then gets knocked back by attacks.
+            if(enemyHp>0){
+                float dx=playerX-enemyX,dy=playerY-enemyY;
+                float d=(float)Math.sqrt(dx*dx+dy*dy);
+                if(d>1){
+                    enemyVx+=dx/d*w*.018f*dt;
+                    enemyVy+=dy/d*h*.018f*dt;
+                }
+                enemyVx*=.965f;enemyVy*=.965f;
+                enemyX+=enemyVx*dt;enemyY+=enemyVy*dt;
+                enemyX=Math.max(w*.08f,Math.min(w*.92f,enemyX));
+                enemyY=Math.max(h*.28f,Math.min(h*.80f,enemyY));
+            }
+
+            drawAnimeCave(c,w,h,now);
+
+            // Crystals and auto-pickup.
+            for(int i=0;i<crystalNorm.length;i++){
+                if(crystalTaken[i])continue;
+                float cx=crystalNorm[i][0]*w,cy=crystalNorm[i][1]*h;
+                drawCrystal(c,cx,cy,Math.min(w,h)*.040f,now+i*173);
+                float dx=cx-playerX,dy=cy-playerY;
+                float rr=Math.min(w,h)*.085f;
+                if(dx*dx+dy*dy<rr*rr){
+                    crystalTaken[i]=true;caveCrystals++;
+                    absorbStart=now;
+                    runOnUiThread(()->updateCaveHud());
+                }
+            }
+
+            if(enemyHp>0)drawCaveEnemy(c,enemyX,enemyY,Math.min(w,h)*.075f,now);
+
+            // Movement afterimages / speed streaks.
+            if(m>.01f){
+                p.setColor(Color.argb(45,120,238,255));
+                for(int i=1;i<=3;i++){
+                    float tx=playerX-vx*.035f*i,ty=playerY-vy*.035f*i;
+                    c.drawOval(new RectF(tx-18,ty-9,tx+18,ty+9),p);
+                }
+            }
+
+            drawAnimeSlime(c,playerX,playerY,Math.min(w,h)*.085f,now,vx,vy,true);
+
+            // Anime attack: luminous crescent + impact burst + speed lines.
+            long attackAge=now-attackStart;
+            if(attackStart>0&&attackAge<360){
+                float t=attackAge/360f;
+                float dir=lastFacing>=0?1f:-1f;
+                float reach=Math.min(w,h)*(.13f+.16f*t);
+                float ax=playerX+dir*reach,ay=playerY;
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(8f,h*.018f)*(1f-t*.45f));
+                stroke.setColor(Color.argb((int)(245*(1-t)),190,251,255));
+                RectF arc=new RectF(ax-reach*.48f,ay-reach*.70f,ax+reach*.48f,ay+reach*.70f);
+                c.drawArc(arc,dir>0?-72:108,dir>0?144:-144,false,stroke);
+                stroke.setStrokeWidth(3);
+                stroke.setColor(Color.argb((int)(210*(1-t)),86,203,255));
+                c.drawArc(new RectF(arc.left-12,arc.top-12,arc.right+12,arc.bottom+12),
+                    dir>0?-70:110,dir>0?140:-140,false,stroke);
+                for(int i=0;i<12;i++){
+                    float yy=ay+(i-6)*h*.012f;
+                    float len=(1f-t)*w*(.045f+.006f*(i%4));
+                    p.setColor(Color.argb((int)(95*(1-t)),185,246,255));
+                    c.drawRect(dir>0?playerX-len:playerX,yy,dir>0?playerX:playerX+len,yy+2,p);
+                }
+            }
+
+            long hitAge=now-enemyHitStart;
+            if(enemyHitStart>0&&hitAge<300&&enemyHp>=0){
+                float t=hitAge/300f;
+                for(int i=0;i<18;i++){
+                    double a=i*Math.PI*2/18.0;
+                    float len=Math.min(w,h)*(.04f+.09f*(1-t));
+                    stroke.setStrokeWidth(3);
+                    stroke.setColor(Color.argb((int)(230*(1-t)),255,238,145));
+                    c.drawLine(enemyX,enemyY,enemyX+(float)Math.cos(a)*len,enemyY+(float)Math.sin(a)*len,stroke);
+                }
+            }
+
+            long absorbAge=now-absorbStart;
+            if(absorbStart>0&&absorbAge<620){
+                float t=absorbAge/620f;
+                stroke.setStrokeWidth(5);
+                stroke.setColor(Color.argb((int)(210*(1-t)),108,255,207));
+                c.drawCircle(playerX,playerY,Math.min(w,h)*(.08f+.26f*t),stroke);
+            }
+
+            if(enemyHp<=0){
+                p.setColor(Color.argb(210,188,255,224));
+                p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(20,h*.036f));
+                c.drawText("CAVE MITE DEFEATED",w*.76f,h*.22f,p);
+                p.setTextAlign(Paint.Align.LEFT);
+            }
+        }
+
+        void drawAnimeCave(Canvas c,int w,int h,long now){
+            p.setShader(new LinearGradient(0,0,0,h,
+                new int[]{Color.rgb(8,15,34),Color.rgb(15,38,67),Color.rgb(5,17,31)},
+                new float[]{0f,.55f,1f},Shader.TileMode.CLAMP));
+            c.drawRect(0,0,w,h,p);p.setShader(null);
+
+            // Distant luminous chamber.
+            drawGlow(c,w*.58f,h*.40f,Math.min(w,h)*.58f,Color.argb(92,71,185,255));
+            drawGlow(c,w*.31f,h*.53f,Math.min(w,h)*.27f,Color.argb(55,176,92,255));
+
+            // Layered anime cave silhouettes for 2.5D depth.
+            Path back=new Path();
+            back.moveTo(0,h*.30f);
+            for(int i=0;i<=12;i++){
+                float x=i*w/12f;
+                float y=h*(.28f+.075f*(float)Math.sin(i*1.37));
+                back.lineTo(x,y);
+            }
+            back.lineTo(w,0);back.lineTo(0,0);back.close();
+            p.setColor(Color.rgb(13,23,48));c.drawPath(back,p);
+
+            Path floor=new Path();floor.moveTo(0,h*.75f);
+            for(int i=0;i<=14;i++){
+                float x=i*w/14f;
+                float y=h*(.72f+.035f*(float)Math.sin(i*1.7));
+                floor.lineTo(x,y);
+            }
+            floor.lineTo(w,h);floor.lineTo(0,h);floor.close();
+            p.setColor(Color.rgb(7,22,35));c.drawPath(floor,p);
+
+            // Hard cel-lit rock facets.
+            p.setColor(Color.argb(75,75,152,196));
+            for(int i=0;i<10;i++){
+                float x=(i*.113f+.03f)*w;
+                Path facet=new Path();
+                facet.moveTo(x,h*.22f);
+                facet.lineTo(x+w*.045f,h*.36f);
+                facet.lineTo(x+w*.018f,h*.58f);
+                facet.lineTo(x-w*.035f,h*.43f);
+                facet.close();c.drawPath(facet,p);
+            }
+
+            // Stalactites / foreground silhouettes.
+            p.setColor(Color.rgb(4,10,22));
+            Path top=new Path();top.moveTo(0,0);top.lineTo(w,0);
+            for(int i=12;i>=0;i--){
+                float x=i*w/12f;
+                float y=h*(.10f+.16f*((i*29)%100)/100f);
+                top.lineTo(x,y);
+                top.lineTo(x-w*.022f,y+h*(.06f+.08f*(i%3)));
+            }
+            top.close();c.drawPath(top,p);
+
+            // Spark motes.
+            for(int i=0;i<px.length;i++){
+                float x=(px[i]*w+(now*.012f*(i%3+1)))%w;
+                float y=py[i]*h;
+                p.setColor(Color.argb(40+(i%5)*15,150,239,255));
+                c.drawCircle(x,y,ps[i]*.8f,p);
+            }
+        }
+
+        void drawCrystal(Canvas c,float x,float y,float r,long now){
+            float bob=(float)Math.sin(now/280.0)*r*.08f;
+            c.save();c.translate(x,y+bob);
+            Path q=new Path();
+            q.moveTo(0,-r);q.lineTo(r*.58f,-r*.20f);q.lineTo(r*.34f,r*.78f);
+            q.lineTo(-r*.34f,r*.78f);q.lineTo(-r*.58f,-r*.20f);q.close();
+            int col=Color.rgb(112,227,255);
+            p.setShader(new LinearGradient(-r,-r,r,r,Color.WHITE,col,Shader.TileMode.CLAMP));
+            c.drawPath(q,p);p.setShader(null);
+            stroke.setStrokeWidth(3);stroke.setColor(Color.argb(230,214,252,255));c.drawPath(q,stroke);
+            p.setColor(Color.argb(120,255,255,255));
+            Path hi=new Path();hi.moveTo(-r*.18f,-r*.62f);hi.lineTo(r*.05f,-r*.42f);hi.lineTo(-r*.04f,r*.30f);hi.close();c.drawPath(hi,p);
+            c.restore();
+            drawGlow(c,x,y,r*2.2f,Color.argb(42,92,223,255));
+        }
+
+        void drawCaveEnemy(Canvas c,float x,float y,float r,long now){
+            float bob=(float)Math.sin(now/260.0)*r*.08f;
+            c.save();c.translate(x,y+bob);
+            // Shadow
+            p.setColor(Color.argb(80,0,0,0));c.drawOval(new RectF(-r*.8f,r*.70f,r*.8f,r*.98f),p);
+            // Body with anime purple cel shade.
+            Path bodyP=new Path();
+            bodyP.moveTo(-r*.78f,r*.35f);
+            bodyP.cubicTo(-r*.95f,-r*.30f,-r*.45f,-r*.78f,0,-r*.72f);
+            bodyP.cubicTo(r*.45f,-r*.78f,r*.95f,-r*.30f,r*.78f,r*.35f);
+            bodyP.cubicTo(r*.55f,r*.82f,-r*.55f,r*.82f,-r*.78f,r*.35f);bodyP.close();
+            stroke.setStrokeWidth(6);stroke.setColor(Color.rgb(27,16,49));c.drawPath(bodyP,stroke);
+            p.setShader(new LinearGradient(-r,-r,r,r,Color.rgb(202,126,255),Color.rgb(74,32,122),Shader.TileMode.CLAMP));
+            c.drawPath(bodyP,p);p.setShader(null);
+            // Horns
+            p.setColor(Color.rgb(235,215,255));
+            Path h1=new Path();h1.moveTo(-r*.45f,-r*.55f);h1.lineTo(-r*.60f,-r*1.02f);h1.lineTo(-r*.20f,-r*.68f);h1.close();c.drawPath(h1,p);
+            Path h2=new Path();h2.moveTo(r*.45f,-r*.55f);h2.lineTo(r*.60f,-r*1.02f);h2.lineTo(r*.20f,-r*.68f);h2.close();c.drawPath(h2,p);
+            // Angry anime eyes.
+            p.setColor(Color.rgb(255,243,130));
+            c.drawOval(new RectF(-r*.50f,-r*.25f,-r*.12f,r*.05f),p);
+            c.drawOval(new RectF(r*.12f,-r*.25f,r*.50f,r*.05f),p);
+            p.setColor(Color.rgb(35,12,47));
+            c.drawCircle(-r*.28f,-r*.07f,r*.07f,p);c.drawCircle(r*.28f,-r*.07f,r*.07f,p);
+            c.restore();
         }
 
         void drawCave(Canvas c,int w,int h,long now){
