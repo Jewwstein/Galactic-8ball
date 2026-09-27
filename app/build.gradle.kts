@@ -16,8 +16,8 @@ android {
    applicationId = "com.galactic.eightball"
    minSdk = 26
    targetSdk = 35
-        versionCode = 58
-        versionName = "0.8.41"
+        versionCode = 59
+        versionName = "0.8.42"
  }
 
  buildTypes {
