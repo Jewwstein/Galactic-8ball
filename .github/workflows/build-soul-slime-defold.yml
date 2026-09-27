@@ -40,10 +40,10 @@ jobs:
           from pathlib import Path
           p = Path("defold_project/main/creator.go")
           s = p.read_text()
-          s = s.replace('\\\\n', '\\n')
+          s = s.replace("\\\\", "\\")
           p.write_text(s)
           print("\n".join(s.splitlines()[:15]))
-          assert '\\\\n' not in s
+          assert "\\\\" not in s
           PY
 
       - name: Download Defold 1.13.1 builder
