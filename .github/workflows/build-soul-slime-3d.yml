@@ -43,7 +43,7 @@ jobs:
           cp slime-3d/v04/README.md slime-3d/build/SoulSlime3DTest/README.md
           cp slime-3d/v04/scripts/hud.gd slime-3d/build/SoulSlime3DTest/scripts/hud.gd
           cat slime-3d/v04/scripts/main.part*.gd > slime-3d/build/SoulSlime3DTest/scripts/main.gd
-          test "$(wc -l < slime-3d/build/SoulSlime3DTest/scripts/main.gd)" -eq 699
+          test "$(wc -l < slime-3d/build/SoulSlime3DTest/scripts/main.gd)" -eq 701
           echo "Assembled main.gd: $(wc -c < slime-3d/build/SoulSlime3DTest/scripts/main.gd) bytes"
 
       - name: Fetch verified CC0 3D assets
