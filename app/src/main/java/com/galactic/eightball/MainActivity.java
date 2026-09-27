@@ -1858,7 +1858,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
@@ -1909,6 +1909,7 @@ public class MainActivity extends Activity {
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
+      tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud);
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
       for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
@@ -2226,22 +2227,12 @@ public class MainActivity extends Activity {
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
-        // Native TIE cockpit HUD. This is deliberately vector-drawn so it is
-        // resolution independent; the authored TIE_ARCADE_HUD PNG can later
-        // replace only this overlay without touching flight/gameplay code.
-        p.setStyle(Paint.Style.FILL);p.setColor(0x33000000);c.drawRect(0,0,w,h,p);
-        stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(3.2f*ui);stroke.setColor(0xCC78FF8D);
-        float cx=w*.5f,cy=h*.46f,rr=Math.min(w,h)*.095f;
-        c.drawCircle(cx,cy,rr,stroke);
-        c.drawLine(cx-rr*1.55f,cy,cx-rr*.58f,cy,stroke);c.drawLine(cx+rr*.58f,cy,cx+rr*1.55f,cy,stroke);
-        c.drawLine(cx,cy-rr*1.55f,cx,cy-rr*.58f,stroke);c.drawLine(cx,cy+rr*.58f,cx,cy+rr*1.55f,stroke);
-        // Cockpit window braces.
-        stroke.setStrokeWidth(8f*ui);stroke.setColor(0xDD11161C);
-        c.drawLine(0,h*.08f,w*.27f,h*.33f,stroke);c.drawLine(w,h*.08f,w*.73f,h*.33f,stroke);
-        c.drawLine(0,h*.92f,w*.27f,h*.61f,stroke);c.drawLine(w,h*.92f,w*.73f,h*.61f,stroke);
-        stroke.setStrokeWidth(2f*ui);stroke.setColor(0x9978FF8D);
-        c.drawLine(w*.27f,h*.33f,w*.73f,h*.33f,stroke);c.drawLine(w*.27f,h*.61f,w*.73f,h*.61f,stroke);
-
+        // Exact TTS TIE_ARCADE_HUD cockpit/reticle PNG. Stretch to the full
+        // gameplay viewport just like the TTS Custom UI overlay (preserveAspect=false).
+        if(tieHud!=null){
+          p.setAlpha(255);p.setColor(Color.WHITE);c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
+        }
+        // Keep only live Android status text/controls over the authored HUD.
         p.setTextSize(21f*ui);p.setColor(0xFF8CFF9B);c.drawText("TIE INTERCEPT",w*.5f,34f*ui,p);
         p.setTextSize(13f*ui);p.setColor(r.arcadeLocked?0xFFFF6262:0xFF9BFFAA);
         c.drawText(r.arcadeLocked?"TARGET IN SIGHTS":"ACQUIRE X-WING",w*.5f,57f*ui,p);
