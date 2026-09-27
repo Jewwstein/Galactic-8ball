@@ -1,5 +1,5 @@
 name: Publish Galactic 8-Ball APK
-# release v0.8.7 build 24
+# release v0.8.38 build 55 — validated TIE HUD integrity + correct overlay layering
 # v0.8.6 vertical hilt gallery and Maul reward
 # v0.8.1 full-screen saber gallery and canonical Rey PNG release
 # v0.8.0 Falcon texture + concurrent AI challenges + predictor correction
@@ -54,6 +54,21 @@ jobs:
           mkdir -p app/src/main/assets/extracted app/src/main/assets/bundles app/src/main/assets/ui app/src/main/assets/saber_bundles app/src/main/assets/sabers app/src/main/assets/environment app/src/main/assets/falcon app/src/main/assets/sfx_bundle app/src/main/assets/audio app/src/main/assets/hilt_materials app/src/main/assets/fighter_bundles app/src/main/assets/fighters
           # Canonical high-resolution portrait hilt art uploaded by the project owner.
           python -m pip install --quiet pillow
+          # Reconstruct the validated TIE cockpit HUD from repository-safe source chunks.
+          mkdir -p app/src/main/res/drawable-nodpi
+          cat model_assets/tie_hud/tie_arcade_hud.b64.part* | base64 -d > app/src/main/res/drawable-nodpi/tie_arcade_hud.png
+          echo "a090f0a5a8222ad068782faf826b47d88bc356578961e4b303f21be92902bff6  app/src/main/res/drawable-nodpi/tie_arcade_hud.png" | sha256sum -c -
+          python - <<'PY'
+          from PIL import Image
+          p="app/src/main/res/drawable-nodpi/tie_arcade_hud.png"
+          with Image.open(p) as im:
+              im.load()
+              assert im.format=="PNG", im.format
+              assert im.size==(768,432), im.size
+              lo,hi=im.convert("RGBA").getchannel("A").getextrema()
+              assert lo==0 and hi>=240, (lo,hi)
+              print("Validated TIE HUD:",im.size,im.mode,"alpha",lo,hi)
+          PY
           python tools/prepare_canonical_hilts.py
           python - <<'PY'
           from pathlib import Path
@@ -216,7 +231,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Correct saber-gallery vertical orientation, real Darth Maul double-emitter challenge reward artwork, and current multiplayer saber fixes.
+            UpdateNotes: Reconstruct and validate the TIE cockpit HUD before build, draw the HUD behind mobile flight/aim controls, and preserve the current first-person TIE combat refinements.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
