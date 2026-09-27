@@ -3688,16 +3688,16 @@ public class MainActivity extends Activity {
       step(dt);
       GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);GLES20.glUseProgram(program);
       float[] P=new float[16],V=new float[16];
-      android.opengl.Matrix.perspectiveM(P,0,arcadeActive?68f:40f,aspect,.45f,320f);
+      android.opengl.Matrix.perspectiveM(P,0,arcadeActive?72f:40f,aspect,.45f,320f);
       float cx,cy,cz;
       if(arcadeActive){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Wide third-person chase camera: the arcade Death Star stays visible
         // as the player's vehicle instead of leaving the pool cue ball behind.
-        float chase=13.5f;
-        cx=arcadeX-fx*chase;cy=9.2f-fy*3.0f;cz=arcadeZ-fz*chase;
-        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*13f,4.0f+fy*9f,arcadeZ+fz*13f,0,1,0);
+        float chase=11.2f;
+        cx=arcadeX-fx*chase;cy=7.1f-fy*2.0f;cz=arcadeZ-fz*chase;
+        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*16f,4.4f+fy*12f,arcadeZ+fz*16f,0,1,0);
       }else{
         float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
         float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
@@ -5584,17 +5584,26 @@ public class MainActivity extends Activity {
       }
     }
     void stepArcade(float dt){
-      float follow=1f-(float)Math.exp(-dt*13f);
-      arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*follow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*follow;
-      arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*follow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*follow;
+      float moveFollow=1f-(float)Math.exp(-dt*18f),aimFollow=1f-(float)Math.exp(-dt*22f);
+      arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*moveFollow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*moveFollow;
+      arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*aimFollow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*aimFollow;
 
-      // Rotational aim assist: slow the stick near an X-Wing instead of snapping
-      // the reticle, preserving player control while making fine tracking easier.
-      float assist=arcadeLocked?.42f:1f;
-      arcadeYaw+=arcadeAimSmoothX*165f*assist*dt;
-      arcadePitch=Math.max(-18f,Math.min(42f,arcadePitch-arcadeAimSmoothY*115f*assist*dt));
+      // Progressive rotational aim slowdown. It never snaps the reticle; it
+      // simply reduces angular speed as an X-Wing approaches screen center.
+      float preYr=(float)Math.toRadians(arcadeYaw),prePr=(float)Math.toRadians(arcadePitch);
+      float pax=(float)Math.sin(preYr)*(float)Math.cos(prePr),pay=(float)Math.sin(prePr),paz=-(float)Math.cos(preYr)*(float)Math.cos(prePr);
+      float nearDot=.94f;
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){
+        float tx=e.x-arcadeX,ty=e.y-2.5f,tz=e.z-arcadeZ,d=(float)Math.sqrt(tx*tx+ty*ty+tz*tz);
+        if(d>1f){float dot=(tx*pax+ty*pay+tz*paz)/d;if(dot>nearDot)nearDot=dot;}
+      }
+      float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
+      float assist=1f-.56f*proximity*proximity;
+      arcadeYaw+=arcadeAimSmoothX*190f*assist*dt;
+      arcadePitch=Math.max(-18f,Math.min(42f,arcadePitch-arcadeAimSmoothY*132f*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
-      float speed=19f,dx=(rx*arcadeMoveSmoothX+fx*(-arcadeMoveSmoothY))*speed*dt,dz=(rz*arcadeMoveSmoothX+fz*(-arcadeMoveSmoothY))*speed*dt;
+      float mx=arcadeMoveSmoothX,my=arcadeMoveSmoothY,mm=(float)Math.sqrt(mx*mx+my*my);if(mm>1f){mx/=mm;my/=mm;}
+      float speed=22f,dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
       float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
       boolean blocked=false;
       for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
