@@ -5715,7 +5715,7 @@ public class MainActivity extends Activity {
       }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
-      ArcadeFighter best=null;float bestDot=.979f,bestDist=999;
+      ArcadeFighter best=null;float bestDot=.9935f,bestDist=999;
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
@@ -5752,21 +5752,31 @@ public class MainActivity extends Activity {
       if(arcadeLaserT>0){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
-        // Dish muzzle -> retained target position. This makes the visible shot
-        // agree with the hit calculation instead of drawing a camera-length ray.
-        float sx=arcadeX+fx*(tieMode?3.2f:1.58f),sy=(tieMode?arcadeY-.18f:2.38f)+fy*(tieMode?3.2f:.72f),sz=arcadeZ+fz*(tieMode?3.2f:1.58f);
+        // First-person TIE shot: start just beyond the cockpit/HUD and travel
+        // forward toward the reticle/locked target instead of flashing at the target.
+        float sx=arcadeX+fx*(tieMode?5.4f:1.58f),sy=(tieMode?arcadeY-.12f:2.38f)+fy*(tieMode?5.4f:.72f),sz=arcadeZ+fz*(tieMode?5.4f:1.58f);
         float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
-        float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
-        if(dist>.05f){
-          float yaw=(float)Math.toDegrees(Math.atan2(dx,dz)),pitch=(float)-Math.toDegrees(Math.atan2(dy,Math.sqrt(dx*dx+dz*dz)));
-          float[] B=identity();android.opengl.Matrix.translateM(B,0,(sx+ex)*.5f,(sy+ey)*.5f,(sz+ez)*.5f);
-          android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
-          // Deliberately simple solid beam: no saber UV/depth-state dependency.
-          // Outer green body plus bright core makes it readable on both orientations.
-          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,tieMode?.58f:.34f,tieMode?.58f:.34f,dist*.5f);
-          drawMesh(dogfightBolt,pv,H,0,new float[]{.05f,1f,.16f,1f});
-          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,tieMode?.28f:.16f,tieMode?.28f:.16f,dist*.505f);
-          drawMesh(dogfightBolt,pv,C,0,new float[]{.72f,1f,.76f,1f});
+        float fullDx=ex-sx,fullDy=ey-sy,fullDz=ez-sz,fullDist=(float)Math.sqrt(fullDx*fullDx+fullDy*fullDy+fullDz*fullDz);
+        if(fullDist>.05f){
+          float nx=fullDx/fullDist,ny=fullDy/fullDist,nz=fullDz/fullDist;
+          // arcadeLaserT starts at .78 in TIE mode. Advance a short bright bolt
+          // from the muzzle to the target so the player can actually watch it fire.
+          float age=tieMode?Math.max(0f,.78f-arcadeLaserT):Math.max(0f,.34f-arcadeLaserT);
+          float travel=tieMode?Math.min(fullDist,age*92f):fullDist;
+          float boltLen=tieMode?Math.min(8.5f,Math.max(2.6f,fullDist*.16f)):fullDist;
+          float head=Math.min(fullDist,travel),tail=tieMode?Math.max(0f,head-boltLen):0f;
+          float bsx=sx+nx*tail,bsy=sy+ny*tail,bsz=sz+nz*tail;
+          float bex=sx+nx*head,bey=sy+ny*head,bez=sz+nz*head;
+          float dx=bex-bsx,dy=bey-bsy,dz=bez-bsz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
+          if(dist>.05f){
+            float yaw=(float)Math.toDegrees(Math.atan2(dx,dz)),pitch=(float)-Math.toDegrees(Math.atan2(dy,Math.sqrt(dx*dx+dz*dz)));
+            float[] B=identity();android.opengl.Matrix.translateM(B,0,(bsx+bex)*.5f,(bsy+bey)*.5f,(bsz+bez)*.5f);
+            android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
+            float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,tieMode?.22f:.34f,tieMode?.22f:.34f,dist*.5f);
+            drawMesh(dogfightBolt,pv,H,0,new float[]{.05f,1f,.16f,1f});
+            float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,tieMode?.10f:.16f,tieMode?.10f:.16f,dist*.505f);
+            drawMesh(dogfightBolt,pv,C,0,new float[]{.72f,1f,.76f,1f});
+          }
         }
       }
     }
