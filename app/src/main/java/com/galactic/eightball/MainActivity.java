@@ -2282,6 +2282,20 @@ public class MainActivity extends Activity {
         c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
       }
 
+      // Premium arcade feedback: brief hit flash plus a cinematic iris/fade
+      // when entering, swapping craft, or returning to the pool table.
+      if(r.arcadeImpactFlash>0){
+        int aa=(int)(Math.min(1f,r.arcadeImpactFlash)*72);p.setColor((aa<<24)|0x00FFF2C0);c.drawRect(0,0,w,h,p);
+      }
+      long transAge=System.currentTimeMillis()-r.arcadeTransitionStart;
+      if(r.arcadeTransitionKind!=0&&transAge<700){
+        float q=Math.max(0f,Math.min(1f,transAge/700f));
+        float alpha=r.arcadeTransitionKind==3?q:(1f-q);
+        int aa=(int)(210f*alpha);p.setColor(aa<<24);c.drawRect(0,0,w,h,p);
+        float line=(1f-q)*h*.20f;stroke.setStrokeWidth(Math.max(1f,2f*ui));stroke.setColor((Math.min(180,aa+35)<<24)|0x006BFF9A);
+        c.drawLine(0,h*.5f-line,w,h*.5f-line,stroke);c.drawLine(0,h*.5f+line,w,h*.5f+line,stroke);
+      }
+
       float bezelInset=Math.max(92f*ui,Math.min(w,h)*.115f);
       tieModeRect.set(bezelInset,bezelInset,bezelInset+110f*ui,bezelInset+40f*ui);
       p.setColor(0xCC111923);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,p);stroke.setColor(r.tieMode?0xFF78FF8D:0xFF5BD6FF);stroke.setStrokeWidth(2f*ui);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,stroke);
@@ -3703,7 +3717,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,tieMode=false,tieFire=false;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieFire=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -5661,7 +5675,7 @@ public class MainActivity extends Activity {
       arcadeSnapshotValid=false;
       arcadeActive=true;tieMode=false;tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
-      ruleMessage="DEATH STAR ASSAULT";MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
+      ruleMessage="DEATH STAR ASSAULT";arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=1;arcadeImpactFlash=0;if(sfx!=null)sfx.arcadeTransition();MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
     void beginArcadeExit(){arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=3;if(sfx!=null)sfx.arcadeTransition();}
     void exitArcade(){
@@ -5736,10 +5750,20 @@ public class MainActivity extends Activity {
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       ArcadeFighter best=null;float bestDot=.9935f,bestDist=999;
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
-      arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
+      arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
+      if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
+      arcadeWasLocked=arcadeLocked;
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
-      if(best!=null&&arcadeShotClock<=0&&(!tieMode||tieFire)){arcadeLaserT=tieMode?.78f:.34f;best.hp--;arcadeShotClock=.42f;if(tieMode)tieFire=false;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
-      else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
+      if(tieMode&&tieFire&&arcadeShotClock<=0){
+        // Every tap visibly fires. A centered target takes damage; a miss keeps
+        // traveling through the reticle into space so shooting always has feedback.
+        if(best==null){arcadeTargetX=arcadeX+ax*76f;arcadeTargetY=arcadeY+ay*76f;arcadeTargetZ=arcadeZ+az*76f;}
+        arcadeLaserT=.78f;arcadeShotClock=.30f;tieFire=false;if(sfx!=null)sfx.tieLaser();
+        if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));if(sfx!=null)sfx.arcadeExplosion();}}
+      }else if(!tieMode&&best!=null&&arcadeShotClock<=0){
+        arcadeLaserT=.42f;best.hp--;arcadeShotClock=.62f;if(sfx!=null)sfx.deathStarFire();
+        if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));if(sfx!=null)sfx.arcadeExplosion();}
+      }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
 
