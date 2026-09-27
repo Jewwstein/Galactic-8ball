@@ -42,8 +42,9 @@ jobs:
       - name: Fetch verified CC0 3D assets
         run: |
           P="slime-3d/build/SoulSlime3DTest"
-          mkdir -p "$P/assets/cave" "$P/assets/characters"
+          mkdir -p "$P/assets/cave/Textures" "$P/assets/characters"
           BASE="https://raw.githubusercontent.com/shorepine/kenney/main/3d/modular-cave"
+          curl -fL "$BASE/Textures/colormap.png" -o "$P/assets/cave/Textures/colormap.png"
           curl -fL "$BASE/room-large.glb" -o "$P/assets/cave/room-large.glb"
           curl -fL "$BASE/room-small.glb" -o "$P/assets/cave/room-small.glb"
           curl -fL "$BASE/corridor-wide.glb" -o "$P/assets/cave/corridor-wide.glb"
@@ -52,6 +53,14 @@ jobs:
           curl -fL "$QBASE/Slime.glb" -o "$P/assets/characters/Slime.glb"
           curl -fL "$QBASE/Bat.glb" -o "$P/assets/characters/Bat.glb"
           curl -fL "$QBASE/LICENSE.txt" -o "$P/assets/characters/QUATERNIUS_LICENSE.txt"
+
+      - name: Enable Android texture compression
+        run: |
+          P="slime-3d/build/SoulSlime3DTest/project.godot"
+          if ! grep -q 'textures/vram_compression/import_etc2_astc=true' "$P"; then
+            sed -i '/renderer\/rendering_method.mobile="mobile"/a textures/vram_compression/import_etc2_astc=true' "$P"
+          fi
+          grep -n 'vram_compression' "$P"
 
       - name: Configure Godot Android paths
         run: |
