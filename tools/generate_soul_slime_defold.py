@@ -19,7 +19,7 @@ title = Soul Slime HD Creator
 version = 0.2
 publisher = Soul Slime
 developer = Soul Slime
-bundle_identifier = com.soulslime.defoldcreator
+bundle_identifier = com.soulslime.defoldcreator.v03
 
 [bootstrap]
 main_collection = /main/main.collectionc
@@ -39,7 +39,7 @@ update_frequency = 60
 swap_interval = 1
 
 [android]
-package = com.soulslime.defoldcreator
+package = com.soulslime.defoldcreator.v03
 minimum_sdk_version = 26
 target_sdk_version = 36
 immersive_mode = 1
@@ -66,64 +66,98 @@ PALE=(220,250,255,255)
 def rr(draw,box,r,fill,outline=None,width=1):
     draw.rounded_rectangle(box,radius=r,fill=fill,outline=outline,width=width)
 
-# Full-screen anime analysis chamber.
-bg=Image.new("RGBA",(W,H),(3,8,20,255))
+# Bright anime-inspired analysis chamber.
+# Intentionally much brighter than v0.2 so the space reads clearly on OLED phones.
+bg=Image.new("RGBA",(W,H),(8,28,48,255))
 p=bg.load()
 for y in range(H):
     for x in range(W):
-        d=((x-385)**2+(y-360)**2)**0.5
-        g=max(0.0,1.0-d/620.0)
-        p[x,y]=(int(3+4*g),int(8+29*g),int(20+49*g),255)
+        dx=(x-360)/520.0
+        dy=(y-360)/410.0
+        r=(dx*dx+dy*dy)**0.5
+        core=max(0.0,1.0-r)
+        side=max(0.0,1.0-abs(x-360)/900.0)
+        rr0=int(8 + 24*side + 52*core)
+        gg0=int(28 + 72*side + 142*core)
+        bb0=int(48 + 92*side + 168*core)
+        p[x,y]=(min(rr0,255),min(gg0,255),min(bb0,255),255)
 d=ImageDraw.Draw(bg,"RGBA")
-# perspective-ish grid
-for x in range(0,W,64): d.line((x,0,x,H),fill=(58,165,215,15),width=1)
-for y in range(0,H,48): d.line((0,y,W,y),fill=(58,165,215,13),width=1)
-# scanner chamber
-for i,r in enumerate((118,154,194,240,288,332)):
-    col=(90,232,255,max(17,74-i*8))
-    for seg in range(5):
-        s=(seg*72+i*11)%360
-        d.arc((385-r,360-r,385+r,360+r),s,s+37+(seg%3)*7,fill=col,width=2+(i%2))
-for deg in range(0,360,15):
+
+# Wide luminous mist / energy field.
+for i in range(11,0,-1):
+    pad=i*28
+    alpha=10+i*5
+    d.ellipse((360-300-pad,360-300-pad,360+300+pad,360+300+pad),
+              fill=(55,215,246,alpha))
+
+# Bright central analysis core behind the slime.
+for r0,a0 in ((300,22),(250,30),(205,42),(160,56),(118,76)):
+    d.ellipse((360-r0,360-r0,360+r0,360+r0),outline=(166,246,255,a0),width=4)
+d.ellipse((240,240,480,480),fill=(104,225,246,40))
+d.ellipse((288,288,432,432),fill=(200,252,255,55))
+
+# Holographic radial spokes.
+for deg in range(0,360,12):
     a=math.radians(deg)
-    d.line((385+math.cos(a)*108,360+math.sin(a)*108,
-            385+math.cos(a)*326,360+math.sin(a)*326),fill=(95,220,255,15),width=1)
-# particles / data squares
+    d.line((360+math.cos(a)*118,360+math.sin(a)*118,
+            360+math.cos(a)*315,360+math.sin(a)*315),
+           fill=(130,239,255,54 if deg%24==0 else 26),width=2)
+
+# Broken concentric scanner arcs.
+for i,r0 in enumerate((132,168,208,252,298,338)):
+    for seg in range(6):
+        start=(seg*60+i*9)%360
+        end=start+24+(seg%2)*15
+        d.arc((360-r0,360-r0,360+r0,360+r0),start,end,
+              fill=(167,246,255,165-i*18),width=3 if i<3 else 2)
+
+# Visible cyan grid and floating data.
+for x in range(18,W,54):
+    d.line((x,0,x,H),fill=(79,201,233,30),width=1)
+for y in range(18,H,42):
+    d.line((0,y,W,y),fill=(79,201,233,26),width=1)
 random.seed(913)
-for i in range(95):
-    x=random.randint(26,815); y=random.randint(24,696); s=random.choice((2,3,4,6,8))
-    alpha=random.randint(18,75)
-    if i%5==0: d.rectangle((x,y,x+s,y+s),outline=(90,230,255,alpha),width=1)
-    else: d.ellipse((x,y,x+s,y+s),fill=(90,230,255,alpha))
-# panels
-rr(d,(18,18,818,702),26,(5,20,39,78),(69,210,247,72),2)
-rr(d,(758,18,1262,702),26,(4,15,34,238),(72,215,250,124),2)
-d.line((758,101,1262,101),fill=(86,225,255,90),width=1)
-d.line((758,614,1262,614),fill=(86,225,255,75),width=1)
-# top UI
-d.text((42,36),"ANALYSIS ACTIVE",font=font(30,True),fill=(225,250,255,255))
-d.text((42,73),"INITIAL VESSEL CONFIGURATION  //  SOUL SLIME",font=font(15,True),fill=(86,219,255,220))
-d.text((786,38),"SYSTEM / MATERIALIZATION",font=font(16,True),fill=(181,243,255,245))
-d.text((786,67),"Tap a category, then tap an option",font=font(13),fill=(108,173,205,220))
-# direct-button selector areas
-d.text((786,590),"1  SELECT PARAMETER",font=font(12,True),fill=(78,215,249,220))
-d.text((786,374),"2  SELECT OPTION",font=font(12,True),fill=(78,215,249,220))
-rr(d,(782,392,1238,576),16,(6,24,45,180),(48,142,188,100),1)
-rr(d,(782,118,1238,356),16,(6,24,45,180),(48,142,188,100),1)
-d.text((786,646),"SOUL DATA / LIVE PREVIEW",font=font(12,True),fill=(78,215,249,210))
-d.text((786,668),"Large direct-touch controls active.",font=font(12),fill=(133,177,201,215))
-d.text((786,686),"LOCK FORM stores the vessel for awakening.",font=font(12),fill=(133,177,201,215))
+for i in range(150):
+    x=random.randint(20,1240); y=random.randint(18,700)
+    if 760 < x < 1260:
+        alpha=random.randint(35,82)
+    else:
+        alpha=random.randint(45,120)
+    sz=random.choice((2,3,4,6,8,10))
+    if i%4==0:
+        d.rectangle((x,y,x+sz,y+sz),outline=(145,244,255,alpha),width=1)
+    else:
+        d.ellipse((x,y,x+sz,y+sz),fill=(130,240,255,alpha))
+
+# Strong glass panels; translucent enough to keep the energy field visible.
+rr(d,(16,16,742,704),28,(10,51,74,108),(157,242,255,122),2)
+rr(d,(758,18,1262,702),26,(7,35,60,214),(136,239,255,170),2)
+d.line((758,100,1262,100),fill=(175,248,255,145),width=2)
+d.line((758,614,1262,614),fill=(175,248,255,110),width=1)
+
+d.text((42,34),"ANALYSIS SPACE // ACTIVE",font=font(30,True),fill=(238,254,255,255))
+d.text((42,72),"SOUL VESSEL MATERIALIZATION / LIVE SCAN",font=font(15,True),fill=(152,243,255,245))
+d.text((786,38),"SYSTEM / MATERIALIZATION",font=font(16,True),fill=(224,252,255,255))
+d.text((786,67),"Tap a parameter, then tap an option",font=font(13),fill=(158,228,246,240))
+
+d.text((786,590),"1  SELECT PARAMETER",font=font(12,True),fill=(166,246,255,255))
+d.text((786,374),"2  SELECT OPTION",font=font(12,True),fill=(166,246,255,255))
+rr(d,(782,392,1238,576),16,(8,48,76,190),(126,230,252,155),2)
+rr(d,(782,118,1238,356),16,(8,48,76,190),(126,230,252,155),2)
+d.text((786,646),"SOUL DATA / LIVE PREVIEW",font=font(12,True),fill=(166,246,255,255))
+d.text((786,668),"Selected choices glow bright cyan.",font=font(12),fill=(181,228,241,240))
+d.text((786,686),"LOCK FORM stores the vessel for awakening.",font=font(12),fill=(181,228,241,240))
 bg.save(A/"background.png")
 
 # scanner overlay
 S=720
 scanner=Image.new("RGBA",(S,S),(0,0,0,0)); sd=ImageDraw.Draw(scanner,"RGBA")
-for r,a,w in ((315,92,3),(273,60,2),(225,45,2),(180,35,2)):
-    sd.ellipse((S/2-r,S/2-r,S/2+r,S/2+r),outline=(92,230,255,a),width=w)
+for r,a,w in ((315,190,4),(273,145,3),(225,110,3),(180,88,3)):
+    sd.ellipse((S/2-r,S/2-r,S/2+r,S/2+r),outline=(158,247,255,a),width=w)
 for deg in range(0,360,30):
     a=math.radians(deg)
     sd.line((360+math.cos(a)*300,360+math.sin(a)*300,
-             360+math.cos(a)*338,360+math.sin(a)*338),fill=(110,238,255,80),width=2)
+             360+math.cos(a)*338,360+math.sin(a)*338),fill=(165,249,255,125),width=2)
 scanner.save(A/"scanner.png")
 
 # aura rings
@@ -453,12 +487,12 @@ local function refresh_options(self)
     local names,selected=category_data(self,self.category)
     for _,k in ipairs(CATS) do
         go.set("#cat_"..k,"tint",k==self.category and
-            vmath.vector4(0.55,1.0,1.0,1.0) or vmath.vector4(0.72,0.82,0.88,0.82))
+            vmath.vector4(0.95,1.0,1.0,1.0) or vmath.vector4(0.68,0.82,0.90,0.74))
     end
     for i=1,6 do
         if i<=#names then
             go.set("#opt"..i,"tint",i==selected and
-                vmath.vector4(0.64,1.0,1.0,1.0) or vmath.vector4(1,1,1,0.94))
+                vmath.vector4(0.92,1.0,1.0,1.0) or vmath.vector4(0.72,0.86,0.94,0.88))
             label.set_text("#opt_label"..i,names[i])
             go.set("#opt_label"..i,"color",i==selected and
                 vmath.vector4(0.96,1.0,1.0,1.0) or vmath.vector4(0.80,0.94,0.98,1.0))
@@ -497,19 +531,27 @@ function update(self,dt)
     go.set_scale(vmath.vector3(sx,0.70+(0.70-sx)*0.25,1),"#body")
 end
 
-local function inside(x,y,cx,cy,w,h)
-    return x>=cx-w/2 and x<=cx+w/2 and y>=cy-h/2 and y<=cy+h/2
+local function screen_inside(sx,sy,cx,cy,w,h)
+    local cam="/camera#camera"
+    local l=camera.world_to_screen(vmath.vector3(cx-w/2,cy,0),cam)
+    local r=camera.world_to_screen(vmath.vector3(cx+w/2,cy,0),cam)
+    local b=camera.world_to_screen(vmath.vector3(cx,cy-h/2,0),cam)
+    local t=camera.world_to_screen(vmath.vector3(cx,cy+h/2,0),cam)
+    local minx=math.min(l.x,r.x)
+    local maxx=math.max(l.x,r.x)
+    local miny=math.min(b.y,t.y)
+    local maxy=math.max(b.y,t.y)
+    return sx>=minx and sx<=maxx and sy>=miny and sy<=maxy
 end
 
 function on_input(self,action_id,action)
     if action_id~=hash("touch") or not action.pressed then return false end
 
-    local world=camera.screen_xy_to_world(action.screen_x,action.screen_y,"/camera#camera")
-    local x,y=world.x,world.y
+    local sx,sy=action.screen_x,action.screen_y
 
     for _,k in ipairs(CATS) do
         local p=CAT_POS[k]
-        if inside(x,y,p[1],p[2],216,50) then
+        if screen_inside(sx,sy,p[1],p[2],216,50) then
             self.category=k; refresh_options(self)
             set_status("PARAMETER SELECTED // "..string.upper(k):gsub("_"," "))
             return true
@@ -518,21 +560,21 @@ function on_input(self,action_id,action)
 
     local names=category_data(self,self.category)
     for i,p in ipairs(OPT_POS) do
-        if i<=#names and inside(x,y,p[1],p[2],216,62) then
+        if i<=#names and screen_inside(sx,sy,p[1],p[2],216,62) then
             choose(self,self.category,i); refresh(self)
-            set_status("ANALYSIS UPDATED // "..names[i].." applied.")
+            set_status("SELECTED // "..names[i].." // "..string.upper(self.category):gsub("_"," "))
             return true
         end
     end
 
-    if inside(x,y,842,66,166,70) then
+    if screen_inside(sx,sy,842,66,166,70) then
         self.body=math.random(#BODY); self.color=math.random(#COLORS); self.eyes=math.random(#EYES)
         self.mark=math.random(#MARKS); self.core=math.random(#CORES)
         self.alpha=math.random(#ALPHAS); self.aura_value=math.random(#AURAS)
         refresh(self); set_status("RANDOM SOUL DATA SYNTHESIZED // Candidate vessel generated."); return true
-    elseif inside(x,y,1010,66,166,70) then
+    elseif screen_inside(sx,sy,1010,66,166,70) then
         save_state(self); set_status("PROFILE SAVED // Vessel parameters stored locally."); return true
-    elseif inside(x,y,1178,66,166,70) then
+    elseif screen_inside(sx,sy,1178,66,166,70) then
         save_state(self); set_status("MATERIALIZATION CONFIRMED // Form locked for cave awakening."); return true
     end
     return false
@@ -543,9 +585,9 @@ end
 
 Engine-switch prototype.
 - Defold 1.13.1
-- Android landscape / immersive fullscreen with Auto Fit camera
+- Android landscape / immersive fullscreen with Auto Fit camera and screen-projected hitboxes
 - Original layered anime-inspired slime textures
-- Original cyan analysis-chamber UI using broad visual cues from fantasy-anime analysis sequences
+- Bright cyan/teal analysis-space UI with luminous core, scan rings, data grid and particles
 - Large direct-touch category and option buttons
 - Local save + lock form
 """)
