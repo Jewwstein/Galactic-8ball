@@ -5644,7 +5644,6 @@ public class MainActivity extends Activity {
         }
       }
     }
-    }
 
     void step(float dt){
       if(arcadeActive){stepArcade(dt);return;}
