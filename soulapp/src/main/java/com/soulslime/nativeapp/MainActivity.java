@@ -547,21 +547,12 @@ public class MainActivity extends Activity {
         hp.setMargins(dp(8),dp(6),dp(8),0);
         root.addView(hud,hp);
 
-        FrameLayout pad=new FrameLayout(this);
-        int key=dp(62);
-        Button up=button("▲",CYAN,false);
-        Button down=button("▼",CYAN,false);
-        Button left=button("◀",CYAN,false);
-        Button right=button("▶",CYAN,false);
-        up.setTextSize(21);down.setTextSize(21);left.setTextSize(21);right.setTextSize(21);
-        pad.addView(up,new FrameLayout.LayoutParams(key,key,Gravity.TOP|Gravity.CENTER_HORIZONTAL));
-        pad.addView(down,new FrameLayout.LayoutParams(key,key,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL));
-        pad.addView(left,new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.LEFT));
-        pad.addView(right,new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.RIGHT));
-        bindMove(up,0,-1);bindMove(down,0,1);bindMove(left,-1,0);bindMove(right,1,0);
-        FrameLayout.LayoutParams padLp=new FrameLayout.LayoutParams(dp(194),dp(194),Gravity.BOTTOM|Gravity.LEFT);
-        padLp.setMargins(dp(22),0,0,dp(18));
-        root.addView(pad,padLp);
+        AnalogJoystickView stick=new AnalogJoystickView(this,(x,y)->{
+            if(scene==Scene.CAVE&&caveWorld!=null)caveWorld.setMove(x,y);
+        });
+        FrameLayout.LayoutParams stickLp=new FrameLayout.LayoutParams(dp(224),dp(224),Gravity.BOTTOM|Gravity.LEFT);
+        stickLp.setMargins(dp(18),0,0,dp(12));
+        root.addView(stick,stickLp);
 
         caveAttack=button("MAGIC\nBURST",Color.rgb(107,178,255),true);
         caveAttack.setTextSize(13);
