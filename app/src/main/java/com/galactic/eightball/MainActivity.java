@@ -2257,7 +2257,7 @@ public class MainActivity extends Activity {
         if(r.arcadeLocked){p.setColor(0xCCFF5656);c.drawCircle(rcx+(float)Math.cos(ang*.73f)*rr*.62f,rcy+(float)Math.sin(ang*.73f)*rr*.62f,2.8f*ui,p);}
       }
       drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,r.tieMode?"FLIGHT":"MOVE",ui,0xFF5BD6FF);
-      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"AIM • TOUCH FIRE":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
+      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,"AIM • TOUCH FIRE",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
@@ -2283,7 +2283,7 @@ public class MainActivity extends Activity {
         p.setTextSize(16f*ui);p.setColor(0xFFF4C542);
         c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
         p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
-        c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+        c.drawText(r.arcadeLocked?"TARGET IN SIGHTS • TAP TO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
         float rr=30f*ui;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
         c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
         c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
@@ -3148,10 +3148,10 @@ public class MainActivity extends Activity {
             if(arcadeAimPointer<0){
               arcadeAimPointer=pid;tieAimDownAt=System.currentTimeMillis();tieAimDownX=px;tieAimDownY=py;setArcadeStick(false,px,py);
               // First thumb captures AIM. It stays down for continuous micro-adjustments.
-            }else if(r.tieMode&&pid!=arcadeAimPointer){
+            }else if(pid!=arcadeAimPointer){
               // A second tap inside the same AIM pad fires while the primary
               // aiming thumb remains captured; no need to release/reacquire aim.
-              game.queueEvent(()->r.fireTieShot());
+              game.queueEvent(()->r.fireArcadeShot());
             }
           }
           return true;
@@ -3183,9 +3183,9 @@ public class MainActivity extends Activity {
             final float aimUpX=e.getX(idx),aimUpY=e.getY(idx);
             final float aimDx=aimUpX-tieAimDownX,aimDy=aimUpY-tieAimDownY;
             final float tapSlop=Math.max(screenAimTouchSlop*2.5f,24f*ui);
-            final boolean fireTap=r.tieMode && aimHeldMs<=280L && (aimDx*aimDx+aimDy*aimDy)<=tapSlop*tapSlop;
+            final boolean fireTap=aimHeldMs<=280L && (aimDx*aimDx+aimDy*aimDy)<=tapSlop*tapSlop;
             arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;
-            game.queueEvent(()->{r.setArcadeAim(0,0);if(fireTap)r.fireTieShot();});
+            game.queueEvent(()->{r.setArcadeAim(0,0);if(fireTap)r.fireArcadeShot();});
           }
           invalidate();return true;
         }
@@ -3953,7 +3953,7 @@ public class MainActivity extends Activity {
         try{dogfightTie=loadObj("fighters/tie/model.obj");}catch(Exception e){dogfightTie=makeTieMesh();}
         try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
         try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
-        dogfightBolt=makeBoxMesh();arcadeStarfield=makeArcadeStarfield();
+        dogfightBolt=makeCylinderMesh(24);arcadeStarfield=makeArcadeStarfield();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
@@ -5722,7 +5722,7 @@ public class MainActivity extends Activity {
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
     void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;if(sfx!=null){sfx.arcadeTransition();if(on)sfx.startTieEngine();else sfx.stopTieEngine();}}
     void setTieFire(boolean on){tieFire=on;}
-    void fireTieShot(){if(tieMode){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
+    void fireTieShot(){if(tieMode)fireArcadeShot();}\n    void fireArcadeShot(){if(arcadeActive){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
     void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
 
     void spawnArcadeWave(){
@@ -5801,7 +5801,7 @@ public class MainActivity extends Activity {
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       // A shot only counts when the reticle is genuinely on the target.
       // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
-      ArcadeFighter best=null;float bestDot=tieMode?.9978f:.9935f,bestDist=999;
+      ArcadeFighter best=null;float bestDot=.9978f,bestDist=999;
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
       if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
@@ -5813,9 +5813,10 @@ public class MainActivity extends Activity {
         if(best==null){arcadeTargetX=arcadeX+ax*76f;arcadeTargetY=arcadeY+ay*76f;arcadeTargetZ=arcadeZ+az*76f;}
         arcadeLaserT=.78f;arcadeShotClock=.30f;tieFire=false;if(sfx!=null)sfx.tieLaser();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
-      }else if(!tieMode&&best!=null&&arcadeShotClock<=0){
-        arcadeLaserT=.42f;best.hp--;arcadeShotClock=.62f;if(sfx!=null)sfx.deathStarFire();
-        if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}
+      }else if(!tieMode&&tieFire&&arcadeShotClock<=0){
+        if(best==null){arcadeTargetX=arcadeX+ax*76f;arcadeTargetY=2.5f+ay*76f;arcadeTargetZ=arcadeZ+az*76f;}
+        arcadeLaserT=.62f;arcadeShotClock=.46f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
+        if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
