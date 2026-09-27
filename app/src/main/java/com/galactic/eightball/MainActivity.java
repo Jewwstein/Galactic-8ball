@@ -1509,8 +1509,14 @@ public class MainActivity extends Activity {
   static class SfxManager {
     final Context ctx; final Handler main=new Handler(Looper.getMainLooper());
     MediaPlayer humPlayer=null,victoryPlayer=null; int humGeneration=0;
+    final android.media.SoundPool arcadePool; final int arcadeLaserId;
 
-    SfxManager(Context c){ctx=c;}
+    SfxManager(Context c){
+      ctx=c;
+      android.media.AudioAttributes aa=new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_GAME).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
+      arcadePool=new android.media.SoundPool.Builder().setMaxStreams(4).setAudioAttributes(aa).build();
+      int rid=rawId("sfx_arcade_laser");arcadeLaserId=rid==0?0:arcadePool.load(ctx,rid,1);
+    }
 
     int rawId(String name){return ctx.getResources().getIdentifier(name,"raw",ctx.getPackageName());}
 
