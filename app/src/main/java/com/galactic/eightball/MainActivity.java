@@ -5719,8 +5719,23 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*980f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*620f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.85f)/.80f):1f;
-        if(e.xwing){float sc=e.dying?2.18f*Math.max(.38f,1f-e.deathT*.30f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});}
-        else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
+        if(e.xwing){
+          float sc=e.dying?2.18f*Math.max(.38f,1f-e.deathT*.30f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
+          if(e.dying&&sphere!=null){
+            // Long readable destruction burst: hot core first, then an expanding
+            // orange shell while the fighter spins/falls away.
+            float burst=Math.min(1f,e.deathT/.38f),decay=Math.max(0f,1f-e.deathT/1.45f);
+            float[] E=identity();android.opengl.Matrix.translateM(E,0,e.x,e.y,e.z);
+            float es=.45f+burst*1.55f;android.opengl.Matrix.scaleM(E,0,es,es,es);
+            drawMesh(sphere,pv,E,0,new float[]{1f,.22f,.04f,.82f*decay});
+            if(e.deathT<.48f){
+              float[] K=identity();android.opengl.Matrix.translateM(K,0,e.x,e.y,e.z);
+              float ks=.24f+e.deathT*1.8f;android.opengl.Matrix.scaleM(K,0,ks,ks,ks);
+              drawMesh(sphere,pv,K,0,new float[]{1f,.92f,.48f,1f});
+            }
+          }
+        }else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
       if(arcadeLaserT>0){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
