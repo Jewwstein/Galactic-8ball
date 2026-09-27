@@ -129,9 +129,9 @@ public class CaveWorldView extends View {
         if(now-attackStart<380)return;
         attackStart=now;
         float d=distance(playerX,playerY,monsterX,monsterY);
-        float range=Math.max(145,getHeight()*.29f);
+        float range=Math.max(180,getHeight()*.33f);
         if(d>range){
-            message="Move closer before attacking.";
+            message="Move closer to "+monsterLabel()+" before attacking.";
             notifyState();return;
         }
         int damage=1;
@@ -163,7 +163,12 @@ public class CaveWorldView extends View {
             notifyState();invalidate();return;
         }
 
-        if(monsterState[room]==S_DEFEATED&&distance(playerX,playerY,monsterX,monsterY)<Math.max(160,getHeight()*.28f)){
+        if(monsterState[room]==S_DEFEATED){
+            float range=Math.max(160,getHeight()*.28f);
+            if(distance(playerX,playerY,monsterX,monsterY)>range){
+                message="Move closer to the defeated "+monsterLabel()+" before absorbing it.";
+                notifyState();invalidate();return;
+            }
             monsterState[room]=S_ABSORBED;
             if(monsterType[room]==M_SPIDER){
                 spiderAbsorbed=true;
@@ -181,6 +186,11 @@ public class CaveWorldView extends View {
 
     public void befriend(){
         if(!canBefriend())return;
+        float range=Math.max(185,getHeight()*.34f);
+        if(distance(playerX,playerY,monsterX,monsterY)>range){
+            message="Move closer before trying to befriend "+monsterLabel()+".";
+            notifyState();return;
+        }
         int t=monsterType[room];
         if(t==M_DRAGON){
             dragonBonded=true;
@@ -259,15 +269,15 @@ public class CaveWorldView extends View {
         return "";
     }
     public boolean canAttack(){
-        return hasActiveMonster()&&monsterType[room]!=M_DRAGON&&distance(playerX,playerY,monsterX,monsterY)<Math.max(170,getHeight()*.31f);
+        return monsterType[room]!=M_NONE && monsterType[room]!=M_DRAGON && monsterState[room]==S_ALIVE;
     }
     public boolean canBefriend(){
         int t=monsterType[room];
-        return monsterState[room]==S_ALIVE&&(t==M_SPIDER||t==M_LIZARD||t==M_DRAGON)&&distance(playerX,playerY,monsterX,monsterY)<Math.max(185,getHeight()*.34f);
+        return monsterState[room]==S_ALIVE&&(t==M_SPIDER||t==M_LIZARD||t==M_DRAGON);
     }
     public boolean canAbsorb(){
         if(room==7&&dragonBonded&&!dragonAbsorbed)return true;
-        return monsterState[room]==S_DEFEATED&&distance(playerX,playerY,monsterX,monsterY)<Math.max(185,getHeight()*.34f);
+        return monsterState[room]==S_DEFEATED;
     }
     public boolean canMorph(){ return spiderAbsorbed||lizardAbsorbed; }
     public boolean canExitCave(){ return room==8&&dragonAbsorbed; }
