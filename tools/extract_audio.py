@@ -99,3 +99,33 @@ subprocess.run([
 ],check=True)
 laser.unlink()
 print("SFX arcade laser ->",laserogg.name,laserogg.stat().st_size)
+
+
+# Original placeholder arcade polish SFX. These are synthesized from basic
+# waveforms/noise so the test build has no dependency on film/game recordings.
+import math, random, wave, struct
+SR=44100
+def write_fx(name,dur,fn):
+    n=max(1,int(SR*dur)); p=rawout/(name+".wav")
+    random.seed(0x8BA11 + sum(map(ord,name)))
+    with wave.open(str(p),"wb") as w:
+        w.setnchannels(1);w.setsampwidth(2);w.setframerate(SR)
+        frames=[]
+        for i in range(n):
+            t=i/SR; x=max(-1.0,min(1.0,fn(t,dur,i,n)))
+            frames.append(struct.pack("<h",int(x*32767)))
+        w.writeframes(b"".join(frames))
+    ogg=rawout/(name+".ogg")
+    subprocess.run(["ffmpeg","-hide_banner","-loglevel","error","-y","-i",str(p),"-c:a","libvorbis","-q:a","5",str(ogg)],check=True)
+    p.unlink(); print("SFX original",name,"->",ogg.stat().st_size)
+
+def env(t,d,a=.015,r=.12):
+    return min(1,t/max(a,1e-4))*min(1,max(0,d-t)/max(r,1e-4))
+
+write_fx("sfx_tie_blaster",.22,lambda t,d,i,n: env(t,d,.004,.09)*(.62*math.sin(2*math.pi*(1450-900*t/d)*t)+.18*math.sin(2*math.pi*2900*t)))
+write_fx("sfx_deathstar_fire",.48,lambda t,d,i,n: env(t,d,.01,.18)*(.52*math.sin(2*math.pi*(210-80*t/d)*t)+.28*math.sin(2*math.pi*(760-360*t/d)*t)+.10*(random.random()*2-1)))
+write_fx("sfx_arcade_explosion",1.05,lambda t,d,i,n: env(t,d,.002,.55)*((.72*(random.random()*2-1))/(1+5*t)+.30*math.sin(2*math.pi*(72-28*t/d)*t)))
+write_fx("sfx_arcade_transition",.72,lambda t,d,i,n: env(t,d,.01,.20)*(.34*math.sin(2*math.pi*(180+720*t/d)*t)+.22*math.sin(2*math.pi*(360+980*t/d)*t)))
+write_fx("sfx_deathstar_charge",.55,lambda t,d,i,n: env(t,d,.02,.05)*(.30*math.sin(2*math.pi*(120+680*t/d)*t)+.22*math.sin(2*math.pi*(240+1100*t/d)*t)))
+# Loop-friendly low engine bed: phase-locked harmonics over exactly two seconds.
+write_fx("sfx_tie_engine",2.0,lambda t,d,i,n: .23*math.sin(2*math.pi*55*t)+.11*math.sin(2*math.pi*110*t)+.055*math.sin(2*math.pi*220*t)+.025*(random.random()*2-1))
