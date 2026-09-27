@@ -3,6 +3,9 @@ name: Build Soul Slime Native APK
 permissions:
   contents: write
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -49,19 +52,19 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v1.apk
-          zip -qr SoulSlime-Native-v1-source.zip soulapp settings.gradle.kts build.gradle.kts
-          ls -lh SoulSlime-Native-v1.apk SoulSlime-Native-v1-source.zip
-          sha256sum SoulSlime-Native-v1.apk
+          cp "$APK" SoulSlime-Native-v2.apk
+          zip -qr SoulSlime-Native-v2-source.zip soulapp settings.gradle.kts build.gradle.kts
+          ls -lh SoulSlime-Native-v2.apk SoulSlime-Native-v2-source.zip
+          sha256sum SoulSlime-Native-v2.apk
 
       - name: Publish stable prerelease APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view soul-slime-native-v1 >/dev/null 2>&1; then
-            gh release upload soul-slime-native-v1 SoulSlime-Native-v1.apk --clobber
+            gh release upload soul-slime-native-v1 SoulSlime-Native-v2.apk --clobber
           else
-            gh release create soul-slime-native-v1 SoulSlime-Native-v1.apk \
+            gh release create soul-slime-native-v1 SoulSlime-Native-v2.apk \
               --title "Soul Slime Native v1" \
               --notes "Native Android prototype built on the same Java/Android stack as Galactic 8-Ball. Includes death scene, reincarnation skill selection, animated Sage-style creator, real Android controls, and local save state." \
               --prerelease \
@@ -70,7 +73,15 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v1
+          name: SoulSlime-Native-v2
           path: |
-            SoulSlime-Native-v1.apk
-            SoulSlime-Native-v1-source.zip
+            SoulSlime-Native-v2.apk
+            SoulSlime-Native-v2-source.zip
+
+      - name: Publish permanent Soul Slime test download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view soul-slime-native-v2 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v2 --title "Soul Slime Native v2 — Anime Cave" --notes "Native Android anime cave test build." --prerelease
+          gh release upload soul-slime-native-v2 SoulSlime-Native-v2.apk SoulSlime-Native-v2-source.zip --clobber
