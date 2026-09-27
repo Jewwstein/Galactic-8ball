@@ -3695,9 +3695,9 @@ public class MainActivity extends Activity {
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Wide third-person chase camera: the arcade Death Star stays visible
         // as the player's vehicle instead of leaving the pool cue ball behind.
-        float chase=11.2f;
-        cx=arcadeX-fx*chase;cy=7.1f-fy*2.0f;cz=arcadeZ-fz*chase;
-        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*16f,4.4f+fy*12f,arcadeZ+fz*16f,0,1,0);
+        float chase=16.8f;
+        cx=arcadeX-fx*chase;cy=8.4f-fy*2.0f;cz=arcadeZ-fz*chase;
+        android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*17f,3.8f+fy*11f,arcadeZ+fz*17f,0,1,0);
       }else{
         float viewYaw=camYaw+(aspect<1f?90f:0f);float viewDist=camDist*(aspect<1f?1.03f:1f);
         float yaw=(float)Math.toRadians(viewYaw),pitch=(float)Math.toRadians(camPitch),flat=(float)Math.cos(pitch)*viewDist;
@@ -3753,7 +3753,7 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(AM,0,arcadeYaw,0,1,0);
         android.opengl.Matrix.rotateM(AM,0,90f-arcadePitch,1,0,0);
         android.opengl.Matrix.rotateM(AM,0,90f,0,0,1);
-        android.opengl.Matrix.scaleM(AM,0,R*1.28f,R*1.28f,R*1.28f);
+        android.opengl.Matrix.scaleM(AM,0,R*.86f,R*.86f,R*.86f);
         drawMesh(sphere,pvCache,AM,cue.tex,new float[]{1,1,1,1});
       }
       if(!arcadeActive&&(state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
@@ -5576,15 +5576,15 @@ public class MainActivity extends Activity {
       for(int i=0;i<count;i++){
         ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.83f;
         float side=(i&1)==0?-1f:1f;
-        e.x=side*(54f+(i%3)*5f);e.baseY=8.5f+(i%4)*1.65f;e.y=e.baseY;e.z=-18f+(i*8f)%36f;
-        float attack=15.5f+arcadeWave*.75f;e.vx=-side*attack;e.vz=(i%3-1)*2.4f;e.life=5.6f+(i%3)*.45f;
+        e.x=side*(50f+(i%3)*4f);e.baseY=5.1f+(i%4)*1.05f;e.y=e.baseY;e.z=-18f+(i*8f)%36f;
+        float attack=8.4f+arcadeWave*.38f;e.vx=-side*attack;e.vz=(i%3-1)*1.55f;e.life=8.4f+(i%3)*.60f;
         arcadeFighters.add(e);
-        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.x=e.x+side*7f;t.baseY=e.baseY-1.0f;t.y=t.baseY;t.z=e.z+4.5f;
+        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.x=e.x+side*6f;t.baseY=Math.max(3.7f,e.baseY-.75f);t.y=t.baseY;t.z=e.z+4.5f;
         t.vx=e.vx*.94f;t.vz=-e.vz*.55f;t.life=e.life+.65f;arcadeFighters.add(t);
       }
     }
     void stepArcade(float dt){
-      float moveFollow=1f-(float)Math.exp(-dt*12.5f),aimFollow=1f-(float)Math.exp(-dt*20f);
+      float moveFollow=1f-(float)Math.exp(-dt*9.5f),aimFollow=1f-(float)Math.exp(-dt*18f);
       arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*moveFollow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*moveFollow;
       arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*aimFollow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*aimFollow;
 
@@ -5603,7 +5603,7 @@ public class MainActivity extends Activity {
       arcadePitch=Math.max(-18f,Math.min(42f,arcadePitch-arcadeAimSmoothY*132f*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
       float mx=arcadeMoveSmoothX,my=arcadeMoveSmoothY,mm=(float)Math.sqrt(mx*mx+my*my);if(mm>1f){mx/=mm;my/=mm;}
-      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));float speed=21f*(.30f+.70f*inputMag),dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
+      float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));float speed=18.5f*(.18f+.82f*inputMag),dx=(rx*mx+fx*(-my))*speed*dt,dz=(rz*mx+fz*(-my))*speed*dt;
       float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
       boolean blocked=false;
       for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
@@ -5616,11 +5616,11 @@ public class MainActivity extends Activity {
           if(e.deathT>.52f)e.active=false;
           continue;
         }
-        float escape=e.age>e.life?2.15f:1f;
+        float escape=e.age>e.life?1.55f:1f;
         e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
         float weave=(float)Math.sin(e.phase*3.0f);
-        e.z+=weave*(e.xwing?2.8f:2.0f)*dt;
-        e.y=e.baseY+(float)Math.sin(e.phase*2.25f)*1.05f;
+        e.z+=weave*(e.xwing?1.75f:1.35f)*dt;
+        e.y=e.baseY+(float)Math.sin(e.phase*2.05f)*.68f;
         if(e.age>e.life+2.0f||Math.abs(e.x)>72||Math.abs(e.z)>42)e.active=false;
       }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
@@ -5629,7 +5629,7 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-2.5f,ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
-      if(best!=null&&arcadeShotClock<=0){arcadeLaserT=.095f;best.hp--;arcadeShotClock=.28f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      if(best!=null&&arcadeShotClock<=0){arcadeLaserT=.24f;best.hp--;arcadeShotClock=.42f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.dying=true;best.deathT=0;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
       else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
@@ -5658,8 +5658,8 @@ public class MainActivity extends Activity {
           android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
           int greenTex=saberTextures[3];
           GLES20.glDepthMask(false);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE);
-          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,.18f,.18f,dist*.5f);drawMesh(dogfightBolt,pv,H,greenTex,new float[]{.18f,1f,.32f,.32f});
-          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,.105f,.105f,dist*.5f);drawMesh(dogfightBolt,pv,C,greenTex,new float[]{.72f,1f,.76f,1f});
+          float[] H=B.clone();android.opengl.Matrix.scaleM(H,0,.28f,.28f,dist*.5f);drawMesh(dogfightBolt,pv,H,greenTex,new float[]{.18f,1f,.32f,.32f});
+          float[] C=B.clone();android.opengl.Matrix.scaleM(C,0,.145f,.145f,dist*.5f);drawMesh(dogfightBolt,pv,C,greenTex,new float[]{.72f,1f,.76f,1f});
           GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);GLES20.glDepthMask(true);
         }
       }
