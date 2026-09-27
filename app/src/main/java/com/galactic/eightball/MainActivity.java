@@ -1872,7 +1872,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud;
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
@@ -1928,6 +1928,7 @@ public class MainActivity extends Activity {
         hudOpts.inScaled=false;
         tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud,hudOpts);
       }catch(Exception ignored){tieHud=null;}
+      try{tieHudPortrait=androidx.core.content.ContextCompat.getDrawable(c,R.drawable.tie_arcade_hud_portrait);}catch(Exception ignored){tieHudPortrait=null;}
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
       for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
@@ -2246,13 +2247,12 @@ public class MainActivity extends Activity {
 
       // The authored cockpit is the background HUD layer. Draw it before the
       // touch controls so the full-screen PNG can never hide FLIGHT/AIM input.
-      if(r.tieMode&&tieHud!=null&&!tieHud.isRecycled()){
-        p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);
-        c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
-        // Lightweight cockpit life: subtle scanner sweep and radar contact.
-        long ht=System.currentTimeMillis();float scan=(ht%1800L)/1800f;
-        p.setColor(0x165CFF78);c.drawRect(w*.22f,h*(.22f+.42f*scan),w*.78f,h*(.225f+.42f*scan),p);
-        float rr=Math.min(w,h)*.055f,rcx=w*.5f,rcy=h*.24f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.3f*ui);stroke.setColor(0x665CFF78);
+      if(r.tieMode){
+        if(h>w && tieHudPortrait!=null){tieHudPortrait.setBounds(0,0,w,h);tieHudPortrait.draw(c);}
+        else if(tieHud!=null&&!tieHud.isRecycled()){p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);}
+        long ht=System.currentTimeMillis();float scan=(ht%1800L)/1800f;float viewTop=h>w?h*.18f:h*.22f,viewSpan=h*.42f;
+        p.setColor(0x165CFF78);c.drawRect(w*.22f,viewTop+viewSpan*scan,w*.78f,viewTop+viewSpan*scan+Math.max(2f,4f*ui),p);
+        float rr=Math.min(w,h)*.055f,rcx=w*.5f,rcy=h>w?h*.39f:h*.24f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.3f*ui);stroke.setColor(0x665CFF78);
         c.drawCircle(rcx,rcy,rr,stroke);float ang=(ht%2400L)/2400f*6.283185f;c.drawLine(rcx,rcy,rcx+(float)Math.cos(ang)*rr,rcy+(float)Math.sin(ang)*rr,stroke);
         if(r.arcadeLocked){p.setColor(0xCCFF5656);c.drawCircle(rcx+(float)Math.cos(ang*.73f)*rr*.62f,rcy+(float)Math.sin(ang*.73f)*rr*.62f,2.8f*ui,p);}
       }
@@ -2262,7 +2262,7 @@ public class MainActivity extends Activity {
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
         // Fail visibly if the packaged HUD ever becomes undecodable again.
-        if(tieHud==null||tieHud.isRecycled()){
+        if((h>w&&tieHudPortrait==null)||(h<=w&&(tieHud==null||tieHud.isRecycled()))){
           p.setColor(0xFFFF4040);p.setTextSize(15f*ui);
           c.drawText("TIE HUD ASSET ERROR",w*.5f,62f*ui,p);
         }
