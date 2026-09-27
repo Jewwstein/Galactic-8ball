@@ -36,11 +36,148 @@ jobs:
           mkdir -p /tmp/SoulSlimePrototype
           unzip -q slime-prototype/SoulSlimePrototype-source.zip -d /tmp/SoulSlimePrototype
 
+      - name: Apply Android 15 startup hardening
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('/tmp/SoulSlimePrototype/app/src/main/java/com/soulslime/prototype/MainActivity.java')
+          s = p.read_text()
+          s = s.replace('import android.os.Bundle;\n', 'import android.os.Bundle;\nimport android.content.pm.ActivityInfo;\n')
+          s = s.replace('import android.view.Window;\nimport android.view.WindowInsets;\nimport android.view.WindowInsetsController;\n', '')
+
+          old = """    @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  hideSystemUi();
+                  setContentView(new GameView());
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) hideSystemUi();
+              }
+
+              private void hideSystemUi() {
+                  if (android.os.Build.VERSION.SDK_INT >= 30) {
+                      WindowInsetsController c = getWindow().getInsetsController();
+                      if (c != null) {
+                          c.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+                          c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                      }
+                  } else {
+                      getWindow().getDecorView().setSystemUiVisibility(
+                              View.SYSTEM_UI_FLAG_FULLSCREEN |
+                              View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                              View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                              View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                              View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                              View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+                  }
+              }
+          """
+          new = """    @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+
+                  try {
+                      setContentView(new GameView());
+                      setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+                      hideSystemUi();
+                  } catch (Throwable startupError) {
+                      android.widget.TextView fallback = new android.widget.TextView(this);
+                      fallback.setBackgroundColor(Color.rgb(7, 10, 18));
+                      fallback.setTextColor(Color.WHITE);
+                      fallback.setTextSize(16f);
+                      fallback.setPadding(32, 48, 32, 32);
+                      fallback.setText("Soul Slime startup guard\\n\\n" + startupError.getClass().getSimpleName() +
+                              ": " + String.valueOf(startupError.getMessage()));
+                      setContentView(fallback);
+                  }
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) hideSystemUi();
+              }
+
+              @SuppressWarnings("deprecation")
+              private void hideSystemUi() {
+                  View decor = getWindow().getDecorView();
+                  decor.setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_FULLSCREEN |
+                          View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                          View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                          View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                          View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                          View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+              }
+          """
+          if old not in s:
+              raise SystemExit('startup block not found')
+          s = s.replace(old, new)
+
+          old_draw = """        @Override
+                  protected void onDraw(Canvas c) {
+                      super.onDraw(c);
+                      if (screen == Screen.GAME) {
+                          long now = System.nanoTime();
+                          float dt = Math.min(0.035f, (now - lastFrame) / 1_000_000_000f);
+                          lastFrame = now;
+                          updateGame(dt);
+                          drawGame(c);
+                          postInvalidateOnAnimation();
+                      } else if (screen == Screen.DEATH) drawDeath(c);
+                      else if (screen == Screen.SKILL) drawSkillChoice(c);
+                      else drawCustomize(c);
+                  }
+          """
+          new_draw = """        @Override
+                  protected void onDraw(Canvas c) {
+                      super.onDraw(c);
+                      try {
+                          if (screen == Screen.GAME) {
+                              long now = System.nanoTime();
+                              float dt = Math.min(0.035f, (now - lastFrame) / 1_000_000_000f);
+                              lastFrame = now;
+                              updateGame(dt);
+                              drawGame(c);
+                              postInvalidateOnAnimation();
+                          } else if (screen == Screen.DEATH) drawDeath(c);
+                          else if (screen == Screen.SKILL) drawSkillChoice(c);
+                          else drawCustomize(c);
+                      } catch (Throwable drawError) {
+                          c.drawColor(Color.rgb(7, 10, 18));
+                          text(c, "SOUL SLIME — RECOVERY MODE", 36, 64, 24, Color.WHITE, Paint.Align.LEFT, true);
+                          text(c, drawError.getClass().getSimpleName(), 36, 112, 18, Color.rgb(255, 145, 145), Paint.Align.LEFT, true);
+                          wrap(c, String.valueOf(drawError.getMessage()), 36, 150, Math.max(240, getWidth() - 72), 16, 24, Color.LTGRAY);
+                      }
+                  }
+          """
+          if old_draw not in s:
+              raise SystemExit('draw block not found')
+          s = s.replace(old_draw, new_draw)
+          s = s.replace('text(c, chosenSkill.name, preview.centerX()', 'text(c, chosenSkill != null ? chosenSkill.name : "UNBOUND SKILL", preview.centerX()')
+          s = s.replace('text(c, chosenSkill.name, skillChipRect.centerX()', 'text(c, chosenSkill != null ? chosenSkill.name : "UNBOUND SKILL", skillChipRect.centerX()')
+          s = s.replace('flash(chosenSkill.name + ": " + chosenSkill.description, 2800);', 'if (chosenSkill != null) flash(chosenSkill.name + ": " + chosenSkill.description, 2800);')
+          p.write_text(s)
+
+          mp = Path('/tmp/SoulSlimePrototype/app/src/main/AndroidManifest.xml')
+          mp.write_text(mp.read_text().replace('            android:screenOrientation="sensorLandscape"\n', ''))
+
+          bp = Path('/tmp/SoulSlimePrototype/app/build.gradle')
+          b = bp.read_text().replace('versionCode 1', 'versionCode 2').replace("versionName '0.1-prototype'", "versionName '0.2-startup-fix'")
+          bp.write_text(b)
+          PY
+
       - name: Build debug APK
         working-directory: /tmp/SoulSlimePrototype
         run: gradle :app:assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlimePrototype-debug
+          name: SoulSlimePrototype-v0.2
           path: /tmp/SoulSlimePrototype/app/build/outputs/apk/debug/app-debug.apk
