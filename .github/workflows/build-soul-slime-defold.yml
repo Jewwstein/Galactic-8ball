@@ -49,6 +49,10 @@ jobs:
           s = s.replace(r'""\n  position', '""\n  position')
           p.write_text(s)
           print("\n".join(s.splitlines()[:20]))
+          a = Path("defold_project/main/creator.atlas")
+          atlas = a.read_text().replace(r'\\n', '\n')
+          a.write_text(atlas)
+          print("atlas lines:", len(atlas.splitlines()))
           PY
 
       - name: Download Defold 1.13.1 builder
