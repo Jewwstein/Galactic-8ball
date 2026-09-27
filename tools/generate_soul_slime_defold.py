@@ -1,0 +1,513 @@
+from pathlib import Path
+import os, math, random
+from PIL import Image, ImageDraw, ImageFilter, ImageChops, ImageFont
+
+OUT = Path(os.environ.get("DEFOLD_OUT", "defold_project")).resolve()
+(OUT/"main").mkdir(parents=True, exist_ok=True)
+(OUT/"input").mkdir(parents=True, exist_ok=True)
+(OUT/"assets").mkdir(parents=True, exist_ok=True)
+
+FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+def font(size,bold=False):
+    try: return ImageFont.truetype(FONT_BOLD if bold else FONT_REG, size)
+    except: return ImageFont.load_default()
+
+# ---------- project ----------
+(OUT/"game.project").write_text("""[project]
+title = Soul Slime HD Creator
+version = 0.1
+publisher = Soul Slime
+developer = Soul Slime
+bundle_identifier = com.soulslime.defoldcreator
+
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[input]
+game_binding = /input/game.input_bindingc
+use_accelerometer = 0
+
+[display]
+width = 1280
+height = 720
+high_dpi = 1
+fullscreen = 1
+dynamic_orientation = 0
+samples = 0
+update_frequency = 60
+swap_interval = 1
+
+[android]
+package = com.soulslime.defoldcreator
+minimum_sdk_version = 26
+target_sdk_version = 36
+immersive_mode = 1
+input_method = HiddenInputField
+
+[script]
+shared_state = 1
+
+[graphics]
+max_characters = 4096
+""")
+(OUT/"input/game.input_binding").write_text("""mouse_trigger {
+  input: MOUSE_BUTTON_1
+  action: "touch"
+}
+""")
+
+# ---------- art helpers ----------
+A=OUT/"assets"
+W,H=1280,720
+CYAN=(76,225,255,255)
+PALE=(220,250,255,255)
+
+def rr(draw,box,r,fill,outline=None,width=1):
+    draw.rounded_rectangle(box,radius=r,fill=fill,outline=outline,width=width)
+
+# Full-screen anime analysis chamber.
+bg=Image.new("RGBA",(W,H),(3,8,20,255))
+p=bg.load()
+for y in range(H):
+    for x in range(W):
+        d=((x-385)**2+(y-360)**2)**0.5
+        g=max(0.0,1.0-d/620.0)
+        p[x,y]=(int(3+4*g),int(8+29*g),int(20+49*g),255)
+d=ImageDraw.Draw(bg,"RGBA")
+# perspective-ish grid
+for x in range(0,W,64): d.line((x,0,x,H),fill=(58,165,215,15),width=1)
+for y in range(0,H,48): d.line((0,y,W,y),fill=(58,165,215,13),width=1)
+# scanner chamber
+for i,r in enumerate((118,154,194,240,288,332)):
+    col=(90,232,255,max(17,74-i*8))
+    for seg in range(5):
+        s=(seg*72+i*11)%360
+        d.arc((385-r,360-r,385+r,360+r),s,s+37+(seg%3)*7,fill=col,width=2+(i%2))
+for deg in range(0,360,15):
+    a=math.radians(deg)
+    d.line((385+math.cos(a)*108,360+math.sin(a)*108,
+            385+math.cos(a)*326,360+math.sin(a)*326),fill=(95,220,255,15),width=1)
+# particles / data squares
+random.seed(913)
+for i in range(95):
+    x=random.randint(26,815); y=random.randint(24,696); s=random.choice((2,3,4,6,8))
+    alpha=random.randint(18,75)
+    if i%5==0: d.rectangle((x,y,x+s,y+s),outline=(90,230,255,alpha),width=1)
+    else: d.ellipse((x,y,x+s,y+s),fill=(90,230,255,alpha))
+# panels
+rr(d,(18,18,818,702),26,(5,20,39,78),(69,210,247,72),2)
+rr(d,(844,18,1262,702),26,(4,15,34,238),(72,215,250,124),2)
+d.line((844,101,1262,101),fill=(86,225,255,90),width=1)
+d.line((844,614,1262,614),fill=(86,225,255,75),width=1)
+# top UI
+d.text((42,36),"ANALYSIS ACTIVE",font=font(30,True),fill=(225,250,255,255))
+d.text((42,73),"INITIAL VESSEL CONFIGURATION  //  SOUL SLIME",font=font(15,True),fill=(86,219,255,220))
+d.text((870,38),"SYSTEM / MATERIALIZATION",font=font(16,True),fill=(181,243,255,245))
+d.text((870,67),"Adjust soul vessel parameters",font=font(13),fill=(108,173,205,220))
+# selector rows drawn into background
+rows=[
+ ("BODY MATRIX",520),("BODY COLOR PROFILE",455),("OPTICAL TYPE",390),
+ ("PATTERN LAYER",325),("SOUL CORE SIGNATURE",260),
+ ("BODY TRANSPARENCY",195),("AURA DENSITY",130)
+]
+for title,y in rows:
+    rr(d,(874,y-26,1234,y+26),13,(8,29,53,224),(46,138,186,130),1)
+    d.text((896,y-19),title,font=font(11,True),fill=(76,211,248,210))
+# bottom system text
+d.text((866,635),"SOUL DATA / LIVE PREVIEW",font=font(12,True),fill=(78,215,249,210))
+d.text((866,657),"Touch arrows to revise each parameter.",font=font(12),fill=(133,177,201,215))
+d.text((866,676),"Lock Form stores the vessel for awakening.",font=font(12),fill=(133,177,201,215))
+bg.save(A/"background.png")
+
+# scanner overlay
+S=720
+scanner=Image.new("RGBA",(S,S),(0,0,0,0)); sd=ImageDraw.Draw(scanner,"RGBA")
+for r,a,w in ((315,92,3),(273,60,2),(225,45,2),(180,35,2)):
+    sd.ellipse((S/2-r,S/2-r,S/2+r,S/2+r),outline=(92,230,255,a),width=w)
+for deg in range(0,360,30):
+    a=math.radians(deg)
+    sd.line((360+math.cos(a)*300,360+math.sin(a)*300,
+             360+math.cos(a)*338,360+math.sin(a)*338),fill=(110,238,255,80),width=2)
+scanner.save(A/"scanner.png")
+
+# aura rings
+aura=Image.new("RGBA",(800,800),(0,0,0,0)); ad=ImageDraw.Draw(aura,"RGBA")
+for r,a,w in ((278,82,8),(314,48,6),(346,27,4)):
+    ad.ellipse((400-r,400-r,400+r,400+r),outline=(88,232,255,a),width=w)
+aura=aura.filter(ImageFilter.GaussianBlur(2.2)); aura.save(A/"aura.png")
+
+# white cel-shaded body variants, tinted at runtime
+BS=800
+def bodymask(style):
+    m=Image.new("L",(BS,BS),0); q=ImageDraw.Draw(m)
+    if style=="round":
+        q.ellipse((112,125,688,686),fill=255); q.rounded_rectangle((138,445,662,704),radius=135,fill=255)
+    elif style=="drop":
+        pts=[]
+        for i in range(160):
+            a=2*math.pi*i/160; x=math.cos(a); y=math.sin(a)
+            rx=247*(0.73+0.27*((y+1)/2)); ry=297
+            pts.append((400+x*rx,420+y*ry))
+        q.polygon(pts,fill=255)
+    elif style=="wide":
+        q.ellipse((72,205,728,674),fill=255); q.rounded_rectangle((103,457,697,698),radius=124,fill=255)
+    else:
+        q.ellipse((104,160,696,686),fill=255)
+        q.polygon([(286,228),(340,92),(400,230),(458,79),(518,235)],fill=255)
+        q.rounded_rectangle((130,462,670,702),radius=128,fill=255)
+    return m.filter(ImageFilter.GaussianBlur(1.0))
+
+for style in ("round","drop","wide","crest"):
+    m=bodymask(style)
+    im=Image.new("RGBA",(BS,BS),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+    q.bitmap((0,0),m,fill=(235,246,253,255))
+    # hard lower-right cel shadow
+    sh=Image.new("RGBA",(BS,BS),(0,0,0,0)); shd=ImageDraw.Draw(sh,"RGBA")
+    shd.ellipse((295,302,760,745),fill=(37,57,80,100))
+    sh.putalpha(ImageChops.multiply(sh.getchannel("A"),m))
+    im=Image.alpha_composite(im,sh)
+    edge=ImageChops.subtract(m.filter(ImageFilter.MaxFilter(17)),m.filter(ImageFilter.MinFilter(13))).point(lambda z:int(z*0.55))
+    rim=Image.new("RGBA",(BS,BS),(190,245,255,0)); rim.putalpha(edge)
+    im=Image.alpha_composite(im,rim)
+    im.save(A/f"body_{style}.png")
+
+# common gloss
+hl=Image.new("RGBA",(BS,BS),(0,0,0,0)); hd=ImageDraw.Draw(hl,"RGBA")
+hd.ellipse((208,197,460,342),fill=(255,255,255,146))
+hd.ellipse((175,274,282,337),fill=(255,255,255,82))
+hd.ellipse((520,545,602,585),fill=(255,255,255,40))
+hl=hl.filter(ImageFilter.GaussianBlur(5)); hl.save(A/"highlight.png")
+
+# overlays
+def star(cx,cy,r1,r2):
+    out=[]
+    for i in range(10):
+        r=r1 if i%2==0 else r2; a=-math.pi/2+i*math.pi/5
+        out.append((cx+math.cos(a)*r,cy+math.sin(a)*r))
+    return out
+
+for kind in ("calm","sharp","void","star"):
+    im=Image.new("RGBA",(BS,BS),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+    pts=((318,382),(482,382))
+    for idx,(x,y) in enumerate(pts):
+        if kind=="calm":
+            q.ellipse((x-43,y-58,x+43,y+58),fill=(4,11,25,248))
+            q.ellipse((x-24,y-39,x+4,y-10),fill=(181,246,255,250))
+            q.ellipse((x-30,y-46,x-14,y-30),fill=(255,255,255,250))
+        elif kind=="sharp":
+            poly=[(x-53,y-31),(x+46,y-47),(x+34,y+46),(x-41,y+42)] if idx==0 else [(x-46,y-47),(x+53,y-31),(x+41,y+42),(x-34,y+46)]
+            q.polygon(poly,fill=(3,8,22,250)); q.ellipse((x-12,y-12,x+12,y+12),fill=(118,238,255,255))
+        elif kind=="void":
+            q.ellipse((x-49,y-49,x+49,y+49),fill=(4,4,13,252),outline=(143,73,255,240),width=7)
+            q.ellipse((x-18,y-18,x+18,y+18),fill=(190,100,255,255)); q.ellipse((x-6,y-6,x+6,y+6),fill=(255,255,255,255))
+        else:
+            q.polygon(star(x,y,53,23),fill=(255,234,126,255),outline=(255,255,255,230))
+    im.save(A/f"eyes_{kind}.png")
+
+Image.new("RGBA",(BS,BS),(0,0,0,0)).save(A/"mark_none.png")
+im=Image.new("RGBA",(BS,BS),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+q.arc((312,245,488,421),205,335,fill=(211,250,255,140),width=13); q.line((400,230,400,289),fill=(211,250,255,145),width=13); q.ellipse((390,205,410,225),fill=(211,250,255,165)); im.save(A/"mark_rune.png")
+im=Image.new("RGBA",(BS,BS),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA"); random.seed(4)
+for i in range(24):
+    x=random.randint(238,562); y=random.randint(276,565); r=random.randint(3,9)
+    q.ellipse((x-r,y-r,x+r,y+r),fill=(239,253,255,94))
+im.save(A/"mark_speckles.png")
+im=Image.new("RGBA",(BS,BS),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+q.arc((202,305,598,701),205,335,fill=(220,251,255,120),width=17); q.arc((241,344,559,662),205,335,fill=(88,207,249,90),width=9); im.save(A/"mark_crest.png")
+
+for kind in ("soul","star","moon","none"):
+    im=Image.new("RGBA",(BS,BS),(0,0,0,0)); cx,cy=400,518
+    if kind!="none":
+        gl=Image.new("RGBA",(BS,BS),(0,0,0,0)); gd=ImageDraw.Draw(gl,"RGBA")
+        for r,a in ((100,22),(73,37),(48,60)): gd.ellipse((cx-r,cy-r,cx+r,cy+r),fill=(110,241,255,a))
+        gl=gl.filter(ImageFilter.GaussianBlur(14)); im=Image.alpha_composite(im,gl); q=ImageDraw.Draw(im,"RGBA")
+        if kind=="soul":
+            q.ellipse((cx-39,cy-39,cx+39,cy+39),fill=(116,244,255,229),outline=(236,255,255,250),width=4); q.ellipse((cx-18,cy-24,cx+2,cy-4),fill=(255,255,255,235))
+        elif kind=="star": q.polygon(star(cx,cy,45,20),fill=(255,220,80,240),outline=(255,251,215,255))
+        else:
+            q.ellipse((cx-42,cy-42,cx+42,cy+42),fill=(235,245,255,240)); q.ellipse((cx-12,cy-40,cx+57,cy+38),fill=(36,91,143,230))
+    im.save(A/f"core_{kind}.png")
+
+# UI arrows and buttons
+for name,left in (("arrow_left",True),("arrow_right",False)):
+    im=Image.new("RGBA",(58,58),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+    q.ellipse((3,3,54,54),fill=(8,34,58,238),outline=(80,224,255,215),width=2)
+    pts=[(35,15),(22,29),(35,43)] if left else [(23,15),(36,29),(23,43)]
+    q.line(pts,fill=(214,252,255,255),width=5,joint="curve"); im.save(A/f"{name}.png")
+
+for name,text,col in (
+    ("button_random","RANDOMIZE",(12,66,105,242)),
+    ("button_save","SAVE PROFILE",(18,86,67,242)),
+    ("button_lock","LOCK FORM",(79,33,119,245))
+):
+    im=Image.new("RGBA",(172,64),(0,0,0,0)); q=ImageDraw.Draw(im,"RGBA")
+    rr(q,(3,3,168,60),17,col,(93,229,255,220),2)
+    tw=q.textbbox((0,0),text,font=font(14,True)); w=tw[2]-tw[0]; h=tw[3]-tw[1]
+    q.text(((172-w)/2,(64-h)/2-2),text,font=font(14,True),fill=(231,253,255,255))
+    im.save(A/f"{name}.png")
+
+# ---------- atlas ----------
+images=[
+"background","scanner","aura",
+"body_round","body_drop","body_wide","body_crest","highlight",
+"eyes_calm","eyes_sharp","eyes_void","eyes_star",
+"mark_none","mark_rune","mark_speckles","mark_crest",
+"core_soul","core_star","core_moon","core_none",
+"arrow_left","arrow_right","button_random","button_save","button_lock"
+]
+atlas="".join(f'images {{\\n  image: "/assets/{n}.png"\\n}}\\n' for n in images)+"margin: 0\\nextrude_borders: 2\\ninner_padding: 0\\n"
+(OUT/"main/creator.atlas").write_text(atlas)
+
+def qstr(s):
+    return s.replace("\\\\","\\\\\\\\").replace('"','\\\\"')
+
+def sprite_comp(cid,anim,x,y,z,sx=1.0,sy=None):
+    sy=sx if sy is None else sy
+    lines=[
+        f'default_animation: "{anim}"',
+        'material: "/builtins/materials/sprite.material"',
+        'textures {',
+        '  sampler: "texture_sampler"',
+        '  texture: "/main/creator.atlas"',
+        '}'
+    ]
+    data='  data: "'+qstr(lines[0])+'\\\\n"\\n'
+    for ln in lines[1:]:
+        data+='  "'+qstr(ln)+'\\\\n"\\n'
+    data+='  ""\\n'
+    return f'''embedded_components {{
+  id: "{cid}"
+  type: "sprite"
+{data}  position {{
+    x: {x}
+    y: {y}
+    z: {z}
+  }}
+  scale {{
+    x: {sx}
+    y: {sy}
+    z: 1.0
+  }}
+}}
+'''
+
+def label_comp(cid,text,x,y,z,scale=1.0,width=280,height=34):
+    lines=[
+        'size {',f'  x: {width}',f'  y: {height}','}',
+        'pivot: PIVOT_CENTER',f'text: "{text}"',
+        'font: "/builtins/fonts/default.font"',
+        'material: "/builtins/fonts/label-df.material"'
+    ]
+    data='  data: "'+qstr(lines[0])+'\\\\n"\\n'
+    for ln in lines[1:]:
+        data+='  "'+qstr(ln)+'\\\\n"\\n'
+    data+='  ""\\n'
+    return f'''embedded_components {{
+  id: "{cid}"
+  type: "label"
+{data}  position {{
+    x: {x}
+    y: {y}
+    z: {z}
+  }}
+  scale {{
+    x: {scale}
+    y: {scale}
+    z: 1.0
+  }}
+}}
+'''
+
+# ---------- game object ----------
+go='''components {
+  id: "main"
+  component: "/main/main.script"
+}
+'''
+go+=sprite_comp("background","background",640,360,-5,1.0)
+go+=sprite_comp("scanner","scanner",385,360,-2,0.88)
+go+=sprite_comp("aura","aura",385,360,-1.9,0.66)
+for cid,anim,z in (("body","body_round",-1.5),("marking","mark_rune",-1.3),("core","core_soul",-1.2),("eyes","eyes_calm",-1.1),("highlight","highlight",-1.0)):
+    go+=sprite_comp(cid,anim,385,360,z,0.70)
+
+rowinfo=[("body",520,"ROUND CORE"),("color",455,"AZURE"),("eyes",390,"CALM"),("mark",325,"RUNE"),("core",260,"SOUL"),("alpha",195,"82%"),("aura_value",130,"62%")]
+for key,y,val in rowinfo:
+    go+=sprite_comp("left_"+key,"arrow_left",878,y,0,0.80)
+    go+=sprite_comp("right_"+key,"arrow_right",1230,y,0,0.80)
+    go+=label_comp("value_"+key,val,1053,y-5,0.3,0.92,250,32)
+
+go+=sprite_comp("btn_random","button_random",920,54,0,1.0)
+go+=sprite_comp("btn_save","button_save",1050,54,0,1.0)
+go+=sprite_comp("btn_lock","button_lock",1180,54,0,1.0)
+go+=label_comp("status","ANALYSIS ONLINE // Configure the initial slime vessel.",385,666,0.5,0.82,720,34)
+(OUT/"main/creator.go").write_text(go)
+
+# ---------- collection ----------
+(OUT/"main/main.collection").write_text('''name: "main"
+instances {
+  id: "creator"
+  prototype: "/main/creator.go"
+}
+scale_along_z: 0
+embedded_instances {
+  id: "camera"
+  data: "embedded_components {\\n"
+  "  id: \\"camera\\"\\n"
+  "  type: \\"camera\\"\\n"
+  "  data: \\"aspect_ratio: 1.7777778\\\\n"
+  "fov: 0.7854\\\\n"
+  "near_z: -10.0\\\\n"
+  "far_z: 10.0\\\\n"
+  "orthographic_projection: 1\\\\n"
+  "orthographic_mode: ORTHO_MODE_AUTO_COVER\\\\n"
+  "\\"\\n"
+  "}\\n"
+  ""
+  position {
+    x: 640.0
+    y: 360.0
+    z: 5.0
+  }
+}
+''')
+
+# ---------- behavior ----------
+script=r'''local BODY = {"body_round","body_drop","body_wide","body_crest"}
+local BODY_NAMES = {"ROUND CORE","DROPLET","WIDE FORM","CREST FORM"}
+local COLORS = {
+    vmath.vector4(0.14,0.72,1.00,1), vmath.vector4(0.58,0.34,1.00,1),
+    vmath.vector4(1.00,0.36,0.22,1), vmath.vector4(0.25,0.84,0.52,1),
+    vmath.vector4(0.88,0.94,1.00,1), vmath.vector4(0.18,0.15,0.30,1)
+}
+local COLOR_NAMES={"AZURE","AMETHYST","EMBER","JADE","PEARL","SHADOW"}
+local EYES={"eyes_calm","eyes_sharp","eyes_void","eyes_star"}
+local EYE_NAMES={"CALM","SHARP","VOID","STAR"}
+local MARKS={"mark_none","mark_rune","mark_speckles","mark_crest"}
+local MARK_NAMES={"NONE","RUNE","SPECKLES","CREST"}
+local CORES={"core_soul","core_star","core_moon","core_none"}
+local CORE_NAMES={"SOUL","STAR","MOON","NONE"}
+local ALPHAS={0.55,0.68,0.82,0.92}
+local ALPHA_NAMES={"55%","68%","82%","92%"}
+local AURAS={0.20,0.42,0.62,0.82,1.00}
+local AURA_NAMES={"20%","42%","62%","82%","100%"}
+local ROWS={
+    {key="body",y=520},{key="color",y=455},{key="eyes",y=390},
+    {key="mark",y=325},{key="core",y=260},{key="alpha",y=195},{key="aura_value",y=130}
+}
+local SAVE = sys.get_save_file("soul_slime_hd","creator")
+
+local function clamp_index(v,n)
+    if v < 1 then return n end
+    if v > n then return 1 end
+    return v
+end
+
+local function set_status(s)
+    label.set_text("#status",s)
+end
+
+local function save_state(self)
+    sys.save(SAVE,{
+        body=self.body,color=self.color,eyes=self.eyes,mark=self.mark,core=self.core,
+        alpha=self.alpha,aura=self.aura_value
+    })
+end
+
+local function load_state(self)
+    local t=sys.load(SAVE)
+    self.body=t.body or 1
+    self.color=t.color or 1
+    self.eyes=t.eyes or 1
+    self.mark=t.mark or 2
+    self.core=t.core or 1
+    self.alpha=t.alpha or 3
+    self.aura_value=t.aura or 3
+end
+
+local function refresh(self)
+    sprite.play_flipbook("#body",hash(BODY[self.body]))
+    sprite.play_flipbook("#eyes",hash(EYES[self.eyes]))
+    sprite.play_flipbook("#marking",hash(MARKS[self.mark]))
+    sprite.play_flipbook("#core",hash(CORES[self.core]))
+    local c=COLORS[self.color]
+    go.set("#body","tint",vmath.vector4(c.x,c.y,c.z,ALPHAS[self.alpha]))
+    go.set("#aura","tint",vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]))
+    label.set_text("#value_body",BODY_NAMES[self.body])
+    label.set_text("#value_color",COLOR_NAMES[self.color])
+    label.set_text("#value_eyes",EYE_NAMES[self.eyes])
+    label.set_text("#value_mark",MARK_NAMES[self.mark])
+    label.set_text("#value_core",CORE_NAMES[self.core])
+    label.set_text("#value_alpha",ALPHA_NAMES[self.alpha])
+    label.set_text("#value_aura_value",AURA_NAMES[self.aura_value])
+end
+
+local function cycle(self,key,dir)
+    if key=="body" then self.body=clamp_index(self.body+dir,#BODY)
+    elseif key=="color" then self.color=clamp_index(self.color+dir,#COLORS)
+    elseif key=="eyes" then self.eyes=clamp_index(self.eyes+dir,#EYES)
+    elseif key=="mark" then self.mark=clamp_index(self.mark+dir,#MARKS)
+    elseif key=="core" then self.core=clamp_index(self.core+dir,#CORES)
+    elseif key=="alpha" then self.alpha=clamp_index(self.alpha+dir,#ALPHAS)
+    elseif key=="aura_value" then self.aura_value=clamp_index(self.aura_value+dir,#AURAS) end
+    refresh(self)
+    set_status("ANALYSIS UPDATED // "..string.upper(key).." parameter accepted.")
+end
+
+function init(self)
+    msg.post(".","acquire_input_focus")
+    math.randomseed(os.time())
+    load_state(self)
+    refresh(self)
+    local cyan=vmath.vector4(0.40,0.90,1.0,1.0)
+    local white=vmath.vector4(0.92,0.98,1.0,1.0)
+    go.set("#status","color",cyan)
+    for _,r in ipairs(ROWS) do go.set("#value_"..r.key,"color",white) end
+    set_status("ANALYSIS ONLINE // Configure the initial slime vessel.")
+end
+
+function update(self,dt)
+    self.t=(self.t or 0)+dt
+    local c=COLORS[self.color]
+    local pulse=0.80+math.sin(self.t*2.5)*0.16
+    go.set("#aura","tint",vmath.vector4(c.x,c.y,c.z,AURAS[self.aura_value]*pulse))
+    local s=0.70+math.sin(self.t*2.1)*0.010
+    go.set_scale(vmath.vector3(s,0.70+(0.70-s)*0.25,1),"#body")
+end
+
+local function inside(x,y,cx,cy,w,h)
+    return x>=cx-w/2 and x<=cx+w/2 and y>=cy-h/2 and y<=cy+h/2
+end
+
+function on_input(self,action_id,action)
+    if action_id~=hash("touch") or not action.pressed then return false end
+    local x,y=action.x,action.y
+    for _,r in ipairs(ROWS) do
+        if inside(x,y,878,r.y,72,62) then cycle(self,r.key,-1); return true end
+        if inside(x,y,1230,r.y,72,62) then cycle(self,r.key,1); return true end
+    end
+    if inside(x,y,920,54,172,70) then
+        self.body=math.random(#BODY); self.color=math.random(#COLORS); self.eyes=math.random(#EYES)
+        self.mark=math.random(#MARKS); self.core=math.random(#CORES); self.alpha=math.random(#ALPHAS); self.aura_value=math.random(#AURAS)
+        refresh(self); set_status("RANDOM SOUL DATA SYNTHESIZED // Candidate vessel generated."); return true
+    elseif inside(x,y,1050,54,172,70) then
+        save_state(self); set_status("PROFILE SAVED // Vessel parameters stored locally."); return true
+    elseif inside(x,y,1180,54,172,70) then
+        save_state(self); set_status("MATERIALIZATION CONFIRMED // Form locked for cave awakening."); return true
+    end
+    return false
+end
+'''
+(OUT/"main/main.script").write_text(script)
+(OUT/"README.md").write_text("""# Soul Slime HD Creator — Defold
+
+Engine-switch prototype.
+- Defold 1.13.1
+- Android landscape / immersive fullscreen
+- Original layered anime-inspired slime textures
+- Original cyan analysis-chamber UI using broad visual cues from fantasy-anime analysis sequences
+- Live body/color/eyes/markings/core/transparency/aura customization
+- Local save + lock form
+""")
+print("generated project",OUT)
+print("textures",len(list(A.glob("*.png"))))
