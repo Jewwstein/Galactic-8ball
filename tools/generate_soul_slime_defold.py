@@ -537,7 +537,7 @@ function on_input(self,action_id,action)
     end
     return false
 end
-''''
+'''
 (OUT/"main/main.script").write_text(script)
 (OUT/"README.md").write_text("""# Soul Slime HD Creator — Defold
 
