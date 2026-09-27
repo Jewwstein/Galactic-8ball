@@ -396,6 +396,279 @@ for i in range(10):
 st=st.filter(ImageFilter.GaussianBlur(1.0))
 st.save(OUT/"storm_burst.png")
 
+
+# ==================== v6 ADULT ANIME / DRAGON-DRIVEN ART PASS ====================
+# Sharper silhouette language, layered charcoal rock, aged gold mineral armor,
+# crimson magical fissures and cyan mana crystal lighting.
+
+def jagged_poly(cx,cy,rx,ry,n=12,seed=1):
+    rr=random.Random(seed)
+    pts=[]
+    for i in range(n):
+        a=math.pi*2*i/n
+        jitter=.78+rr.random()*.35
+        pts.append((cx+math.cos(a)*rx*jitter,cy+math.sin(a)*ry*jitter))
+    return pts
+
+def gold_spine(draw,x,y,length,angle,thick=18,alpha=210):
+    ca,sa=math.cos(angle),math.sin(angle)
+    nx,ny=-sa,ca
+    p1=(x+nx*thick,y+ny*thick)
+    p2=(x+ca*length,y+sa*length)
+    p3=(x-nx*thick,y-ny*thick)
+    draw.polygon([p1,p2,p3],fill=(165,115,58,alpha),outline=(239,194,111,min(255,alpha+25)))
+    draw.line((x,y,p2[0],p2[1]),fill=(255,221,154,min(255,alpha+20)),width=max(2,int(thick*.18)))
+
+def adult_room(name, base_img, red=1.0, cyan=1.0, gold=1.0, feature=""):
+    im=base_img.copy().convert("RGBA")
+    im=add_glow(im,960,525,620,(120,34,58),int(48*red))
+    im=add_glow(im,650,500,300,(48,176,236),int(42*cyan))
+    d=ImageDraw.Draw(im,"RGBA")
+
+    # fine crack network and red fissures
+    rr=random.Random(hash(name)&0xffffffff)
+    for i in range(75):
+        x=rr.randint(30,W-30); y=rr.randint(120,H-100)
+        segs=[(x,y)]
+        for j in range(rr.randint(2,5)):
+            x+=rr.randint(-55,55); y+=rr.randint(18,65)
+            segs.append((x,y))
+        d.line(segs,fill=(135,29,38,rr.randint(28,65)),width=rr.randint(2,5))
+        if i%8==0:d.line(segs,fill=(250,64,55,38),width=1)
+
+    # dragon-like gold mineral spines framing architecture
+    for i in range(22):
+        edge=rr.choice([0,1])
+        x=rr.randint(0,W) if i%3 else (rr.randint(20,240) if edge==0 else rr.randint(W-240,W-20))
+        y=rr.randint(80,H-90)
+        ang=rr.uniform(-1.1,-.25) if edge==0 else rr.uniform(-2.9,-2.05)
+        gold_spine(d,x,y,rr.randint(60,170),ang,rr.randint(8,18),int(175*gold))
+
+    # sharp slate plates, layered like scales
+    for i in range(48):
+        x=rr.randint(50,W-50); y=rr.randint(100,H-80)
+        rw=rr.randint(28,85); rh=rr.randint(20,70)
+        pts=[(x-rw,y),(x-rw*.25,y-rh),(x+rw,y-rh*.20),(x+rw*.45,y+rh),(x-rw*.55,y+rh*.65)]
+        d.polygon(pts,fill=(20,22,31,rr.randint(35,85)),outline=(108,79,50,rr.randint(25,75)))
+
+    if feature=="obsidian":
+        for x in (340,750,1180,1540):
+            pts=jagged_poly(x,720,115,240,8,int(x))
+            d.polygon(pts,fill=(15,17,24,230),outline=(188,131,61,120))
+    elif feature=="crypt":
+        for x in (380,720,1100,1450):
+            d.rounded_rectangle((x-70,420,x+70,760),radius=20,fill=(12,14,20,215),outline=(157,113,61,125),width=5)
+            d.polygon([(x-90,430),(x,310),(x+90,430)],fill=(28,24,28,225),outline=(206,150,76,140))
+    elif feature=="echo":
+        for rr2,a in [(330,75),(245,95),(165,115)]:
+            d.ellipse((960-rr2,535-rr2*.42,960+rr2,535+rr2*.42),outline=(82,203,255,a),width=6)
+            d.arc((960-rr2,535-rr2*.42,960+rr2,535+rr2*.42),205,120,fill=(220,246,255,a),width=3)
+    elif feature=="shard":
+        for x,y,r2 in [(400,650,95),(700,520,72),(1040,700,110),(1430,560,82),(1650,720,96)]:
+            draw_crystal(d,x,y,r2,(75,190,245,230),(226,252,255,245))
+            gold_spine(d,x-40,y+50,r2*1.4,-1.15,12,185)
+    elif feature=="grotto":
+        d.ellipse((380,590,1540,1030),fill=(8,37,45,120),outline=(69,171,188,85),width=6)
+        for i in range(16):
+            x=rr.randint(420,1500); y=rr.randint(650,970)
+            d.ellipse((x-4,y-2,x+4,y+2),fill=(125,235,224,rr.randint(40,100)))
+    elif feature=="vault":
+        d.rounded_rectangle((620,185,1300,850),radius=145,fill=(8,10,17,195),outline=(210,153,75,165),width=11)
+        d.rounded_rectangle((700,260,1220,835),radius=120,outline=(112,76,43,150),width=5)
+        for i in range(10):
+            a=i*math.pi*2/10
+            x=960+math.cos(a)*390;y=520+math.sin(a)*290
+            gold_spine(d,x,y,95,a+math.pi,13,190)
+    elif feature=="chasm":
+        d.polygon([(570,515),(790,420),(960,600),(1130,420),(1380,520),(1190,1080),(720,1080)],fill=(1,3,9,235))
+        for i in range(11):
+            x=650+i*70
+            d.line((x,600,x+rr.randint(-60,60),1020),fill=(235,49,46,45),width=rr.randint(3,8))
+    elif feature=="approach":
+        d.rounded_rectangle((650,170,1270,910),radius=220,outline=(212,157,81,185),width=13)
+        for i in range(7):
+            x=735+i*82
+            d.line((x,250,x,850),fill=(112,76,44,80),width=5)
+
+    # extra crispness / mature high detail
+    im=im.filter(ImageFilter.UnsharpMask(radius=2.0,percent=165,threshold=3))
+    im.save(OUT/name)
+
+# Overwrite core cave rooms with the mature pass.
+adult_room("cave_bg.png",bg,red=.85,cyan=1.15,gold=1.0,feature="")
+adult_room("cave_corridor.png",bg,red=.72,cyan=.72,gold=1.15,feature="obsidian")
+adult_room("cave_mana.png",bg,red=.48,cyan=1.75,gold=.95,feature="echo")
+adult_room("cave_crossroads.png",bg,red=1.0,cyan=.80,gold=1.2,feature="shard")
+adult_room("cave_web.png",bg,red=1.45,cyan=.42,gold=1.08,feature="")
+adult_room("cave_scale.png",bg,red=.92,cyan=.62,gold=1.40,feature="")
+adult_room("cave_gate.png",bg,red=1.22,cyan=.45,gold=1.65,feature="vault")
+adult_room("cave_dragon.png",bg,red=1.75,cyan=.25,gold=1.75,feature="approach")
+adult_room("cave_exit.png",bg,red=.35,cyan=.65,gold=1.1,feature="")
+
+# New maze room backgrounds.
+adult_room("cave_obsidian.png",bg,red=.82,cyan=.42,gold=1.22,feature="obsidian")
+adult_room("cave_crypt.png",bg,red=.72,cyan=.42,gold=1.28,feature="crypt")
+adult_room("cave_echo.png",bg,red=.45,cyan=1.45,gold=.90,feature="echo")
+adult_room("cave_shard.png",bg,red=.70,cyan=1.35,gold=1.20,feature="shard")
+adult_room("cave_grotto.png",bg,red=.50,cyan=1.15,gold=.82,feature="grotto")
+adult_room("cave_vault.png",bg,red=1.05,cyan=.34,gold=1.75,feature="vault")
+adult_room("cave_chasm.png",bg,red=1.65,cyan=.28,gold=1.10,feature="chasm")
+adult_room("cave_dragon_approach.png",bg,red=1.45,cyan=.25,gold=1.72,feature="approach")
+
+# Mature Cave Mite: angular armored cave arthropod, no cute face.
+mite2=Image.new("RGBA",(1400,1400),(0,0,0,0))
+mite2=add_glow(mite2,700,760,420,(193,52,48),40)
+md=ImageDraw.Draw(mite2,"RGBA")
+# rear legs / blade limbs
+for side in (-1,1):
+    for i in range(4):
+        y=650+i*90
+        x0=700+side*(235+i*12)
+        x1=700+side*(410+i*38)
+        y1=y-120+i*25
+        x2=700+side*(520+i*25)
+        y2=y+80
+        md.line((x0,y,x1,y1,x2,y2),fill=(22,24,31,255),width=68,joint="curve")
+        md.line((x0,y,x1,y1,x2,y2),fill=(158,112,58,210),width=16,joint="curve")
+# armored shell
+shell=jagged_poly(700,725,310,330,14,77)
+md.polygon(shell,fill=(32,34,42,255),outline=(211,154,78,255))
+for i in range(7):
+    yy=470+i*75
+    md.polygon([(465,yy),(700,yy-52),(935,yy),(870,yy+55),(530,yy+55)],fill=(50+i*2,48+i*2,54+i*2,245),outline=(143,101,56,205))
+# horned head + mandibles
+md.polygon([(490,515),(575,315),(665,450),(700,275),(745,450),(845,315),(920,520)],fill=(44,42,49,255),outline=(224,164,84,255))
+md.polygon([(540,550),(400,620),(560,690)],fill=(210,151,77,245),outline=(252,207,128,255))
+md.polygon([(860,550),(1000,620),(840,690)],fill=(210,151,77,245),outline=(252,207,128,255))
+for ex in (600,800):
+    md.polygon([(ex-48,500),(ex+48,490),(ex+25,555),(ex-35,560)],fill=(255,75,38,255))
+    md.ellipse((ex-8,510,ex+8,548),fill=(255,225,118,255))
+mite2=mite2.filter(ImageFilter.UnsharpMask(radius=1.6,percent=180,threshold=2))
+mite2.save(OUT/"cave_mite.png")
+
+# Mature Crystal Weaver: blade-legged armored spider with small glowing eyes.
+sp2=Image.new("RGBA",(1600,1600),(0,0,0,0))
+sp2=add_glow(sp2,800,830,500,(159,42,74),44)
+sd=ImageDraw.Draw(sp2,"RGBA")
+for side in (-1,1):
+    for i,(ang,yy) in enumerate([(-.82,590),(-.48,700),(-.18,825),(.14,930)]):
+        x0=800+side*260;y0=yy
+        x1=x0+side*(260+i*35);y1=y0-120+i*35
+        x2=x1+side*(210+i*18);y2=y1+160+i*34
+        sd.line((x0,y0,x1,y1,x2,y2),fill=(25,24,31,255),width=78,joint="curve")
+        sd.line((x0,y0,x1,y1,x2,y2),fill=(192,132,62,220),width=18,joint="curve")
+        gold_spine(sd,x1,y1,105,-1.2 if side<0 else -1.95,15,220)
+abd=jagged_poly(800,900,330,350,16,91)
+sd.polygon(abd,fill=(37,35,43,255),outline=(204,145,70,255))
+for i in range(6):
+    yy=680+i*92
+    sd.arc((505,yy-120,1095,yy+130),200,140,fill=(155,105,57,165),width=15)
+head=jagged_poly(800,520,235,190,10,43)
+sd.polygon(head,fill=(43,39,46,255),outline=(220,158,80,255))
+# head crest
+for xoff,angle in [(-170,-2.0),(-80,-1.75),(80,-1.4),(170,-1.15)]:
+    gold_spine(sd,800+xoff,430,165,angle,18,235)
+# eight small predatory eyes
+for i in range(4):
+    ex=705+i*63
+    for ey in (500,545):
+        sd.ellipse((ex-16,ey-10,ex+16,ey+10),fill=(255,56,36,255))
+        sd.ellipse((ex-5,ey-5,ex+5,ey+5),fill=(255,229,154,255))
+# fangs
+sd.polygon([(700,590),(760,760),(820,600)],fill=(226,180,102,255),outline=(255,223,161,255))
+sd.polygon([(900,590),(840,760),(780,600)],fill=(226,180,102,255),outline=(255,223,161,255))
+sp2=sp2.filter(ImageFilter.UnsharpMask(radius=1.8,percent=190,threshold=2))
+sp2.save(OUT/"anime_spider.png")
+
+# Mature Scale Runner: lean predatory cave drake/lizard with gold armor.
+lz2=Image.new("RGBA",(1600,1600),(0,0,0,0))
+lz2=add_glow(lz2,790,860,480,(42,154,111),36)
+ld=ImageDraw.Draw(lz2,"RGBA")
+# long tail
+tail=[(990,960),(1280,820),(1510,900),(1320,980),(1120,1060),(980,1080)]
+ld.polygon(tail,fill=(27,41,38,255),outline=(179,126,63,230))
+# athletic body
+bodypts=jagged_poly(790,870,390,280,14,140)
+ld.polygon(bodypts,fill=(34,45,43,255),outline=(202,145,71,255))
+# plated back
+for i in range(7):
+    x=515+i*90
+    ld.polygon([(x,720),(x+45,610-i*5),(x+92,730),(x+70,805),(x+10,805)],fill=(88,76,58,235),outline=(224,166,86,225))
+# neck/head
+head=[(450,760),(410,515),(570,355),(845,365),(1015,540),(940,750),(720,810)]
+ld.polygon(head,fill=(36,48,45,255),outline=(216,154,75,255))
+# jaw armor
+ld.polygon([(515,630),(700,585),(915,625),(850,745),(620,750)],fill=(74,65,54,235),outline=(198,140,68,220))
+# dorsal horns
+for i in range(7):
+    x=540+i*76
+    gold_spine(ld,x,470-i*5,145,-1.47,16,220)
+# serious narrow eyes
+for ex in (610,825):
+    ld.polygon([(ex-65,545),(ex+65,530),(ex+32,600),(ex-50,608)],fill=(99,255,184,255))
+    ld.ellipse((ex-10,548,ex+10,600),fill=(11,41,31,255))
+# claws/limbs
+for ex in (520,945):
+    ld.line((ex,930,ex-90,1130),fill=(31,42,39,255),width=80)
+    ld.line((ex+120,930,ex+205,1115),fill=(31,42,39,255),width=80)
+    for j in range(3):
+        gold_spine(ld,ex-90+j*24,1130,75,1.8+j*.18,9,220)
+lz2=lz2.filter(ImageFilter.UnsharpMask(radius=1.8,percent=190,threshold=2))
+lz2.save(OUT/"anime_lizard.png")
+
+# Ancient dragon, directly driven by the supplied reference's adult black/gold/red language.
+dr2=Image.new("RGBA",(1800,1800),(0,0,0,0))
+dr2=add_glow(dr2,900,950,650,(175,40,32),42)
+dd=ImageDraw.Draw(dr2,"RGBA")
+# wings behind body
+leftwing=[(760,830),(320,300),(80,360),(340,780),(130,1120),(700,1030)]
+rightwing=[(1040,830),(1480,280),(1730,370),(1460,790),(1690,1130),(1100,1020)]
+for wing in (leftwing,rightwing):
+    dd.polygon(wing,fill=(83,18,25,245),outline=(202,145,72,255))
+# black wing fingers / gold ridges
+for side in (-1,1):
+    root=(900+side*170,800)
+    for i in range(5):
+        tip=(900+side*(420+i*120),360+i*145)
+        dd.line((root[0],root[1],tip[0],tip[1]),fill=(28,28,34,255),width=54)
+        dd.line((root[0],root[1],tip[0],tip[1]),fill=(204,147,75,220),width=12)
+# serpentine body and tail
+dd.ellipse((565,600,1245,1435),fill=(32,34,41,255),outline=(214,155,76,255),width=22)
+tail=[(1070,1180),(1420,1180),(1700,1390),(1490,1545),(1180,1410),(1000,1270)]
+dd.polygon(tail,fill=(30,32,39,255),outline=(202,145,72,255))
+# layered gold breast armor
+for i in range(7):
+    y=650+i*112
+    half=205-i*10
+    dd.polygon([(900-half,y),(900,y-55),(900+half,y),(900+half*.70,y+105),(900-half*.70,y+105)],fill=(132,100,65,245),outline=(236,190,112,255))
+# neck and head
+neck=[(690,850),(620,500),(700,235),(900,120),(1110,230),(1190,500),(1080,850)]
+dd.polygon(neck,fill=(31,33,40,255),outline=(217,158,79,255))
+# long armored snout
+head=[(650,420),(610,290),(755,145),(970,105),(1160,230),(1195,390),(1050,520),(780,540)]
+dd.polygon(head,fill=(37,37,44,255),outline=(227,166,85,255))
+# head golden crown horns
+for x,y,length,ang in [(690,240,250,-2.15),(770,190,245,-1.85),(915,145,255,-1.45),(1040,195,235,-1.15),(1125,275,205,-.86)]:
+    gold_spine(dd,x,y,length,ang,26,255)
+# jaw spikes
+for i in range(6):
+    x=690+i*80
+    gold_spine(dd,x,485,100,1.35+(i-3)*.05,12,230)
+# red glowing eyes
+for ex in (790,1015):
+    dd.polygon([(ex-70,315),(ex+55,295),(ex+20,355),(ex-55,360)],fill=(255,57,24,255))
+    dd.ellipse((ex-5,315,ex+12,352),fill=(255,228,128,255))
+# dorsal spines
+for i in range(9):
+    x=1080+i*42;y=720+i*80
+    gold_spine(dd,x,y,135,-.85,15,230)
+# claws
+for bx,by in [(620,1240),(1050,1260)]:
+    for j in range(4):
+        gold_spine(dd,bx+j*45,by,110,1.72+j*.11,14,245)
+dr2=dr2.filter(ImageFilter.UnsharpMask(radius=2.0,percent=205,threshold=2))
+dr2.save(OUT/"ancient_dragon.png")
+
 print("Generated anime cave assets:")
 for p in sorted(OUT.glob("*.png")):
     print(p.name, p.stat().st_size)
