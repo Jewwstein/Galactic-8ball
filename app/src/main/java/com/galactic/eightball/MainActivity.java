@@ -2217,45 +2217,69 @@ public class MainActivity extends Activity {
 
 
     void drawArcadeHud(Canvas c,int w,int h,float ui,GameRenderer r){
-      float rad=Math.max(78f*ui,Math.min(w,h)*.135f);
-      float mx=rad+24f*ui,my=h-rad-24f*ui,ax=w-rad-24f*ui,ay=my;
+      float rad=Math.max(88f*ui,Math.min(w,h)*.155f);
+      float mx=rad+18f*ui,my=h-rad-18f*ui,ax=w-rad-18f*ui,ay=my;
       arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
       arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
-      drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,"MOVE",ui,0xFF5BD6FF);
-      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,"AIM",ui,0xFFFF5B5B);
+      drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,r.tieMode?"FLIGHT":"MOVE",ui,0xFF5BD6FF);
+      drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"STEER":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
-      p.setTextSize(22f*ui);p.setColor(Color.WHITE);
-      c.drawText("DEATH STAR ASSAULT",w*.5f,38f*ui,p);
-      p.setTextSize(16f*ui);p.setColor(0xFFF4C542);
-      c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
-      p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
-      c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+      if(r.tieMode){
+        // Native TIE cockpit HUD. This is deliberately vector-drawn so it is
+        // resolution independent; the authored TIE_ARCADE_HUD PNG can later
+        // replace only this overlay without touching flight/gameplay code.
+        p.setStyle(Paint.Style.FILL);p.setColor(0x33000000);c.drawRect(0,0,w,h,p);
+        stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(3.2f*ui);stroke.setColor(0xCC78FF8D);
+        float cx=w*.5f,cy=h*.46f,rr=Math.min(w,h)*.095f;
+        c.drawCircle(cx,cy,rr,stroke);
+        c.drawLine(cx-rr*1.55f,cy,cx-rr*.58f,cy,stroke);c.drawLine(cx+rr*.58f,cy,cx+rr*1.55f,cy,stroke);
+        c.drawLine(cx,cy-rr*1.55f,cx,cy-rr*.58f,stroke);c.drawLine(cx,cy+rr*.58f,cx,cy+rr*1.55f,stroke);
+        // Cockpit window braces.
+        stroke.setStrokeWidth(8f*ui);stroke.setColor(0xDD11161C);
+        c.drawLine(0,h*.08f,w*.27f,h*.33f,stroke);c.drawLine(w,h*.08f,w*.73f,h*.33f,stroke);
+        c.drawLine(0,h*.92f,w*.27f,h*.61f,stroke);c.drawLine(w,h*.92f,w*.73f,h*.61f,stroke);
+        stroke.setStrokeWidth(2f*ui);stroke.setColor(0x9978FF8D);
+        c.drawLine(w*.27f,h*.33f,w*.73f,h*.33f,stroke);c.drawLine(w*.27f,h*.61f,w*.73f,h*.61f,stroke);
 
-      if(r.net!=null&&!r.net.arcadeBoard.isEmpty()){
-        p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10.5f*ui);p.setColor(0xFFD8E2EE);
-        float lx=18f*ui,ly=112f*ui;c.drawText("GALACTIC LEADERBOARD",lx,ly,p);
-        String[] rows=r.net.arcadeBoard.split("\\n");for(int i=0;i<Math.min(5,rows.length);i++)c.drawText(rows[i],lx,ly+(i+1)*16f*ui,p);
-        p.setTextAlign(Paint.Align.CENTER);
+        p.setTextSize(21f*ui);p.setColor(0xFF8CFF9B);c.drawText("TIE INTERCEPT",w*.5f,34f*ui,p);
+        p.setTextSize(13f*ui);p.setColor(r.arcadeLocked?0xFFFF6262:0xFF9BFFAA);
+        c.drawText(r.arcadeLocked?"TARGET IN SIGHTS":"ACQUIRE X-WING",w*.5f,57f*ui,p);
+
+        float fireR=42f*ui,fireCx=w*.5f,fireCy=h-fireR-16f*ui;
+        tieFireRect.set(fireCx-fireR,fireCy-fireR,fireCx+fireR,fireCy+fireR);
+        p.setColor(0xCC173A20);c.drawCircle(fireCx,fireCy,fireR,p);stroke.setColor(0xFF78FF8D);stroke.setStrokeWidth(3f*ui);c.drawCircle(fireCx,fireCy,fireR,stroke);
+        p.setTextSize(15f*ui);p.setColor(Color.WHITE);c.drawText("FIRE",fireCx,fireCy+5f*ui,p);
+
+        float bh=38f*ui,bw=58f*ui;
+        tieUpRect.set(mx+rad*.58f,my-rad-bh-8f*ui,mx+rad*.58f+bw,my-rad-8f*ui);
+        tieDownRect.set(mx+rad*.58f,my-rad-bh*2-14f*ui,mx+rad*.58f+bw,my-rad-bh-14f*ui);
+        drawButton(c,tieUpRect,"UP",12f*ui,0xAA153024);drawButton(c,tieDownRect,"DN",12f*ui,0xAA301515);
+      }else{
+        tieFireRect.setEmpty();tieUpRect.setEmpty();tieDownRect.setEmpty();
+        p.setTextSize(22f*ui);p.setColor(Color.WHITE);c.drawText("DEATH STAR ASSAULT",w*.5f,38f*ui,p);
+        p.setTextSize(16f*ui);p.setColor(0xFFF4C542);
+        c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
+        p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
+        c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+        float rr=30f*ui;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
+        c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
+        c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
       }
 
-      float rr=30f*ui; stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);
-      stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
-      c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
-      c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
-      c.drawLine(w*.5f,h*.46f-rr*1.35f,w*.5f,h*.46f-rr*.55f,stroke);
-      c.drawLine(w*.5f,h*.46f+rr*.55f,w*.5f,h*.46f+rr*1.35f,stroke);
+      tieModeRect.set(18f*ui,18f*ui,128f*ui,58f*ui);
+      p.setColor(0xCC111923);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,p);stroke.setColor(r.tieMode?0xFF78FF8D:0xFF5BD6FF);stroke.setStrokeWidth(2f*ui);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,stroke);
+      p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);c.drawText(r.tieMode?"DEATH STAR":"TIE MODE",tieModeRect.centerX(),tieModeRect.centerY()+4f*ui,p);
 
       arcadeExitRect.set(w-118f*ui,18f*ui,w-18f*ui,58f*ui);
-      p.setColor(0xCC111923);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,p);
-      stroke.setColor(0x88FFFFFF);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,stroke);
+      p.setColor(0xCC111923);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,p);stroke.setColor(0x88FFFFFF);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,stroke);
       p.setTextSize(12f*ui);p.setColor(Color.WHITE);c.drawText("EXIT",arcadeExitRect.centerX(),arcadeExitRect.centerY()+4f*ui,p);
     }
 
     void clearArcadeUiState(){
       arcadeUiActive=false;arcadeMovePointer=arcadeAimPointer=-1;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;
-      arcadeMoveRect.setEmpty();arcadeAimRect.setEmpty();arcadeExitRect.setEmpty();
+      arcadeMoveRect.setEmpty();arcadeAimRect.setEmpty();arcadeExitRect.setEmpty();tieModeRect.setEmpty();tieFireRect.setEmpty();tieUpRect.setEmpty();tieDownRect.setEmpty();tieFirePointer=-1;
       invalidate();
     }
 
@@ -3051,6 +3075,10 @@ public class MainActivity extends Activity {
           final int pid=e.getPointerId(idx);
           float px=e.getX(idx),py=e.getY(idx);
           if(arcadeExitRect.contains(px,py)){clearArcadeUiState();game.queueEvent(()->r.exitArcade());return true;}
+          if(tieModeRect.contains(px,py)){game.queueEvent(()->r.setTieMode(!r.tieMode));invalidate();return true;}
+          if(r.tieMode&&tieFireRect.contains(px,py)){tieFirePointer=pid;game.queueEvent(()->r.setTieFire(true));return true;}
+          if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
+          if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
           if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
           else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,px,py);}
           return true;
@@ -3067,12 +3095,13 @@ public class MainActivity extends Activity {
         }
         if(a==MotionEvent.ACTION_CANCEL){
           arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;
-          game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);});
+          game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);r.setTieFire(false);});tieFirePointer=-1;
           invalidate();return true;
         }
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP){
           if(idx<0||idx>=e.getPointerCount())return true;
           final int pid=e.getPointerId(idx);
+          if(pid==tieFirePointer){tieFirePointer=-1;game.queueEvent(()->r.setTieFire(false));}
           if(pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
           if(pid==arcadeAimPointer){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
           invalidate();return true;
