@@ -1,0 +1,59 @@
+name: Build Soul Slime Native APK
+
+on:
+  push:
+    branches:
+      - 'prototype/soul-slime-native'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /home/runner/android-sdk
+      ANDROID_SDK_ROOT: /home/runner/android-sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android command-line tools
+        run: |
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+          unzip -q /tmp/cmdline-tools.zip -d /tmp/android-tools
+          mv /tmp/android-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compile native Soul Slime
+        run: gradle :soulapp:assembleDebug --stacktrace
+
+      - name: Validate APK
+        run: |
+          APK="soulapp/build/outputs/apk/debug/soulapp-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
+          cp "$APK" SoulSlime-Native-v1.apk
+          zip -qr SoulSlime-Native-v1-source.zip soulapp settings.gradle.kts build.gradle.kts
+          ls -lh SoulSlime-Native-v1.apk SoulSlime-Native-v1-source.zip
+          sha256sum SoulSlime-Native-v1.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoulSlime-Native-v1
+          path: |
+            SoulSlime-Native-v1.apk
+            SoulSlime-Native-v1-source.zip
