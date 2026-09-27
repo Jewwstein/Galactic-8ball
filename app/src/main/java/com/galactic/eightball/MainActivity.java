@@ -3131,7 +3131,8 @@ public class MainActivity extends Activity {
           if(idx<0||idx>=e.getPointerCount())return true;
           final int pid=e.getPointerId(idx);
           float px=e.getX(idx),py=e.getY(idx);
-          if(arcadeSummaryOpen){if(arcadeSummaryExitRect.contains(px,py)){arcadeSummaryOpen=false;clearArcadeUiState();game.queueEvent(()->r.exitArcade());}return true;}\n          if(arcadeExitRect.contains(px,py)){arcadeSummaryOpen=true;arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);r.beginArcadeExit();});invalidate();return true;}
+          if(arcadeSummaryOpen){if(arcadeSummaryExitRect.contains(px,py)){arcadeSummaryOpen=false;clearArcadeUiState();game.queueEvent(()->r.exitArcade());}return true;}
+          if(arcadeExitRect.contains(px,py)){arcadeSummaryOpen=true;arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);r.beginArcadeExit();});invalidate();return true;}
           if(tieModeRect.contains(px,py)){game.queueEvent(()->r.setTieMode(!r.tieMode));invalidate();return true;}
           if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
           if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
