@@ -117,3 +117,4 @@ func _physics_process(delta):
 			if vis:
 				vis.rotation.y += delta*0.24
 				vis.position.y = sin(cave_time*1.8+phase)*0.06
+
