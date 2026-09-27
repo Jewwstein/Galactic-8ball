@@ -1,5 +1,8 @@
 name: Build Soul Slime Native APK
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -50,6 +53,20 @@ jobs:
           zip -qr SoulSlime-Native-v1-source.zip soulapp settings.gradle.kts build.gradle.kts
           ls -lh SoulSlime-Native-v1.apk SoulSlime-Native-v1-source.zip
           sha256sum SoulSlime-Native-v1.apk
+
+      - name: Publish stable prerelease APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view soul-slime-native-v1 >/dev/null 2>&1; then
+            gh release upload soul-slime-native-v1 SoulSlime-Native-v1.apk --clobber
+          else
+            gh release create soul-slime-native-v1 SoulSlime-Native-v1.apk \
+              --title "Soul Slime Native v1" \
+              --notes "Native Android prototype built on the same Java/Android stack as Galactic 8-Ball. Includes death scene, reincarnation skill selection, animated Sage-style creator, real Android controls, and local save state." \
+              --prerelease \
+              --target prototype/soul-slime-native
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
