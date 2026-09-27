@@ -67,25 +67,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v4.apk
-          zip -q SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4.apk
-          zip -qr SoulSlime-Native-v4-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v4-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4-source.zip
-          sha256sum SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip
+          cp "$APK" SoulSlime-Native-v5.apk
+          zip -q SoulSlime-Native-v5-APK.zip SoulSlime-Native-v5.apk
+          zip -qr SoulSlime-Native-v5-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-Native-v5-APK.zip >/dev/null
+          ls -lh SoulSlime-Native-v5.apk SoulSlime-Native-v5-APK.zip SoulSlime-Native-v5-source.zip
+          sha256sum SoulSlime-Native-v5.apk SoulSlime-Native-v5-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v4
+          name: SoulSlime-Native-v5
           path: |
-            SoulSlime-Native-v4.apk
-            SoulSlime-Native-v4-APK.zip
-            SoulSlime-Native-v4-source.zip
+            SoulSlime-Native-v5.apk
+            SoulSlime-Native-v5-APK.zip
+            SoulSlime-Native-v5-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v4 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v4 --title "Soul Slime Native v4 — Cave Maze" --notes "Expanded native cave-maze test with anime creatures, essence collection, befriending, absorption, morphs, and dragon progression." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v4 SoulSlime-Native-v4.apk SoulSlime-Native-v4-APK.zip SoulSlime-Native-v4-source.zip --clobber
+          gh release view soul-slime-native-v5 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v5 --title "Soul Slime Native v5 — Cave Controls Fix" --notes "Cave-maze control fix: clean cave canvas, slim transparent HUD, working combat/social interactions, anime creatures, absorption, morphs, and dragon progression." --prerelease --target prototype/soul-slime-native
+          gh release upload soul-slime-native-v5 SoulSlime-Native-v5.apk SoulSlime-Native-v5-APK.zip SoulSlime-Native-v5-source.zip --clobber
