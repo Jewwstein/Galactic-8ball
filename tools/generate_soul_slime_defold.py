@@ -740,7 +740,7 @@ def gui_box(node_id, x, y, w, h, texture="", color=(1,1,1,1), adjust="ADJUST_MOD
 '''
 
 def gui_text(node_id, text, x, y, w, h, scale=1.0, color=(1,1,1,1), adjust="ADJUST_MODE_FIT"):
-    safe=text.replace('"','\\"')
+    safe=text.replace('\\\\','\\\\\\\\').replace('\\n','\\\\n').replace('"','\\"')
     return f'''nodes {{
   position {{
     x: {x}
