@@ -3112,7 +3112,15 @@ public class MainActivity extends Activity {
           if(pid==tieFirePointer){tieFirePointer=-1;game.queueEvent(()->r.setTieFire(false));}
           if(pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
           if(pid==arcadeAimPointer){
-            arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));
+            // A quick press/release on the AIM pad is the fire gesture. Dragging
+            // remains pure aiming, so micro-adjustments do not accidentally shoot.
+            final long aimHeldMs=System.currentTimeMillis()-tieAimDownAt;
+            final float aimUpX=e.getX(idx),aimUpY=e.getY(idx);
+            final float aimDx=aimUpX-tieAimDownX,aimDy=aimUpY-tieAimDownY;
+            final float tapSlop=Math.max(screenAimTouchSlop*2.5f,24f*ui);
+            final boolean fireTap=r.tieMode && aimHeldMs<=280L && (aimDx*aimDx+aimDy*aimDy)<=tapSlop*tapSlop;
+            arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;
+            game.queueEvent(()->{r.setArcadeAim(0,0);if(fireTap)r.fireTieShot();});
           }
           invalidate();return true;
         }
