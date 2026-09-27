@@ -1532,14 +1532,19 @@ public class MainActivity extends Activity {
 
   static class SfxManager {
     final Context ctx; final Handler main=new Handler(Looper.getMainLooper());
-    MediaPlayer humPlayer=null,victoryPlayer=null; int humGeneration=0;
-    final android.media.SoundPool arcadePool; final int arcadeLaserId;
+    MediaPlayer humPlayer=null,victoryPlayer=null,arcadeEnginePlayer=null; int humGeneration=0;
+    final android.media.SoundPool arcadePool; final int arcadeLaserId,tieLaserId,deathStarFireId,arcadeExplosionId,arcadeTransitionId,deathStarChargeId;
 
     SfxManager(Context c){
       ctx=c;
       android.media.AudioAttributes aa=new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_GAME).setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
       arcadePool=new android.media.SoundPool.Builder().setMaxStreams(4).setAudioAttributes(aa).build();
       int rid=rawId("sfx_arcade_laser");arcadeLaserId=rid==0?0:arcadePool.load(ctx,rid,1);
+      rid=rawId("sfx_tie_blaster");tieLaserId=rid==0?0:arcadePool.load(ctx,rid,1);
+      rid=rawId("sfx_deathstar_fire");deathStarFireId=rid==0?0:arcadePool.load(ctx,rid,1);
+      rid=rawId("sfx_arcade_explosion");arcadeExplosionId=rid==0?0:arcadePool.load(ctx,rid,1);
+      rid=rawId("sfx_arcade_transition");arcadeTransitionId=rid==0?0:arcadePool.load(ctx,rid,1);
+      rid=rawId("sfx_deathstar_charge");deathStarChargeId=rid==0?0:arcadePool.load(ctx,rid,1);
     }
 
     int rawId(String name){return ctx.getResources().getIdentifier(name,"raw",ctx.getPackageName());}
@@ -1591,6 +1596,15 @@ public class MainActivity extends Activity {
     void scratch(){oneShot("sfx_scratch",.86f);}
     void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
     void arcadeLaser(){if(arcadeLaserId!=0)try{arcadePool.play(arcadeLaserId,.42f,.42f,1,0,1f);}catch(Exception ignored){}}
+    void tieLaser(){if(tieLaserId!=0)try{arcadePool.play(tieLaserId,.62f,.62f,2,0,1f);}catch(Exception ignored){}}
+    void deathStarFire(){if(deathStarFireId!=0)try{arcadePool.play(deathStarFireId,.60f,.60f,2,0,1f);}catch(Exception ignored){}}
+    void deathStarCharge(){if(deathStarChargeId!=0)try{arcadePool.play(deathStarChargeId,.34f,.34f,1,0,1f);}catch(Exception ignored){}}
+    void arcadeExplosion(){if(arcadeExplosionId!=0)try{arcadePool.play(arcadeExplosionId,.76f,.76f,3,0,.94f+(float)Math.random()*.10f);}catch(Exception ignored){}}
+    void arcadeTransition(){if(arcadeTransitionId!=0)try{arcadePool.play(arcadeTransitionId,.48f,.48f,1,0,1f);}catch(Exception ignored){}}
+    void startTieEngine(){
+      main.post(()->{if(arcadeEnginePlayer!=null)return;arcadeEnginePlayer=make("sfx_tie_engine");if(arcadeEnginePlayer!=null){arcadeEnginePlayer.setLooping(true);arcadeEnginePlayer.setVolume(.22f,.22f);try{arcadeEnginePlayer.start();}catch(Exception ignored){}}});
+    }
+    void stopTieEngine(){main.post(()->{if(arcadeEnginePlayer!=null){try{arcadeEnginePlayer.stop();}catch(Exception ignored){}try{arcadeEnginePlayer.release();}catch(Exception ignored){}arcadeEnginePlayer=null;}});}
 
     void stopVictory(){
       main.post(()->{
@@ -1610,7 +1624,7 @@ public class MainActivity extends Activity {
       });
     }
 
-    void shutdown(){stopHum();stopVictory();main.removeCallbacksAndMessages(null);try{arcadePool.release();}catch(Exception ignored){}}
+    void shutdown(){stopHum();stopVictory();stopTieEngine();main.removeCallbacksAndMessages(null);try{arcadePool.release();}catch(Exception ignored){}}
   }
 
   static class GameView extends GLSurfaceView{
@@ -3076,7 +3090,7 @@ public class MainActivity extends Activity {
           if(idx<0||idx>=e.getPointerCount())return true;
           final int pid=e.getPointerId(idx);
           float px=e.getX(idx),py=e.getY(idx);
-          if(arcadeExitRect.contains(px,py)){clearArcadeUiState();game.queueEvent(()->r.exitArcade());return true;}
+          if(arcadeExitRect.contains(px,py)){game.queueEvent(()->r.beginArcadeExit());postDelayed(()->{clearArcadeUiState();game.queueEvent(()->r.exitArcade());},520);return true;}
           if(tieModeRect.contains(px,py)){game.queueEvent(()->r.setTieMode(!r.tieMode));invalidate();return true;}
           if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
           if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
@@ -3692,6 +3706,8 @@ public class MainActivity extends Activity {
     volatile boolean arcadeActive=false,arcadeLocked=false,tieMode=false,tieFire=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
+    volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
+    volatile float arcadeImpactFlash=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -5647,13 +5663,14 @@ public class MainActivity extends Activity {
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
+    void beginArcadeExit(){arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=3;if(sfx!=null)sfx.arcadeTransition();}
     void exitArcade(){
-      int finalScore=arcadeScore;arcadeActive=false;tieMode=false;tieFire=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
+      int finalScore=arcadeScore;if(sfx!=null)sfx.stopTieEngine();arcadeActive=false;tieMode=false;tieFire=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
       MainActivity.writeCrashPhase("ARCADE_EXIT score="+finalScore);android.util.Log.i("GalacticArcade","EXIT arcade score="+finalScore);if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
-    void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;}
+    void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;if(sfx!=null){sfx.arcadeTransition();if(on)sfx.startTieEngine();else sfx.stopTieEngine();}}
     void setTieFire(boolean on){tieFire=on;}
     void fireTieShot(){if(tieMode){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
     void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
