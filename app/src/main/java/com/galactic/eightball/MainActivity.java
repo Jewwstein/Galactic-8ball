@@ -1560,7 +1560,7 @@ public class MainActivity extends Activity {
     void pocket(){oneShot("sfx_pocket",.82f);}
     void scratch(){oneShot("sfx_scratch",.86f);}
     void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
-    void arcadeLaser(){oneShot("sfx_arcade_laser",.48f);}
+    void arcadeLaser(){if(arcadeLaserId!=0)try{arcadePool.play(arcadeLaserId,.42f,.42f,1,0,1f);}catch(Exception ignored){}}
 
     void stopVictory(){
       main.post(()->{
@@ -1580,7 +1580,7 @@ public class MainActivity extends Activity {
       });
     }
 
-    void shutdown(){stopHum();stopVictory();main.removeCallbacksAndMessages(null);}
+    void shutdown(){stopHum();stopVictory();main.removeCallbacksAndMessages(null);try{arcadePool.release();}catch(Exception ignored){}}
   }
 
   static class GameView extends GLSurfaceView{
@@ -3578,7 +3578,7 @@ public class MainActivity extends Activity {
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
     volatile boolean arcadeActive=false,arcadeLocked=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
-    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeSpawnClock=0,arcadeShotClock=0;
+    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -3687,11 +3687,11 @@ public class MainActivity extends Activity {
       if(arcadeActive&&!balls.isEmpty()){
         Ball cue=balls.get(0);
         float[] AM=identity();android.opengl.Matrix.translateM(AM,0,arcadeX,2.22f,arcadeZ);
-        android.opengl.Matrix.rotateM(AM,0,-arcadeYaw,0,1,0);
-        // Turn the Death Star texture's superlaser hemisphere from "up" into
-        // the vehicle's forward firing direction without changing the real cue ball.
-        android.opengl.Matrix.rotateM(AM,0,90f,1,0,0);
-        android.opengl.Matrix.rotateM(AM,0,90f,0,1,0);
+        // Orient the arcade copy so the dish hemisphere faces away from the
+        // chase camera and toward the targeting reticle.
+        android.opengl.Matrix.rotateM(AM,0,arcadeYaw+180f,0,1,0);
+        android.opengl.Matrix.rotateM(AM,0,-90f,1,0,0);
+        android.opengl.Matrix.rotateM(AM,0,-90f,0,0,1);
         android.opengl.Matrix.scaleM(AM,0,R*1.28f,R*1.28f,R*1.28f);
         drawMesh(sphere,pvCache,AM,cue.tex,new float[]{1,1,1,1});
       }
@@ -5500,11 +5500,11 @@ public class MainActivity extends Activity {
       arcadeSavedState=state;arcadeSavedCurrentTeam=currentTeam;arcadeSavedActiveShooter=activeShooter;arcadeSavedFirstContact=firstContactBall;arcadeSavedBallInHand=ballInHand;
       arcadeSavedSunk.clear();arcadeSavedSunk.addAll(ballsSunkThisShot);arcadeSnapshotValid=true;
       arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
-      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
+      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";if(net!=null)net.requestArcadeBoard();
     }
     void exitArcade(){
-      int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeLocked=false;
+      int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
       if(arcadeSnapshotValid&&!balls.isEmpty()){
         Ball cue=balls.get(0);cue.x=arcadeSavedCueX;cue.z=arcadeSavedCueZ;cue.vx=arcadeSavedCueVx;cue.vz=arcadeSavedCueVz;
         if(cue.body!=null){cue.body.setTransform(new Vec2(arcadeSavedCueX,arcadeSavedCueZ),0);cue.body.setLinearVelocity(new Vec2(arcadeSavedCueVx,arcadeSavedCueVz));cue.body.setAngularVelocity(0);cue.body.setAwake(true);}
@@ -5521,20 +5521,28 @@ public class MainActivity extends Activity {
       for(int i=0;i<count;i++){
         ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.73f;
         float side=(i&1)==0?-1f:1f;e.x=side*(30f+(i%3)*4f);e.y=9f+(i%4)*2.2f;e.z=-12f+(i*7f)%28f;
-        e.vx=-side*(5.2f+arcadeWave*.35f);e.vz=(float)Math.sin(i*1.7f)*2.2f;arcadeFighters.add(e);
-        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.1f;t.x=-e.x*.72f;t.y=e.y-1.2f;t.z=e.z+4f;t.vx=e.vx*.7f;t.vz=-e.vz*.6f;arcadeFighters.add(t);
+        e.vx=-side*(10.5f+arcadeWave*.55f);e.vz=(float)Math.sin(i*1.7f)*4.0f;arcadeFighters.add(e);
+        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.1f;t.x=-e.x*.72f;t.y=e.y-1.2f;t.z=e.z+4f;t.vx=e.vx*.82f;t.vz=-e.vz*.72f;arcadeFighters.add(t);
       }
     }
     void stepArcade(float dt){
-      arcadeYaw+=arcadeAimX*92f*dt;arcadePitch=Math.max(-12f,Math.min(38f,arcadePitch-arcadeAimY*62f*dt));
+      float follow=1f-(float)Math.exp(-dt*13f);
+      arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*follow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*follow;
+      arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*follow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*follow;
+
+      // Rotational aim assist: slow the stick near an X-Wing instead of snapping
+      // the reticle, preserving player control while making fine tracking easier.
+      float assist=arcadeLocked?.42f:1f;
+      arcadeYaw+=arcadeAimSmoothX*165f*assist*dt;
+      arcadePitch=Math.max(-18f,Math.min(42f,arcadePitch-arcadeAimSmoothY*115f*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
-      float speed=12f,dx=(rx*arcadeMoveX+fx*(-arcadeMoveY))*speed*dt,dz=(rz*arcadeMoveX+fz*(-arcadeMoveY))*speed*dt;
+      float speed=19f,dx=(rx*arcadeMoveSmoothX+fx*(-arcadeMoveSmoothY))*speed*dt,dz=(rz*arcadeMoveSmoothX+fz*(-arcadeMoveSmoothY))*speed*dt;
       float nx=Math.max(MINX+2.0f,Math.min(MAXX-2.0f,arcadeX+dx)),nz=Math.max(MINZ+2.0f,Math.min(MAXZ-2.0f,arcadeZ+dz));
       boolean blocked=false;
       for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
       if(!blocked){arcadeX=nx;arcadeZ=nz;}
       arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(5.5f,10f-arcadeWave*.35f);arcadeWave++;}
-      for(ArcadeFighter e:arcadeFighters)if(e.active){e.phase+=dt;e.x+=e.vx*dt;e.z+=e.vz*dt;e.y+=Math.sin(e.phase*2.1f)*.025f;if(Math.abs(e.x)>55||Math.abs(e.z)>34)e.active=false;}
+      for(ArcadeFighter e:arcadeFighters)if(e.active){e.phase+=dt;e.x+=e.vx*dt;e.z+=e.vz*dt;e.y+=Math.sin(e.phase*2.1f)*.025f;if(Math.abs(e.x)>48||Math.abs(e.z)>31)e.active=false;}
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       ArcadeFighter best=null;float bestDot=.982f,bestDist=999;
@@ -5549,15 +5557,20 @@ public class MainActivity extends Activity {
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
         float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
-        if(e.xwing){android.opengl.Matrix.scaleM(M,0,3.4f,3.4f,3.4f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
-        else{android.opengl.Matrix.scaleM(M,0,.58f,.58f,.58f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
+        if(e.xwing){android.opengl.Matrix.scaleM(M,0,2.45f,2.45f,2.45f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
+        else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
       if(arcadeLocked){
-        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch),len=38f;
-        float ex=arcadeX+(float)Math.sin(yr)*(float)Math.cos(pr)*len,ey=3.15f+(float)Math.sin(pr)*len,ez=arcadeZ-(float)Math.cos(yr)*(float)Math.cos(pr)*len;
-        float dx=ex-arcadeX,dz=ez-arcadeZ,flat=(float)Math.sqrt(dx*dx+dz*dz),yaw=(float)Math.toDegrees(Math.atan2(dx,dz));
-        float[] B=identity();android.opengl.Matrix.translateM(B,0,(arcadeX+ex)*.5f,(3.15f+ey)*.5f,(arcadeZ+ez)*.5f);android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.scaleM(B,0,.09f,.09f,flat*.5f);
-        drawMesh(dogfightBolt,pv,B,0,new float[]{.25f,1f,.25f,1f});
+        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch),len=42f;
+        float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
+        // Emitter is on the front hemisphere of the moving Death Star.
+        float sx=arcadeX+fx*1.42f,sy=2.48f+fy*.45f,sz=arcadeZ+fz*1.42f;
+        float ex=arcadeX+fx*len,ey=3.15f+fy*len,ez=arcadeZ+fz*len;
+        float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
+        float yaw=(float)Math.toDegrees(Math.atan2(dx,dz)),pitch=(float)-Math.toDegrees(Math.atan2(dy,Math.sqrt(dx*dx+dz*dz)));
+        float[] B=identity();android.opengl.Matrix.translateM(B,0,(sx+ex)*.5f,(sy+ey)*.5f,(sz+ez)*.5f);
+        android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
+        android.opengl.Matrix.scaleM(B,0,.065f,.065f,dist*.5f);drawMesh(dogfightBolt,pv,B,0,new float[]{.25f,1f,.25f,1f});
       }
     }
 
