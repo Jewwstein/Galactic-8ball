@@ -33,6 +33,14 @@ jobs:
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey" >> "$GITHUB_ENV"
           echo "GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android" >> "$GITHUB_ENV"
 
+      - name: Unpack v0.2 creator
+        run: |
+          rm -rf soul-slime-hd-v02/build
+          mkdir -p soul-slime-hd-v02/build
+          unzip -q soul-slime-hd-v02/SoulSlimeHD-Creator-v0.2-source.zip -d soul-slime-hd-v02/build
+          test -f soul-slime-hd-v02/build/SoulSlimeHD-Creator-v0.2-source/project.godot
+          test -f soul-slime-hd-v02/build/SoulSlimeHD-Creator-v0.2-source/scripts/creator.gd
+
       - name: Configure Godot Android paths
         run: |
           mkdir -p "$HOME/.config/godot"
@@ -43,13 +51,13 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           SETTINGS
 
-      - name: Export Soul Slime HD Creator APK
+      - name: Export Soul Slime HD Creator v0.2 APK
         uses: firebelley/godot-export@v8.0.0
         with:
           godot_executable_download_url: https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
           godot_export_templates_download_url: https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
-          relative_project_path: ./soul-slime-hd
-          relative_export_path: ./soul-slime-hd-export
+          relative_project_path: ./soul-slime-hd-v02/build/SoulSlimeHD-Creator-v0.2-source
+          relative_export_path: ./soul-slime-hd-v02/export
           archive_output: false
           export_debug: true
           presets_to_export: Android
@@ -59,14 +67,14 @@ jobs:
       - name: Collect APK
         run: |
           find . -type f -name '*.apk' -print
-          APK=$(find . -type f -name '*.apk' | head -n 1)
+          APK=$(find ./soul-slime-hd-v02 -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" SoulSlimeHD-Creator-v0.1.apk
-          unzip -t SoulSlimeHD-Creator-v0.1.apk >/dev/null
-          ls -lh SoulSlimeHD-Creator-v0.1.apk
-          sha256sum SoulSlimeHD-Creator-v0.1.apk
+          cp "$APK" SoulSlimeHD-Creator-v0.2.apk
+          unzip -t SoulSlimeHD-Creator-v0.2.apk >/dev/null
+          ls -lh SoulSlimeHD-Creator-v0.2.apk
+          sha256sum SoulSlimeHD-Creator-v0.2.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlimeHD-Creator-v0.1
-          path: SoulSlimeHD-Creator-v0.1.apk
+          name: SoulSlimeHD-Creator-v0.2
+          path: SoulSlimeHD-Creator-v0.2.apk
