@@ -224,4 +224,4 @@ jobs:
 
 
 
-# Release trigger: v0.8.25 build 42 crash diagnostics
+# Release trigger: v0.8.26 build 43 pointer crash fix
