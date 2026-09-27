@@ -34,8 +34,9 @@ public class MainActivity extends Activity {
 
     LinearLayout optionsContainer;
     TextView creatorStatus;
-    TextView caveObjective, caveStats;
-    Button caveContinue;
+    TextView caveRoomText, caveObjective, caveStats;
+    Button caveContinue, caveAttack, caveAbsorb, caveBefriend, caveMorph;
+    CaveWorldView caveWorld;
     final ArrayList<Button> categoryButtons = new ArrayList<>();
 
     static final String[] DEATHS = {
@@ -117,6 +118,9 @@ public class MainActivity extends Activity {
         categoryButtons.clear();
         optionsContainer=null;
         creatorStatus=null;
+        caveRoomText=null;caveObjective=null;caveStats=null;
+        caveContinue=null;caveAttack=null;caveAbsorb=null;caveBefriend=null;caveMorph=null;
+        caveWorld=null;
     }
 
     GradientDrawable panelDrawable(int fill, int stroke, float radiusDp){
@@ -484,83 +488,97 @@ public class MainActivity extends Activity {
     void showCave(){
         scene=Scene.CAVE;
         clearOverlay();
-        canvas.startCave();
+        canvas.setVisibility(View.VISIBLE);
+
+        caveWorld=new CaveWorldView(
+            this,body,color,eyes,markings,core,alpha,aura,
+            prefs.getString("starting_skill","UNASSIGNED"),
+            world->updateCaveHud()
+        );
+        root.addView(caveWorld,1,new FrameLayout.LayoutParams(-1,-1));
 
         LinearLayout hud=new LinearLayout(this);
         hud.setOrientation(LinearLayout.VERTICAL);
         hud.setPadding(dp(12),dp(9),dp(12),dp(9));
-        hud.setBackground(panelDrawable(Color.argb(196,4,18,31),Color.argb(185,92,226,255),16));
+        hud.setBackground(panelDrawable(Color.argb(202,4,18,31),Color.argb(190,92,226,255),16));
 
-        TextView zone=text("CRYSTAL CAVE // AWAKENING",12,CYAN_BRIGHT);
-        zone.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveObjective=text("OBJECTIVE  •  Absorb 5 crystals and defeat the Cave Mite.",11,Color.WHITE);
+        caveRoomText=text("",12,CYAN_BRIGHT);
+        caveRoomText.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
+        caveObjective=text("",10.5f,Color.WHITE);
         caveObjective.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveStats=text("",10,Color.rgb(164,224,241));
+        caveStats=text("",9.5f,Color.rgb(164,224,241));
         caveStats.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveContinue=button("AWAKENING COMPLETE  •  CONTINUE",Color.rgb(126,238,255),true);
+        caveContinue=button("EXIT CAVE  •  ENTER THE OUTSIDE WORLD",Color.rgb(126,238,255),true);
         caveContinue.setVisibility(View.GONE);
         caveContinue.setOnClickListener(v->showComplete());
 
-        hud.addView(zone,new LinearLayout.LayoutParams(-1,dp(25)));
-        hud.addView(caveObjective,new LinearLayout.LayoutParams(-1,dp(27)));
-        hud.addView(caveStats,new LinearLayout.LayoutParams(-1,dp(25)));
+        hud.addView(caveRoomText,new LinearLayout.LayoutParams(-1,dp(24)));
+        hud.addView(caveObjective,new LinearLayout.LayoutParams(-1,dp(42)));
+        hud.addView(caveStats,new LinearLayout.LayoutParams(-1,dp(38)));
         hud.addView(caveContinue,new LinearLayout.LayoutParams(-1,dp(44)));
 
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(Math.min(dp(520),(int)(screenW()*.48f)),-2,Gravity.TOP|Gravity.LEFT);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(Math.min(dp(650),(int)(screenW()*.56f)),-2,Gravity.TOP|Gravity.LEFT);
         hp.setMargins(dp(18),dp(14),0,0);
         root.addView(hud,hp);
 
-        // Native movement pad: actual Android Buttons, separate from the art layer.
         FrameLayout pad=new FrameLayout(this);
-        int key=dp(62), gap=dp(5);
+        int key=dp(62);
         Button up=button("▲",CYAN,false);
         Button down=button("▼",CYAN,false);
         Button left=button("◀",CYAN,false);
         Button right=button("▶",CYAN,false);
         up.setTextSize(21);down.setTextSize(21);left.setTextSize(21);right.setTextSize(21);
-
-        FrameLayout.LayoutParams upLp=new FrameLayout.LayoutParams(key,key,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
-        FrameLayout.LayoutParams downLp=new FrameLayout.LayoutParams(key,key,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
-        FrameLayout.LayoutParams leftLp=new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.LEFT);
-        FrameLayout.LayoutParams rightLp=new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.RIGHT);
-        pad.addView(up,upLp);pad.addView(down,downLp);pad.addView(left,leftLp);pad.addView(right,rightLp);
-
-        bindMove(up,0,-1);
-        bindMove(down,0,1);
-        bindMove(left,-1,0);
-        bindMove(right,1,0);
-
+        pad.addView(up,new FrameLayout.LayoutParams(key,key,Gravity.TOP|Gravity.CENTER_HORIZONTAL));
+        pad.addView(down,new FrameLayout.LayoutParams(key,key,Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL));
+        pad.addView(left,new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.LEFT));
+        pad.addView(right,new FrameLayout.LayoutParams(key,key,Gravity.CENTER_VERTICAL|Gravity.RIGHT));
+        bindMove(up,0,-1);bindMove(down,0,1);bindMove(left,-1,0);bindMove(right,1,0);
         FrameLayout.LayoutParams padLp=new FrameLayout.LayoutParams(dp(194),dp(194),Gravity.BOTTOM|Gravity.LEFT);
         padLp.setMargins(dp(22),0,0,dp(18));
         root.addView(pad,padLp);
 
-        Button attack=button("MAGIC\nBURST",Color.rgb(107,178,255),true);
-        attack.setTextSize(14);
-        attack.setOnClickListener(v->canvas.attack());
-        FrameLayout.LayoutParams aLp=new FrameLayout.LayoutParams(dp(112),dp(82),Gravity.BOTTOM|Gravity.RIGHT);
-        aLp.setMargins(0,0,dp(28),dp(32));
-        root.addView(attack,aLp);
+        caveAttack=button("MAGIC\nBURST",Color.rgb(107,178,255),true);
+        caveAttack.setTextSize(13);
+        caveAttack.setOnClickListener(v->{if(caveWorld!=null)caveWorld.attack();});
+        FrameLayout.LayoutParams attackLp=new FrameLayout.LayoutParams(dp(116),dp(82),Gravity.BOTTOM|Gravity.RIGHT);
+        attackLp.setMargins(0,0,dp(26),dp(28));
+        root.addView(caveAttack,attackLp);
 
-        Button absorb=button("ABSORB",Color.rgb(97,232,178),false);
-        absorb.setTextSize(12);
-        absorb.setOnClickListener(v->canvas.absorbPulse());
-        FrameLayout.LayoutParams abLp=new FrameLayout.LayoutParams(dp(104),dp(58),Gravity.BOTTOM|Gravity.RIGHT);
-        abLp.setMargins(0,0,dp(154),dp(44));
-        root.addView(absorb,abLp);
+        caveAbsorb=button("ABSORB",Color.rgb(97,232,178),false);
+        caveAbsorb.setTextSize(11);
+        caveAbsorb.setOnClickListener(v->{if(caveWorld!=null)caveWorld.absorb();});
+        FrameLayout.LayoutParams absorbLp=new FrameLayout.LayoutParams(dp(112),dp(60),Gravity.BOTTOM|Gravity.RIGHT);
+        absorbLp.setMargins(0,0,dp(151),dp(38));
+        root.addView(caveAbsorb,absorbLp);
 
+        caveBefriend=button("BEFRIEND",Color.rgb(255,191,104),false);
+        caveBefriend.setTextSize(11);
+        caveBefriend.setOnClickListener(v->{if(caveWorld!=null)caveWorld.befriend();});
+        FrameLayout.LayoutParams friendLp=new FrameLayout.LayoutParams(dp(112),dp(56),Gravity.BOTTOM|Gravity.RIGHT);
+        friendLp.setMargins(0,0,dp(151),dp(106));
+        root.addView(caveBefriend,friendLp);
+
+        caveMorph=button("MORPH",Color.rgb(196,125,255),false);
+        caveMorph.setTextSize(10);
+        caveMorph.setOnClickListener(v->{if(caveWorld!=null)caveWorld.morph();});
+        FrameLayout.LayoutParams morphLp=new FrameLayout.LayoutParams(dp(116),dp(58),Gravity.BOTTOM|Gravity.RIGHT);
+        morphLp.setMargins(0,0,dp(26),dp(119));
+        root.addView(caveMorph,morphLp);
+
+        caveWorld.start();
         updateCaveHud();
     }
 
     void bindMove(Button b,float x,float y){
         b.setOnTouchListener((v,e)->{
-            if(scene!=Scene.CAVE)return false;
+            if(scene!=Scene.CAVE||caveWorld==null)return false;
             if(e.getAction()==MotionEvent.ACTION_DOWN){
-                canvas.setMove(x,y);
+                caveWorld.setMove(x,y);
                 v.setScaleX(.94f);v.setScaleY(.94f);
                 return true;
             }
             if(e.getAction()==MotionEvent.ACTION_UP||e.getAction()==MotionEvent.ACTION_CANCEL){
-                canvas.setMove(0,0);
+                caveWorld.setMove(0,0);
                 v.setScaleX(1f);v.setScaleY(1f);
                 return true;
             }
@@ -569,14 +587,29 @@ public class MainActivity extends Activity {
     }
 
     void updateCaveHud(){
-        if(caveStats==null||canvas==null)return;
-        caveStats.setText("Crystals  "+canvas.caveCrystals+"/5     Enemy HP  "+Math.max(0,canvas.enemyHp)+"/5     Skill  "+prefs.getString("starting_skill","UNASSIGNED"));
-        boolean done=canvas.caveCrystals>=5 && canvas.enemyHp<=0;
-        if(done){
-            caveObjective.setText("AWAKENING COMPLETE  •  Vessel stable. First threat defeated.");
-            caveObjective.setTextColor(Color.rgb(188,255,220));
-            caveContinue.setVisibility(View.VISIBLE);
-        }
+        if(caveWorld==null||caveStats==null)return;
+        caveRoomText.setText("CRYSTAL CAVE // "+caveWorld.roomName());
+        caveObjective.setText(caveWorld.objectiveText()+"\n"+caveWorld.message());
+        caveStats.setText(caveWorld.statsText()+"\nAbilities  "+caveWorld.abilityText());
+
+        boolean atk=caveWorld.canAttack();
+        caveAttack.setEnabled(atk);
+        caveAttack.setAlpha(atk?1f:.46f);
+        caveAttack.setText(caveWorld.attackButtonText());
+
+        boolean friend=caveWorld.canBefriend();
+        caveBefriend.setEnabled(friend);
+        caveBefriend.setAlpha(friend?1f:.42f);
+
+        caveAbsorb.setText(caveWorld.absorbButtonText());
+        caveAbsorb.setAlpha(caveWorld.canAbsorb()?1f:.72f);
+
+        boolean morph=caveWorld.canMorph();
+        caveMorph.setEnabled(morph);
+        caveMorph.setAlpha(morph?1f:.38f);
+        caveMorph.setText(caveWorld.morphButtonText());
+
+        caveContinue.setVisibility(caveWorld.canExitCave()?View.VISIBLE:View.GONE);
     }
 
     void showComplete(){
