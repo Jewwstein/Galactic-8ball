@@ -50,7 +50,7 @@ jobs:
           p.write_text(s)
           print("\n".join(s.splitlines()[:20]))
           a = Path("defold_project/main/creator.atlas")
-          atlas = a.read_text().replace(r'\\n', '\n')
+          atlas = a.read_text().replace(r'\n', '\n')
           a.write_text(atlas)
           print("atlas lines:", len(atlas.splitlines()))
           PY
