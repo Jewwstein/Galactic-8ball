@@ -5803,7 +5803,7 @@ public class MainActivity extends Activity {
       // A shot only counts when the reticle is genuinely on the target.
       // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
       ArcadeFighter best=null;float bestDot=.9978f,bestDist=999;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<.001f)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
       if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
       arcadeWasLocked=arcadeLocked;
