@@ -3633,11 +3633,11 @@ public class MainActivity extends Activity {
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
-    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase;int hp=1;boolean xwing=true,active=true;}
+    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY;int hp=1;boolean xwing=true,active=true;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
     volatile boolean arcadeActive=false,arcadeLocked=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
-    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0;
+    float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
     World world; Body railBody; float physicsAccum=0f;
     static final float FIXED_DT=1f/240f;
@@ -3748,9 +3748,11 @@ public class MainActivity extends Activity {
         float[] AM=identity();android.opengl.Matrix.translateM(AM,0,arcadeX,2.22f,arcadeZ);
         // Orient the arcade copy so the dish hemisphere faces away from the
         // chase camera and toward the targeting reticle.
-        android.opengl.Matrix.rotateM(AM,0,arcadeYaw+180f,0,1,0);
-        android.opengl.Matrix.rotateM(AM,0,-90f,1,0,0);
-        android.opengl.Matrix.rotateM(AM,0,-90f,0,0,1);
+        // Texture-space correction: dish faces the same forward/aim direction
+        // as the reticle, not the chase camera or zenith.
+        android.opengl.Matrix.rotateM(AM,0,arcadeYaw,0,1,0);
+        android.opengl.Matrix.rotateM(AM,0,90f-arcadePitch,1,0,0);
+        android.opengl.Matrix.rotateM(AM,0,90f,0,0,1);
         android.opengl.Matrix.scaleM(AM,0,R*1.28f,R*1.28f,R*1.28f);
         drawMesh(sphere,pvCache,AM,cue.tex,new float[]{1,1,1,1});
       }
@@ -5570,12 +5572,15 @@ public class MainActivity extends Activity {
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
 
     void spawnArcadeWave(){
-      int count=Math.min(3+arcadeWave,10);
+      int count=Math.min(3+arcadeWave,8);
       for(int i=0;i<count;i++){
-        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.73f;
-        float side=(i&1)==0?-1f:1f;e.x=side*(30f+(i%3)*4f);e.y=9f+(i%4)*2.2f;e.z=-12f+(i*7f)%28f;
-        e.vx=-side*(10.5f+arcadeWave*.55f);e.vz=(float)Math.sin(i*1.7f)*4.0f;arcadeFighters.add(e);
-        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.1f;t.x=-e.x*.72f;t.y=e.y-1.2f;t.z=e.z+4f;t.vx=e.vx*.82f;t.vz=-e.vz*.72f;arcadeFighters.add(t);
+        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.83f;
+        float side=(i&1)==0?-1f:1f;
+        e.x=side*(54f+(i%3)*5f);e.baseY=8.5f+(i%4)*1.65f;e.y=e.baseY;e.z=-18f+(i*8f)%36f;
+        float attack=15.5f+arcadeWave*.75f;e.vx=-side*attack;e.vz=(i%3-1)*2.4f;e.life=5.6f+(i%3)*.45f;
+        arcadeFighters.add(e);
+        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.x=e.x+side*7f;t.baseY=e.baseY-1.0f;t.y=t.baseY;t.z=e.z+4.5f;
+        t.vx=e.vx*.94f;t.vz=-e.vz*.55f;t.life=e.life+.65f;arcadeFighters.add(t);
       }
     }
     void stepArcade(float dt){
@@ -5594,14 +5599,23 @@ public class MainActivity extends Activity {
       boolean blocked=false;
       for(Ball b:balls)if(b.active&&!b.sinking&&b.index!=0){float bx=nx-b.x,bz=nz-b.z;if(bx*bx+bz*bz<(PHYS_R+1.45f)*(PHYS_R+1.45f)){blocked=true;break;}}
       if(!blocked){arcadeX=nx;arcadeZ=nz;}
-      arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(5.5f,10f-arcadeWave*.35f);arcadeWave++;}
-      for(ArcadeFighter e:arcadeFighters)if(e.active){e.phase+=dt;e.x+=e.vx*dt;e.z+=e.vz*dt;e.y+=Math.sin(e.phase*2.1f)*.025f;if(Math.abs(e.x)>48||Math.abs(e.z)>31)e.active=false;}
+      arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(4.4f,7.4f-arcadeWave*.22f);arcadeWave++;}
+      for(ArcadeFighter e:arcadeFighters)if(e.active){
+        e.age+=dt;e.phase+=dt;
+        float escape=e.age>e.life?2.15f:1f;
+        e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
+        float weave=(float)Math.sin(e.phase*3.0f);
+        e.z+=weave*(e.xwing?2.8f:2.0f)*dt;
+        e.y=e.baseY+(float)Math.sin(e.phase*2.25f)*1.05f;
+        if(e.age>e.life+2.0f||Math.abs(e.x)>72||Math.abs(e.z)>42)e.active=false;
+      }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
-      ArcadeFighter best=null;float bestDot=.982f,bestDist=999;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-3.15f,ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<70){best=e;bestDot=dot;bestDist=d;}}
-      arcadeLocked=best!=null;arcadeShotClock-=dt;
-      if(best!=null&&arcadeShotClock<=0){best.hp--;arcadeShotClock=.32f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.active=false;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
+      ArcadeFighter best=null;float bestDot=.979f,bestDist=999;
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-2.5f,ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<1)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
+      arcadeLocked=best!=null;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);
+      if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
+      if(best!=null&&arcadeShotClock<=0){arcadeLaserT=.095f;best.hp--;arcadeShotClock=.28f;if(sfx!=null)sfx.arcadeLaser();if(best.hp<=0){best.active=false;arcadeCombo++;arcadeScore+=100*Math.max(1,Math.min(arcadeCombo,10));}}
       else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
     }
@@ -5609,22 +5623,27 @@ public class MainActivity extends Activity {
     void drawArcadeFighters(float[] pv){
       for(ArcadeFighter e:arcadeFighters)if(e.active){
         float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
-        float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
-        if(e.xwing){android.opengl.Matrix.scaleM(M,0,2.45f,2.45f,2.45f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
+        float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);android.opengl.Matrix.rotateM(M,0,(float)Math.sin(e.phase*3f)*18f,0,0,1);
+        if(e.xwing){android.opengl.Matrix.scaleM(M,0,1.85f,1.85f,1.85f);drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1,1,1,1});}
         else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
-      if(arcadeLocked){
-        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch),len=42f;
+      if(arcadeLaserT>0){
+        float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
-        // Emitter is on the front hemisphere of the moving Death Star.
-        float sx=arcadeX+fx*1.42f,sy=2.48f+fy*.45f,sz=arcadeZ+fz*1.42f;
-        float ex=arcadeX+fx*len,ey=3.15f+fy*len,ez=arcadeZ+fz*len;
+        // Dish muzzle -> retained target position. This makes the visible shot
+        // agree with the hit calculation instead of drawing a camera-length ray.
+        float sx=arcadeX+fx*1.58f,sy=2.38f+fy*.72f,sz=arcadeZ+fz*1.58f;
+        float ex=arcadeTargetX,ey=arcadeTargetY,ez=arcadeTargetZ;
         float dx=ex-sx,dy=ey-sy,dz=ez-sz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
-        float yaw=(float)Math.toDegrees(Math.atan2(dx,dz)),pitch=(float)-Math.toDegrees(Math.atan2(dy,Math.sqrt(dx*dx+dz*dz)));
-        float[] B=identity();android.opengl.Matrix.translateM(B,0,(sx+ex)*.5f,(sy+ey)*.5f,(sz+ez)*.5f);
-        android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
-        android.opengl.Matrix.scaleM(B,0,.065f,.065f,dist*.5f);drawMesh(dogfightBolt,pv,B,0,new float[]{.25f,1f,.25f,1f});
+        if(dist>.05f){
+          float yaw=(float)Math.toDegrees(Math.atan2(dx,dz)),pitch=(float)-Math.toDegrees(Math.atan2(dy,Math.sqrt(dx*dx+dz*dz)));
+          float[] B=identity();android.opengl.Matrix.translateM(B,0,(sx+ex)*.5f,(sy+ey)*.5f,(sz+ez)*.5f);
+          android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);
+          android.opengl.Matrix.scaleM(B,0,.045f,.045f,dist*.5f);
+          drawMesh(dogfightBolt,pv,B,0,new float[]{.20f,1f,.26f,1f});
+        }
       }
+    }
     }
 
     void step(float dt){
