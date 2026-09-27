@@ -8,8 +8,8 @@ android {
         applicationId = "com.soulslime.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.3.1-cave-controls"
+        versionCode = 6
+        versionName = "1.4-adult-anime-maze"
     }
 
     buildTypes {
