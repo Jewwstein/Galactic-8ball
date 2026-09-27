@@ -3632,7 +3632,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase;int hp=1;boolean xwing=true,active=true;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile volatile boolean arcadeActive=false,arcadeLocked=false;
+    volatile boolean arcadeActive=false,arcadeLocked=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
