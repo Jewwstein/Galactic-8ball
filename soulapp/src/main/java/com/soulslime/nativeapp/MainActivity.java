@@ -181,6 +181,7 @@ public class MainActivity extends Activity {
     }
 
     void showDeath(){
+        canvas.setVisibility(View.VISIBLE);
         scene=Scene.DEATH;
         clearOverlay();
         canvas.setScene(scene);
@@ -229,6 +230,7 @@ public class MainActivity extends Activity {
     }
 
     void showRebirth(){
+        canvas.setVisibility(View.VISIBLE);
         scene=Scene.REBIRTH;
         clearOverlay();
         canvas.setScene(scene);
@@ -294,6 +296,7 @@ public class MainActivity extends Activity {
     }
 
     void showCreator(){
+        canvas.setVisibility(View.VISIBLE);
         scene=Scene.CREATOR;
         clearOverlay();
         canvas.setScene(scene);
@@ -488,7 +491,9 @@ public class MainActivity extends Activity {
     void showCave(){
         scene=Scene.CAVE;
         clearOverlay();
-        canvas.setVisibility(View.VISIBLE);
+
+        // The creator/analysis canvas must not remain visible underneath the cave.
+        canvas.setVisibility(View.GONE);
 
         caveWorld=new CaveWorldView(
             this,body,color,eyes,markings,core,alpha,aura,
@@ -497,28 +502,49 @@ public class MainActivity extends Activity {
         );
         root.addView(caveWorld,1,new FrameLayout.LayoutParams(-1,-1));
 
+        // Thin, nearly transparent full-width HUD so gameplay remains visible.
         LinearLayout hud=new LinearLayout(this);
         hud.setOrientation(LinearLayout.VERTICAL);
-        hud.setPadding(dp(12),dp(9),dp(12),dp(9));
-        hud.setBackground(panelDrawable(Color.argb(202,4,18,31),Color.argb(190,92,226,255),16));
+        hud.setPadding(dp(12),dp(4),dp(12),dp(4));
+        GradientDrawable hudBg=new GradientDrawable();
+        hudBg.setColor(Color.argb(142,3,16,29));
+        hudBg.setCornerRadius(dp(10));
+        hudBg.setStroke(dp(1),Color.argb(105,106,225,255));
+        hud.setBackground(hudBg);
 
-        caveRoomText=text("",12,CYAN_BRIGHT);
+        LinearLayout topRow=new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        caveRoomText=text("",11.5f,CYAN_BRIGHT);
         caveRoomText.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveObjective=text("",10.5f,Color.WHITE);
+        caveStats=text("",9.2f,Color.rgb(174,226,241));
+        caveStats.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);
+
+        topRow.addView(caveRoomText,new LinearLayout.LayoutParams(0,dp(25),.44f));
+        topRow.addView(caveStats,new LinearLayout.LayoutParams(0,dp(25),.56f));
+
+        caveObjective=text("",9.8f,Color.WHITE);
         caveObjective.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveStats=text("",9.5f,Color.rgb(164,224,241));
-        caveStats.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);
-        caveContinue=button("EXIT CAVE  •  ENTER THE OUTSIDE WORLD",Color.rgb(126,238,255),true);
+        caveObjective.setSingleLine(true);
+        caveObjective.setEllipsize(android.text.TextUtils.TruncateAt.END);
+
+        caveContinue=button("EXIT CAVE",Color.rgb(126,238,255),true);
+        caveContinue.setTextSize(10);
         caveContinue.setVisibility(View.GONE);
         caveContinue.setOnClickListener(v->showComplete());
 
-        hud.addView(caveRoomText,new LinearLayout.LayoutParams(-1,dp(24)));
-        hud.addView(caveObjective,new LinearLayout.LayoutParams(-1,dp(42)));
-        hud.addView(caveStats,new LinearLayout.LayoutParams(-1,dp(38)));
-        hud.addView(caveContinue,new LinearLayout.LayoutParams(-1,dp(44)));
+        LinearLayout lowerRow=new LinearLayout(this);
+        lowerRow.setOrientation(LinearLayout.HORIZONTAL);
+        lowerRow.setGravity(Gravity.CENTER_VERTICAL);
+        lowerRow.addView(caveObjective,new LinearLayout.LayoutParams(0,dp(30),1f));
+        lowerRow.addView(caveContinue,new LinearLayout.LayoutParams(dp(118),dp(30)));
 
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(Math.min(dp(650),(int)(screenW()*.56f)),-2,Gravity.TOP|Gravity.LEFT);
-        hp.setMargins(dp(18),dp(14),0,0);
+        hud.addView(topRow,new LinearLayout.LayoutParams(-1,dp(25)));
+        hud.addView(lowerRow,new LinearLayout.LayoutParams(-1,dp(31)));
+
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-1,dp(64),Gravity.TOP);
+        hp.setMargins(dp(8),dp(6),dp(8),0);
         root.addView(hud,hp);
 
         FrameLayout pad=new FrameLayout(this);
@@ -588,9 +614,13 @@ public class MainActivity extends Activity {
 
     void updateCaveHud(){
         if(caveWorld==null||caveStats==null)return;
-        caveRoomText.setText("CRYSTAL CAVE // "+caveWorld.roomName());
-        caveObjective.setText(caveWorld.objectiveText()+"\n"+caveWorld.message());
-        caveStats.setText(caveWorld.statsText()+"\nAbilities  "+caveWorld.abilityText());
+        caveRoomText.setText("CRYSTAL CAVE  //  "+caveWorld.roomName());
+        String msg=caveWorld.message();
+        String objective=caveWorld.objectiveText();
+        if(msg!=null&&!msg.isEmpty()&&!msg.startsWith("Entered ")){
+            caveObjective.setText(objective+"  •  "+msg);
+        }else caveObjective.setText(objective);
+        caveStats.setText(caveWorld.statsText()+"   |   "+caveWorld.abilityText());
 
         boolean atk=caveWorld.canAttack();
         caveAttack.setEnabled(atk);
@@ -602,7 +632,8 @@ public class MainActivity extends Activity {
         caveBefriend.setAlpha(friend?1f:.42f);
 
         caveAbsorb.setText(caveWorld.absorbButtonText());
-        caveAbsorb.setAlpha(caveWorld.canAbsorb()?1f:.72f);
+        caveAbsorb.setEnabled(true);
+        caveAbsorb.setAlpha(caveWorld.canAbsorb()?1f:.78f);
 
         boolean morph=caveWorld.canMorph();
         caveMorph.setEnabled(morph);
@@ -613,6 +644,7 @@ public class MainActivity extends Activity {
     }
 
     void showComplete(){
+        canvas.setVisibility(View.VISIBLE);
         scene=Scene.COMPLETE;
         clearOverlay();
         canvas.setScene(scene);
