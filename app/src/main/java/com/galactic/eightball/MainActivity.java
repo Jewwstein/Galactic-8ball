@@ -104,7 +104,7 @@ public class MainActivity extends Activity {
     showHomeScreen();
     String priorPhase=readCrashPhase();
     if(priorPhase!=null&&!priorPhase.isEmpty()&&!priorPhase.endsWith("|CLEAN_EXIT")){
-      new Handler(Looper.getMainLooper()).postDelayed(()->Toast.makeText(this,"Last diagnostic: "+priorPhase,Toast.LENGTH_LONG).show(),700);
+      new Handler(Looper.getMainLooper()).postDelayed(()->new AlertDialog.Builder(this).setTitle("Last diagnostic").setMessage(priorPhase).setPositiveButton("OK",null).show(),700);
     }
     writeCrashPhase("HOME_READY");
     setupAutoUpdater();
@@ -2702,7 +2702,10 @@ public class MainActivity extends Activity {
         {-dx,dy},{0,dy},{dx,dy},
         {-dx*.55f,dy*2},{dx*.55f,dy*2}
       };
-      for(int i=0;i<8;i++){
+      // Exactly seven object balls belong to each suit and there are seven
+      // authored badge positions. Never iterate beyond the geometry array.
+      final int badgeCount=Math.min(7,spots.length);
+      for(int i=0;i<badgeCount;i++){
         int n=start+i;
         boolean onTable=r.isBallOnTable(n);
         float x=cx+spots[i][0],y=baseY+spots[i][1];
