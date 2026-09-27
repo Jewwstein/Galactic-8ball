@@ -5722,7 +5722,8 @@ public class MainActivity extends Activity {
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
     void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;if(sfx!=null){sfx.arcadeTransition();if(on)sfx.startTieEngine();else sfx.stopTieEngine();}}
     void setTieFire(boolean on){tieFire=on;}
-    void fireTieShot(){if(tieMode)fireArcadeShot();}\n    void fireArcadeShot(){if(arcadeActive){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
+    void fireTieShot(){if(tieMode)fireArcadeShot();}
+    void fireArcadeShot(){if(arcadeActive){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
     void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
 
     void spawnArcadeWave(){
