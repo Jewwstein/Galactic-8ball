@@ -1868,7 +1868,7 @@ public class MainActivity extends Activity {
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
-    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1; long cueTapAt=0;
+    float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1; volatile boolean arcadeUiActive=false; long cueTapAt=0;
     long lastAimTapMs=0;
     int screenAimTouchSlop=8;
     int microHoldDir=0,microHoldW=0,microHoldH=0;
@@ -1979,9 +1979,9 @@ public class MainActivity extends Activity {
       // gameplay HUD now lives inside this rectangle instead of touching the screen edge.
       float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
 
-      if(r.arcadeActive){
-        drawArcadeHud(c,w,h,ui,r);
-        return;
+      if(arcadeUiActive){
+        if(arcadeUiActive){drawArcadeHud(c,w,h,ui,r);return;}
+        clearArcadeUiState();
       }
 
       float lockSize=(portrait?104:126)*ui;
@@ -2250,6 +2250,13 @@ public class MainActivity extends Activity {
       p.setColor(0xCC111923);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,p);
       stroke.setColor(0x88FFFFFF);c.drawRoundRect(arcadeExitRect,12f*ui,12f*ui,stroke);
       p.setTextSize(12f*ui);p.setColor(Color.WHITE);c.drawText("EXIT",arcadeExitRect.centerX(),arcadeExitRect.centerY()+4f*ui,p);
+    }
+
+    void clearArcadeUiState(){
+      arcadeUiActive=false;arcadeMovePointer=arcadeAimPointer=-1;
+      arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;
+      arcadeMoveRect.setEmpty();arcadeAimRect.setEmpty();arcadeExitRect.setEmpty();
+      invalidate();
     }
 
     void setArcadeStick(boolean move,float x,float y){
@@ -3035,7 +3042,7 @@ public class MainActivity extends Activity {
           if(idx<0||idx>=e.getPointerCount())return true;
           final int pid=e.getPointerId(idx);
           float px=e.getX(idx),py=e.getY(idx);
-          if(arcadeExitRect.contains(px,py)){game.queueEvent(()->r.exitArcade());arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;invalidate();return true;}
+          if(arcadeExitRect.contains(px,py)){clearArcadeUiState();game.queueEvent(()->r.exitArcade());return true;}
           if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
           else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,px,py);}
           return true;
@@ -3090,13 +3097,13 @@ public class MainActivity extends Activity {
         }
       }
 
-      if(a==MotionEvent.ACTION_DOWN&&!r.arcadeActive&&!sideMenuOpen&&!menuOpen){
+      if(a==MotionEvent.ACTION_DOWN&&!arcadeUiActive&&!r.arcadeActive&&!sideMenuOpen&&!menuOpen){
         float[] cue=r.balls.isEmpty()?null:r.worldToScreen(r.balls.get(0).x,2.22f,r.balls.get(0).z,w,h);
         if(cue!=null){
           float dx=x-cue[0],dy=y-cue[1],hit=Math.max(46f*ui,Math.min(w,h)*.065f);
           if(dx*dx+dy*dy<=hit*hit){
             long now=android.os.SystemClock.uptimeMillis();
-            if(now-cueTapAt<420){cueTapAt=0;game.queueEvent(()->r.enterArcade());invalidate();return true;}
+            if(now-cueTapAt<420){cueTapAt=0;clearArcadeUiState();arcadeUiActive=true;game.queueEvent(()->r.enterArcade());invalidate();return true;}
             cueTapAt=now;
           }
         }
@@ -3625,7 +3632,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase;int hp=1;boolean xwing=true,active=true;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false;
+    volatile volatile boolean arcadeActive=false,arcadeLocked=false;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0;
     float arcadeSavedCueX=0,arcadeSavedCueZ=0,arcadeSavedCueVx=0,arcadeSavedCueVz=0; int arcadeSavedState=AIMING,arcadeSavedCurrentTeam=1,arcadeSavedActiveShooter=1,arcadeSavedFirstContact=0; boolean arcadeSnapshotValid=false,arcadeSavedBallInHand=false; final ArrayList<Integer> arcadeSavedSunk=new ArrayList<>();
