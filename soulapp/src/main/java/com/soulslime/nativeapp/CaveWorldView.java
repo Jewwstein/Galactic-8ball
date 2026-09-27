@@ -7,63 +7,75 @@ import android.view.View;
 import java.util.*;
 
 public class CaveWorldView extends View {
-    public interface Listener {
-        void onStateChanged(CaveWorldView world);
-    }
+    public interface Listener { void onStateChanged(CaveWorldView world); }
 
     public static final int M_NONE=0, M_MITE=1, M_SPIDER=2, M_LIZARD=3, M_DRAGON=4;
     public static final int S_ALIVE=0, S_DEFEATED=1, S_FRIEND=2, S_ABSORBED=3;
 
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint stroke=new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Random random=new Random(92627);
     private final Listener listener;
 
-    private final int slimeBody, slimeColorIndex, slimeEyes, slimeMarkings, slimeCore, slimeAlpha, slimeAura;
+    private final int slimeBody,slimeColorIndex,slimeEyes,slimeMarkings,slimeCore,slimeAlpha,slimeAura;
     private final String startingSkill;
 
     private final String[] roomNames={
-        "AWAKENING HOLLOW",
-        "AZURE PASSAGE",
-        "MANA CONDUIT",
-        "FORKED GALLERY",
-        "SILKEN NEST",
-        "SCALE DEN",
-        "ANCIENT RESERVOIR",
-        "DRAGON SANCTUM",
-        "SUNLIT RIFT"
+        "AWAKENING HOLLOW",      // 0
+        "OBSIDIAN PASSAGE",      // 1
+        "MANA RESERVOIR",        // 2
+        "FORKED GALLERY",        // 3
+        "SILKEN NEST",           // 4
+        "SCALE DEN",             // 5
+        "CRYSTAL CRYPT",         // 6
+        "ECHO SHAFT",            // 7
+        "SHARD BRIDGE",          // 8
+        "SUNKEN GROTTO",         // 9
+        "FORGOTTEN VAULT",       // 10
+        "MANA CHASM",            // 11
+        "ANCIENT GATE",          // 12
+        "DRAGON APPROACH",       // 13
+        "DRAGON SANCTUM",        // 14
+        "SUNLIT RIFT"            // 15
     };
 
-    private final int[] left = {-1,0,1,2,-1,-1,3,6,7};
-    private final int[] right= {1,2,3,6,-1,-1,7,8,-1};
-    private final int[] up   = {-1,-1,-1,4,-1,3,-1,-1,-1};
-    private final int[] down = {-1,-1,-1,5,3,-1,-1,-1,-1};
+    // A real grid/maze with multiple loops, side routes and dead-end exploration.
+    private final int[] left = {-1,0,1,2,7,-1,-1,6,3,5,4,9,8,10,12,14};
+    private final int[] right= {1,2,3,8,10,9,7,4,12,11,13,-1,14,-1,15,-1};
+    private final int[] up   = {-1,6,7,4,-1,2,-1,-1,10,3,-1,8,13,-1,-1,-1};
+    private final int[] down = {-1,-1,5,9,3,-1,1,2,11,-1,8,-1,-1,12,-1,-1};
 
-    // 0 none, 1 mite, 2 spider, 3 lizard, 4 dragon.
-    private final int[] monsterType={M_MITE,M_NONE,M_NONE,M_NONE,M_SPIDER,M_LIZARD,M_NONE,M_DRAGON,M_NONE};
-    private final int[] monsterState={S_ALIVE,S_ABSORBED,S_ABSORBED,S_ABSORBED,S_ALIVE,S_ALIVE,S_ABSORBED,S_ALIVE,S_ABSORBED};
-    private final int[] monsterHp={5,0,0,0,5,6,0,99,0};
-    private final int[] essenceMask=new int[9];
+    private final int[] mapX={0,1,2,3,3,2,1,2,4,3,4,4,5,5,6,7};
+    private final int[] mapY={3,3,3,3,2,4,2,2,3,4,2,4,3,2,3,3};
+
+    private final int[] monsterType={
+        M_MITE,M_NONE,M_NONE,M_NONE,
+        M_SPIDER,M_LIZARD,M_MITE,M_LIZARD,
+        M_NONE,M_SPIDER,M_MITE,M_NONE,
+        M_NONE,M_NONE,M_DRAGON,M_NONE
+    };
+    private final int[] monsterMaxHp={5,0,0,0,8,8,9,9,0,10,11,0,0,0,99,0};
+    private final int[] monsterState=new int[16];
+    private final int[] monsterHp=new int[16];
+    private final int[] essenceMask=new int[16];
+    private final boolean[] visited=new boolean[16];
+
     private final boolean[] crystalTaken=new boolean[5];
-    private final float[][] startCrystals={{.20f,.66f},{.35f,.38f},{.50f,.70f},{.66f,.42f},{.82f,.66f}};
+    private final float[][] startCrystals={{.20f,.67f},{.34f,.38f},{.49f,.71f},{.65f,.42f},{.81f,.67f}};
 
-    private int room=0;
-    private int crystals=0;
-    private int essence=0;
-    private int currentForm=0; // 0 slime, 1 spider, 2 lizard
+    private int room=0,crystals=0,essence=0,currentForm=0;
+    private int shellMastery=0,silkMastery=0,scaleMastery=0;
     private boolean spiderFriend=false,lizardFriend=false;
     private boolean spiderAbsorbed=false,lizardAbsorbed=false;
-    private boolean dragonBonded=false,dragonAbsorbed=false;
-    private boolean stormHeart=false;
+    private boolean dragonBonded=false,dragonAbsorbed=false,stormHeart=false,dragonSealAwake=false;
 
     private float playerX=-1,playerY=-1,monsterX=-1,monsterY=-1;
-    private float moveX=0,moveY=0,lastFacing=1;
+    private float moveX=0,moveY=0,lastFacing=1f;
     private float monsterVx=0,monsterVy=0;
     private long lastFrame=0,transitionCooldown=0;
-    private long attackStart=0,hitStart=0,absorbStart=0,webStart=0,stormStart=0;
+    private long attackStart=0,hitStart=0,absorbStart=0;
     private String message="Awakening complete. Gather the five crystals.";
 
-    private Bitmap caveBase,caveCorridor,caveMana,caveCross,caveWeb,caveScale,caveGate,caveDragon,caveExit;
+    private Bitmap caveBase,caveObsidian,caveMana,caveCross,caveWeb,caveScale,caveCrypt,caveEcho,caveShard,caveGrotto,caveVault,caveChasm,caveGate,caveApproach,caveDragon,caveExit;
     private Bitmap mid,fg,crystal,essenceOrb,mite,spider,lizard,dragon,slash,impact,absorbFx,webFx,stormFx;
 
     public CaveWorldView(Context c,int body,int color,int eyes,int markings,int core,int alpha,int aura,String skill,Listener l){
@@ -78,76 +90,82 @@ public class CaveWorldView extends View {
 
     private void loadArt(){
         caveBase=load(R.drawable.cave_bg);
-        caveCorridor=load(R.drawable.cave_corridor);
+        caveObsidian=load(R.drawable.cave_obsidian);
         caveMana=load(R.drawable.cave_mana);
         caveCross=load(R.drawable.cave_crossroads);
         caveWeb=load(R.drawable.cave_web);
         caveScale=load(R.drawable.cave_scale);
+        caveCrypt=load(R.drawable.cave_crypt);
+        caveEcho=load(R.drawable.cave_echo);
+        caveShard=load(R.drawable.cave_shard);
+        caveGrotto=load(R.drawable.cave_grotto);
+        caveVault=load(R.drawable.cave_vault);
+        caveChasm=load(R.drawable.cave_chasm);
         caveGate=load(R.drawable.cave_gate);
+        caveApproach=load(R.drawable.cave_dragon_approach);
         caveDragon=load(R.drawable.cave_dragon);
         caveExit=load(R.drawable.cave_exit);
-        mid=load(R.drawable.cave_mid);
-        fg=load(R.drawable.cave_fg);
-        crystal=load(R.drawable.crystal_blue);
-        essenceOrb=load(R.drawable.essence_orb);
-        mite=load(R.drawable.cave_mite);
-        spider=load(R.drawable.anime_spider);
-        lizard=load(R.drawable.anime_lizard);
-        dragon=load(R.drawable.ancient_dragon);
-        slash=load(R.drawable.magic_slash);
-        impact=load(R.drawable.impact_burst);
-        absorbFx=load(R.drawable.absorb_ring);
-        webFx=load(R.drawable.web_burst);
-        stormFx=load(R.drawable.storm_burst);
+        mid=load(R.drawable.cave_mid); fg=load(R.drawable.cave_fg);
+        crystal=load(R.drawable.crystal_blue); essenceOrb=load(R.drawable.essence_orb);
+        mite=load(R.drawable.cave_mite); spider=load(R.drawable.anime_spider);
+        lizard=load(R.drawable.anime_lizard); dragon=load(R.drawable.ancient_dragon);
+        slash=load(R.drawable.magic_slash); impact=load(R.drawable.impact_burst);
+        absorbFx=load(R.drawable.absorb_ring); webFx=load(R.drawable.web_burst); stormFx=load(R.drawable.storm_burst);
     }
 
     private Bitmap load(int id){ return BitmapFactory.decodeResource(getResources(),id); }
 
     public void start(){
         room=0;crystals=0;essence=0;currentForm=0;
-        spiderFriend=lizardFriend=spiderAbsorbed=lizardAbsorbed=dragonBonded=dragonAbsorbed=stormHeart=false;
-        Arrays.fill(essenceMask,0);Arrays.fill(crystalTaken,false);
-        monsterState[0]=S_ALIVE;monsterState[4]=S_ALIVE;monsterState[5]=S_ALIVE;monsterState[7]=S_ALIVE;
-        monsterHp[0]=5;monsterHp[4]=5;monsterHp[5]=6;monsterHp[7]=99;
+        shellMastery=silkMastery=scaleMastery=0;
+        spiderFriend=lizardFriend=spiderAbsorbed=lizardAbsorbed=false;
+        dragonBonded=dragonAbsorbed=stormHeart=dragonSealAwake=false;
+        Arrays.fill(essenceMask,0);Arrays.fill(crystalTaken,false);Arrays.fill(visited,false);
+        for(int i=0;i<monsterState.length;i++){
+            monsterState[i]=monsterType[i]==M_NONE?S_ABSORBED:S_ALIVE;
+            monsterHp[i]=monsterMaxHp[i];
+        }
+        visited[0]=true;
         playerX=playerY=-1;lastFrame=0;transitionCooldown=0;
+        attackStart=hitStart=absorbStart=0;
         message="Awakening complete. Gather the five crystals.";
-        notifyState();
-        invalidate();
+        notifyState();invalidate();
     }
 
     public void setMove(float x,float y){
         moveX=x;moveY=y;
-        if(Math.abs(x)>.05f)lastFacing=Math.signum(x);
+        if(Math.abs(x)>.08f)lastFacing=Math.signum(x);
     }
 
     public void attack(){
-        if(!hasActiveMonster()||monsterType[room]==M_DRAGON){
-            message=monsterType[room]==M_DRAGON?"Its ancient aura rejects violence. Try another approach.":"No hostile target is close enough.";
+        if(!canAttack()){
+            message=monsterType[room]==M_DRAGON?"The ancient dragon's aura rejects violence.":"There is no hostile target in this chamber.";
             notifyState();return;
         }
         long now=SystemClock.uptimeMillis();
-        if(now-attackStart<380)return;
+        if(now-attackStart<340)return;
         attackStart=now;
-        float d=distance(playerX,playerY,monsterX,monsterY);
-        float range=Math.max(180,getHeight()*.33f);
-        if(d>range){
+        float range=Math.max(190,getHeight()*.35f);
+        if(distance(playerX,playerY,monsterX,monsterY)>range){
             message="Move closer to "+monsterLabel()+" before attacking.";
             notifyState();return;
         }
+
         int damage=1;
-        if(currentForm==M_SPIDER&&spiderAbsorbed){ damage=2;webStart=now; }
-        if(currentForm==M_LIZARD&&lizardAbsorbed){ damage=2; }
-        if(stormHeart){ damage=Math.max(damage,2);stormStart=now; }
+        String attackName="Magic Burst";
+        if(currentForm==M_SPIDER&&spiderAbsorbed){damage=2+Math.min(1,silkMastery/2);attackName="Silk Lance";}
+        if(currentForm==M_LIZARD&&lizardAbsorbed){damage=2+Math.min(1,scaleMastery/2);attackName="Scale Rend";}
+        if(stormHeart){damage=Math.max(damage,3);attackName="Storm Burst";}
+
         monsterHp[room]=Math.max(0,monsterHp[room]-damage);
         hitStart=now;
-        monsterVx=lastFacing*getWidth()*.14f;
-        monsterVy=-getHeight()*.05f;
+        monsterVx=lastFacing*getWidth()*.13f;
+        monsterVy=-getHeight()*.045f;
+
         if(monsterHp[room]<=0){
             monsterState[room]=S_DEFEATED;
-            message=monsterLabel()+" defeated. You can ABSORB it for its trait.";
-        }else{
-            message=(currentForm==M_SPIDER?"Silk Shot":currentForm==M_LIZARD?"Scale Strike":"Magic Burst")+" hit for "+damage+".";
-        }
+            message=monsterLabel()+" defeated. Move close and ABSORB it to analyze its trait.";
+        }else message=attackName+" hit for "+damage+".";
         notifyState();invalidate();
     }
 
@@ -157,51 +175,56 @@ public class CaveWorldView extends View {
         collectNearbyEssence(true);
         if(room==0)collectNearbyCrystals(true);
 
-        if(monsterType[room]==M_DRAGON&&dragonBonded&&!dragonAbsorbed){
+        if(room==14&&dragonBonded&&!dragonAbsorbed){
             dragonAbsorbed=true;stormHeart=true;monsterState[room]=S_ABSORBED;
-            message="ANALYSIS COMPLETE // Storm Heart acquired. The path to daylight is open.";
+            message="UNIQUE ABILITY // STORM HEART acquired. The surface route has opened.";
             notifyState();invalidate();return;
         }
 
         if(monsterState[room]==S_DEFEATED){
-            float range=Math.max(160,getHeight()*.28f);
+            float range=Math.max(175,getHeight()*.30f);
             if(distance(playerX,playerY,monsterX,monsterY)>range){
                 message="Move closer to the defeated "+monsterLabel()+" before absorbing it.";
                 notifyState();invalidate();return;
             }
             monsterState[room]=S_ABSORBED;
-            if(monsterType[room]==M_SPIDER){
-                spiderAbsorbed=true;
-                message="ABILITY ACQUIRED // Silk Thread. Spider morph unlocked.";
-            }else if(monsterType[room]==M_LIZARD){
-                lizardAbsorbed=true;
-                message="ABILITY ACQUIRED // Scale Guard. Lizard morph unlocked.";
-            }else{
-                message="ABILITY ACQUIRED // Violet Shell. Physical resistance increased.";
+            int type=monsterType[room];
+            if(type==M_SPIDER){
+                silkMastery++;
+                if(!spiderAbsorbed){
+                    spiderAbsorbed=true;
+                    message="ABILITY ACQUIRED // SILK THREAD. Crystal Spider morph unlocked.";
+                }else message="Silk Thread strengthened. Silk mastery "+silkMastery+".";
+            }else if(type==M_LIZARD){
+                scaleMastery++;
+                if(!lizardAbsorbed){
+                    lizardAbsorbed=true;
+                    message="ABILITY ACQUIRED // SCALE GUARD. Scale Lizard morph unlocked.";
+                }else message="Scale Guard strengthened. Scale mastery "+scaleMastery+".";
+            }else if(type==M_MITE){
+                shellMastery++;
+                message=shellMastery==1?"ABILITY ACQUIRED // OBSIDIAN SHELL.":"Obsidian Shell strengthened. Shell mastery "+shellMastery+".";
             }
-            notifyState();
+            notifyState();invalidate();
         }
-        invalidate();
     }
 
     public void befriend(){
         if(!canBefriend())return;
-        float range=Math.max(185,getHeight()*.34f);
+        float range=Math.max(200,getHeight()*.36f);
         if(distance(playerX,playerY,monsterX,monsterY)>range){
             message="Move closer before trying to befriend "+monsterLabel()+".";
             notifyState();return;
         }
-        int t=monsterType[room];
-        if(t==M_DRAGON){
-            dragonBonded=true;
-            monsterState[room]=S_FRIEND;
-            message="The ancient dragon accepts your soul-link. It offers a core echo to carry beyond the cave.";
-        }else if(t==M_SPIDER){
+        if(room==14){
+            dragonBonded=true;monsterState[room]=S_FRIEND;
+            message="The ancient dragon accepts the soul-link and offers a core echo instead of its life.";
+        }else if(room==4){
             spiderFriend=true;monsterState[room]=S_FRIEND;
-            message="The Crystal Weaver joins you. Its threads now mark safe paths through the cave.";
-        }else if(t==M_LIZARD){
+            message="The Abyss Weaver accepts you. It will follow you through the cave.";
+        }else if(room==5){
             lizardFriend=true;monsterState[room]=S_FRIEND;
-            message="The Scale Runner trusts you. It will follow you through the tunnels.";
+            message="The Scale Stalker lowers its crest and joins you.";
         }
         notifyState();invalidate();
     }
@@ -217,11 +240,8 @@ public class CaveWorldView extends View {
         notifyState();invalidate();
     }
 
-    public String roomName(){ return roomNames[room]; }
-    public String message(){ return message; }
-    public int essence(){ return essence; }
-    public int crystals(){ return crystals; }
-    public int roomIndex(){ return room; }
+    public String roomName(){return roomNames[room];}
+    public String message(){return message;}
     public String formName(){
         if(currentForm==M_SPIDER)return "CRYSTAL SPIDER";
         if(currentForm==M_LIZARD)return "SCALE LIZARD";
@@ -230,75 +250,81 @@ public class CaveWorldView extends View {
     public String abilityText(){
         ArrayList<String> a=new ArrayList<>();
         a.add(startingSkill);
-        if(monsterState[0]==S_ABSORBED)a.add("VIOLET SHELL");
-        if(spiderAbsorbed)a.add("SILK THREAD");
-        if(lizardAbsorbed)a.add("SCALE GUARD");
+        if(shellMastery>0)a.add("OBSIDIAN SHELL"+(shellMastery>1?" "+shellMastery:""));
+        if(spiderAbsorbed)a.add("SILK THREAD"+(silkMastery>1?" "+silkMastery:""));
+        if(lizardAbsorbed)a.add("SCALE GUARD"+(scaleMastery>1?" "+scaleMastery:""));
         if(stormHeart)a.add("STORM HEART");
         return join(a," • ");
     }
     public String statsText(){
-        String hp=hasActiveMonster()&&monsterType[room]!=M_DRAGON?"  Enemy "+monsterHp[room]+"/"+maxHp(monsterType[room]):"";
+        String hp=(monsterType[room]!=M_NONE&&monsterType[room]!=M_DRAGON&&monsterState[room]==S_ALIVE)
+            ?"  •  Enemy "+monsterHp[room]+"/"+monsterMaxHp[room]:"";
         return "Essence "+essence+"  •  Crystals "+crystals+"/5  •  Form "+formName()+hp;
     }
+
     public String objectiveText(){
         switch(room){
             case 0:
-                if(crystals<5)return "Gather all five crystals. Then defeat the Cave Mite.";
-                if(monsterState[0]==S_ALIVE)return "Defeat the Cave Mite to open the eastern passage.";
-                return "The eastern passage is open.";
-            case 1:return "Follow the mana current east. Essence strengthens your developing core.";
-            case 2:return "Mana density is rising. Reach the branching gallery.";
+                if(crystals<5)return "Gather all five awakening crystals.";
+                if(monsterState[0]==S_ALIVE)return "Defeat the armored Cave Mite.";
+                return "The eastern passage has opened.";
+            case 1:return "The cave branches above. Explore instead of following a single path.";
+            case 2:return "Mana is dense here. Several routes reconnect deeper in the cave.";
             case 3:
-                if(!spiderResolved()||!lizardResolved())return "Explore the upper and lower branches. Resolve both creature encounters.";
-                return "Both branches resonate. The ancient route east has opened.";
-            case 4:
-                if(monsterState[4]==S_ALIVE)return "Crystal Weaver encountered: BEFRIEND it, or fight and ABSORB it.";
-                return "Silken Nest resolved. Return to the Forked Gallery.";
-            case 5:
-                if(monsterState[5]==S_ALIVE)return "Scale Runner encountered: BEFRIEND it, or fight and ABSORB it.";
-                return "Scale Den resolved. Return to the Forked Gallery.";
-            case 6:
-                if(essence<12)return "The ancient seal needs 12 essence. Explore and collect more mana essence.";
-                return "The seal recognizes your core. Enter the Dragon Sanctum.";
-            case 7:
-                if(!dragonBonded)return "An ancient dragon waits. Approach it and choose BEFRIEND.";
-                if(!dragonAbsorbed)return "Soul-link established. ABSORB the offered core echo.";
-                return "Storm Heart acquired. The sunlit passage to the east is open.";
-            case 8:return "Daylight is ahead. Leave the cave when you are ready.";
+                if(!spiderResolved()||!lizardResolved())return "Resolve both the Silken Nest and Scale Den before approaching the Ancient Gate.";
+                return "Both creature branches are resolved. Find the Ancient Gate.";
+            case 4:return monsterState[4]==S_ALIVE?"Abyss Weaver: BEFRIEND it, or fight and ABSORB it.":"The Silken Nest is resolved.";
+            case 5:return monsterState[5]==S_ALIVE?"Scale Stalker: BEFRIEND it, or fight and ABSORB it.":"The Scale Den is resolved.";
+            case 6:return "Optional crypt loop. Hunt the armored mite and gather essence.";
+            case 7:return "Echo Shaft loops back toward the Mana Reservoir and Silken Nest.";
+            case 8:
+                if(!spiderResolved()||!lizardResolved())return "The Ancient Gate rejects you. Resolve both primary creature chambers.";
+                return "The Shard Bridge leads toward the inner ruins.";
+            case 9:return "Sunken Grotto: a stronger Weaver guards extra essence.";
+            case 10:return "Forgotten Vault: search the upper ruins for the Dragon Approach.";
+            case 11:return "Mana Chasm: a lower loop reconnects with the Shard Bridge.";
+            case 12:
+                if(!dragonSealAwake)return "The seal is dormant. Find the Dragon Approach above.";
+                if(essence<18)return "The awakened seal requires 18 essence.";
+                return "The Ancient Gate is open. Enter the Dragon Sanctum.";
+            case 13:return "The dragon sigil awakens. Return to the Ancient Gate when your essence is sufficient.";
+            case 14:
+                if(!dragonBonded)return "Ancient Dragon encountered. Violence will fail—approach and BEFRIEND it.";
+                if(!dragonAbsorbed)return "Soul-link accepted. ABSORB the offered core echo.";
+                return "Storm Heart acquired. The surface passage is open.";
+            case 15:return "Daylight is ahead. Exit the cave.";
         }
         return "";
     }
+
     public boolean canAttack(){
-        return monsterType[room]!=M_NONE && monsterType[room]!=M_DRAGON && monsterState[room]==S_ALIVE;
+        return monsterType[room]!=M_NONE&&monsterType[room]!=M_DRAGON&&monsterState[room]==S_ALIVE;
     }
     public boolean canBefriend(){
-        int t=monsterType[room];
-        return monsterState[room]==S_ALIVE&&(t==M_SPIDER||t==M_LIZARD||t==M_DRAGON);
+        return (room==4||room==5||room==14)&&monsterState[room]==S_ALIVE;
     }
     public boolean canAbsorb(){
-        if(room==7&&dragonBonded&&!dragonAbsorbed)return true;
+        if(room==14&&dragonBonded&&!dragonAbsorbed)return true;
         return monsterState[room]==S_DEFEATED;
     }
-    public boolean canMorph(){ return spiderAbsorbed||lizardAbsorbed; }
-    public boolean canExitCave(){ return room==8&&dragonAbsorbed; }
+    public boolean canMorph(){return spiderAbsorbed||lizardAbsorbed;}
+    public boolean canExitCave(){return room==15&&dragonAbsorbed;}
     public String absorbButtonText(){
-        if(room==7&&dragonBonded&&!dragonAbsorbed)return "ABSORB\nCORE";
+        if(room==14&&dragonBonded&&!dragonAbsorbed)return "ABSORB\nCORE";
         if(canAbsorb())return "ABSORB\nCREATURE";
         return "ABSORB";
     }
     public String attackButtonText(){
-        if(currentForm==M_SPIDER)return "SILK\nSHOT";
-        if(currentForm==M_LIZARD)return "SCALE\nSTRIKE";
+        if(currentForm==M_SPIDER)return "SILK\nLANCE";
+        if(currentForm==M_LIZARD)return "SCALE\nREND";
         if(stormHeart)return "STORM\nBURST";
         return "MAGIC\nBURST";
     }
-    public String morphButtonText(){ return "MORPH\n"+formName(); }
+    public String morphButtonText(){return "MORPH\n"+formName();}
 
-    private boolean spiderResolved(){ return monsterState[4]!=S_ALIVE; }
-    private boolean lizardResolved(){ return monsterState[5]!=S_ALIVE; }
-    private boolean hasActiveMonster(){ return monsterType[room]!=M_NONE&&(monsterState[room]==S_ALIVE||monsterState[room]==S_DEFEATED||monsterState[room]==S_FRIEND); }
-
-    private void notifyState(){ if(listener!=null)listener.onStateChanged(this); }
+    private boolean spiderResolved(){return monsterState[4]!=S_ALIVE;}
+    private boolean lizardResolved(){return monsterState[5]!=S_ALIVE;}
+    private void notifyState(){if(listener!=null)listener.onStateChanged(this);}
 
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
@@ -306,9 +332,7 @@ public class CaveWorldView extends View {
         if(w<=0||h<=0){postInvalidateDelayed(16);return;}
         long now=SystemClock.uptimeMillis();
         if(playerX<0){
-            playerX=w*.16f;playerY=h*.63f;
-            positionMonster(w,h);
-            lastFrame=now;
+            playerX=w*.16f;playerY=h*.65f;positionMonster(w,h);lastFrame=now;
         }
         float dt=Math.min(.033f,Math.max(0,(now-lastFrame)/1000f));
         lastFrame=now;
@@ -319,24 +343,29 @@ public class CaveWorldView extends View {
 
     private void updateWorld(int w,int h,float dt,long now){
         float mag=(float)Math.sqrt(moveX*moveX+moveY*moveY);
-        float nx=mag>.01f?moveX/mag:0, ny=mag>.01f?moveY/mag:0;
-        float speed=Math.min(w,h)*(currentForm==M_LIZARD?0.57f:currentForm==M_SPIDER?0.50f:0.47f);
-        float vx=nx*speed,vy=ny*speed;
-        playerX+=vx*dt;playerY+=vy*dt;
+        float power=Math.min(1f,mag);
+        float nx=mag>.01f?moveX/mag:0f,ny=mag>.01f?moveY/mag:0f;
+        float speed=Math.min(w,h)*(currentForm==M_LIZARD?.58f:currentForm==M_SPIDER?.52f:.49f);
+        playerX+=nx*speed*power*dt;
+        playerY+=ny*speed*power*dt;
 
-        // Edge-to-edge maze navigation.
         if(now>transitionCooldown){
             if(playerX>w*.955f&&right[room]>=0){
-                if(canTraverse(room,right[room]))transitionTo(right[room],"right",w,h,now);
-                else {playerX=w*.93f;lockedMessage();}
+                int to=right[room];
+                if(canTraverse(room,to))transitionTo(to,"right",w,h,now);
+                else{playerX=w*.93f;lockedMessage(room,to);}
             }else if(playerX<w*.045f&&left[room]>=0){
-                transitionTo(left[room],"left",w,h,now);
+                int to=left[room];
+                if(canTraverse(room,to))transitionTo(to,"left",w,h,now);
+                else{playerX=w*.07f;lockedMessage(room,to);}
             }else if(playerY<h*.17f&&up[room]>=0){
-                if(canTraverse(room,up[room]))transitionTo(up[room],"up",w,h,now);
-                else {playerY=h*.20f;lockedMessage();}
+                int to=up[room];
+                if(canTraverse(room,to))transitionTo(to,"up",w,h,now);
+                else{playerY=h*.20f;lockedMessage(room,to);}
             }else if(playerY>h*.86f&&down[room]>=0){
-                if(canTraverse(room,down[room]))transitionTo(down[room],"down",w,h,now);
-                else {playerY=h*.83f;lockedMessage();}
+                int to=down[room];
+                if(canTraverse(room,to))transitionTo(to,"down",w,h,now);
+                else{playerY=h*.83f;lockedMessage(room,to);}
             }
         }
         playerX=clamp(playerX,w*.045f,w*.955f);
@@ -347,46 +376,48 @@ public class CaveWorldView extends View {
         collectNearbyEssence(false);
     }
 
-    private void lockedMessage(){
-        if(room==0)message="The passage is sealed. Gather five crystals and defeat the Cave Mite.";
-        else if(room==3)message="The ancient route will not open until both side chambers are resolved.";
-        else if(room==6)message="The inner seal requires at least 12 essence.";
-        else if(room==7)message="The exit remains sealed until the dragon's core echo joins yours.";
-        notifyState();
-    }
-
     private boolean canTraverse(int from,int to){
         if(from==0&&to==1)return crystals>=5&&monsterState[0]!=S_ALIVE;
-        if(from==3&&to==6)return spiderResolved()&&lizardResolved();
-        if(from==6&&to==7)return essence>=12&&spiderResolved()&&lizardResolved();
-        if(from==7&&to==8)return dragonAbsorbed;
+        if(from==8&&to==12)return spiderResolved()&&lizardResolved();
+        if(from==12&&to==14)return dragonSealAwake&&essence>=18;
+        if(from==14&&to==15)return dragonAbsorbed;
         return true;
     }
 
+    private void lockedMessage(int from,int to){
+        if(from==0)message="The passage is sealed: collect five crystals and defeat the Cave Mite.";
+        else if(from==8&&to==12)message="The Ancient Gate rejects you. Resolve the Silken Nest and Scale Den first.";
+        else if(from==12&&to==14&&!dragonSealAwake)message="The gate is dormant. Find the Dragon Approach in the upper ruins.";
+        else if(from==12&&to==14)message="The gate requires 18 essence. Current essence: "+essence+".";
+        else if(from==14&&to==15)message="The surface route remains sealed until you accept the dragon's core echo.";
+        notifyState();
+    }
+
     private void transitionTo(int next,String direction,int w,int h,long now){
-        room=next;transitionCooldown=now+520;monsterVx=monsterVy=0;
-        if(direction.equals("right")){playerX=w*.08f;playerY=h*.61f;}
-        else if(direction.equals("left")){playerX=w*.91f;playerY=h*.61f;}
+        room=next;visited[room]=true;transitionCooldown=now+420;monsterVx=monsterVy=0;
+        if(direction.equals("right")){playerX=w*.075f;playerY=h*.63f;}
+        else if(direction.equals("left")){playerX=w*.925f;playerY=h*.63f;}
         else if(direction.equals("up")){playerX=w*.50f;playerY=h*.82f;}
-        else {playerX=w*.50f;playerY=h*.22f;}
+        else{playerX=w*.50f;playerY=h*.22f;}
+        if(room==13)dragonSealAwake=true;
         positionMonster(w,h);
         message="Entered "+roomNames[room]+".";
         notifyState();
     }
 
     private void positionMonster(int w,int h){
-        monsterX=w*(room==7?.67f:.73f);
-        monsterY=h*(room==7?.52f:.56f);
+        monsterX=w*(room==14?.67f:.73f);
+        monsterY=h*(room==14?.50f:.58f);
     }
 
     private void updateMonster(int w,int h,float dt){
         if(monsterType[room]==M_NONE||monsterState[room]!=S_ALIVE||monsterType[room]==M_DRAGON)return;
         float dx=playerX-monsterX,dy=playerY-monsterY;
-        float d=Math.max(1,distance(playerX,playerY,monsterX,monsterY));
-        float chase=monsterType[room]==M_MITE?.030f:monsterType[room]==M_SPIDER?.022f:.026f;
+        float d=Math.max(1f,distance(playerX,playerY,monsterX,monsterY));
+        float chase=monsterType[room]==M_MITE?.033f:monsterType[room]==M_SPIDER?.025f:.029f;
         monsterVx+=dx/d*w*chase*dt;
         monsterVy+=dy/d*h*chase*dt;
-        monsterVx*=.965f;monsterVy*=.965f;
+        monsterVx*=.962f;monsterVy*=.962f;
         monsterX+=monsterVx*dt;monsterY+=monsterVy*dt;
         monsterX=clamp(monsterX,w*.10f,w*.90f);
         monsterY=clamp(monsterY,h*.25f,h*.80f);
@@ -394,42 +425,40 @@ public class CaveWorldView extends View {
 
     private void collectNearbyCrystals(boolean pulse){
         if(room!=0)return;
-        float radius=Math.max(pulse?155:75,getHeight()*(pulse?.25f:.10f));
+        float radius=Math.max(pulse?160:78,getHeight()*(pulse?.26f:.105f));
         boolean changed=false;
         for(int i=0;i<startCrystals.length;i++){
             if(crystalTaken[i])continue;
-            float x=startCrystals[i][0]*getWidth(), y=startCrystals[i][1]*getHeight();
+            float x=startCrystals[i][0]*getWidth(),y=startCrystals[i][1]*getHeight();
             if(distance(playerX,playerY,x,y)<=radius){
-                crystalTaken[i]=true;crystals++;changed=true;
-                absorbStart=SystemClock.uptimeMillis();
+                crystalTaken[i]=true;crystals++;changed=true;absorbStart=SystemClock.uptimeMillis();
             }
         }
         if(changed){message="Crystal essence absorbed. "+crystals+"/5";notifyState();}
     }
 
     private void collectNearbyEssence(boolean pulse){
-        if(room==0||room==8)return;
-        float radius=Math.max(pulse?165:70,getHeight()*(pulse?.26f:.095f));
+        if(room==0||room==14||room==15)return;
+        float radius=Math.max(pulse?170:72,getHeight()*(pulse?.27f:.098f));
         boolean changed=false;
         for(int i=0;i<3;i++){
             int bit=1<<i;
             if((essenceMask[room]&bit)!=0)continue;
             float x=essenceX(room,i)*getWidth(),y=essenceY(room,i)*getHeight();
             if(distance(playerX,playerY,x,y)<=radius){
-                essenceMask[room]|=bit;essence++;changed=true;
-                absorbStart=SystemClock.uptimeMillis();
+                essenceMask[room]|=bit;essence++;changed=true;absorbStart=SystemClock.uptimeMillis();
             }
         }
         if(changed){message="Mana essence integrated. Total essence: "+essence;notifyState();}
     }
 
-    private float essenceX(int room,int i){
-        float[][] xs={{.25f,.50f,.76f},{.20f,.52f,.82f},{.26f,.62f,.78f}};
-        return xs[room%3][i];
+    private float essenceX(int r,int i){
+        float[][] xs={{.24f,.49f,.78f},{.20f,.55f,.82f},{.29f,.62f,.77f},{.18f,.46f,.73f}};
+        return xs[r%4][i];
     }
-    private float essenceY(int room,int i){
-        float[][] ys={{.43f,.70f,.38f},{.68f,.37f,.66f},{.35f,.66f,.48f}};
-        return ys[(room+1)%3][i];
+    private float essenceY(int r,int i){
+        float[][] ys={{.43f,.70f,.39f},{.69f,.37f,.66f},{.35f,.67f,.48f},{.58f,.36f,.70f}};
+        return ys[(r+1)%4][i];
     }
 
     private void drawWorld(Canvas c,int w,int h,long now){
@@ -438,9 +467,9 @@ public class CaveWorldView extends View {
 
         if(room==0){
             for(int i=0;i<startCrystals.length;i++){
-                if(!crystalTaken[i])drawSprite(c,crystal,startCrystals[i][0]*w,startCrystals[i][1]*h,Math.min(w,h)*.060f,255);
+                if(!crystalTaken[i])drawSpriteDepth(c,crystal,startCrystals[i][0]*w,startCrystals[i][1]*h,Math.min(w,h)*.061f,255,false,h);
             }
-        }else if(room!=8){
+        }else if(room!=14&&room!=15){
             for(int i=0;i<3;i++){
                 if((essenceMask[room]&(1<<i))==0)drawEssence(c,essenceX(room,i)*w,essenceY(room,i)*h,Math.min(w,h)*.038f,now+i*120);
             }
@@ -453,84 +482,120 @@ public class CaveWorldView extends View {
         drawMiniMap(c,w,h);
     }
 
-    private void drawRoomBackground(Canvas c,int w,int h,long now){
-        Bitmap b=caveBase;
-        if(room==1)b=caveCorridor;
-        else if(room==2)b=caveMana;
-        else if(room==3)b=caveCross;
-        else if(room==4)b=caveWeb;
-        else if(room==5)b=caveScale;
-        else if(room==6)b=caveGate;
-        else if(room==7)b=caveDragon;
-        else if(room==8)b=caveExit;
-        if(b==null)b=caveBase;
-        drawCover(c,b,w,h,0,0,255);
-        if(mid!=null&&room!=7&&room!=8)drawCover(c,mid,w,h,(playerX/w-.5f)*-18f,(playerY/h-.5f)*-7f,210);
+    private Bitmap roomBitmap(){
+        switch(room){
+            case 0:return caveBase;
+            case 1:return caveObsidian;
+            case 2:return caveMana;
+            case 3:return caveCross;
+            case 4:return caveWeb;
+            case 5:return caveScale;
+            case 6:return caveCrypt;
+            case 7:return caveEcho;
+            case 8:return caveShard;
+            case 9:return caveGrotto;
+            case 10:return caveVault;
+            case 11:return caveChasm;
+            case 12:return caveGate;
+            case 13:return caveApproach;
+            case 14:return caveDragon;
+            case 15:return caveExit;
+        }
+        return caveBase;
+    }
 
-        float pulse=.72f+.28f*(float)Math.sin(now/850.0);
-        int glow=room==4?Color.rgb(194,137,255):room==5?Color.rgb(107,245,173):room==7?Color.rgb(167,112,255):Color.rgb(106,220,255);
-        drawGlow(c,w*.54f,h*.45f,Math.min(w,h)*.30f,withAlpha(glow,(int)(24*pulse)));
-        if(fg!=null)drawCover(c,fg,w,h,(playerX/w-.5f)*-28f,(playerY/h-.5f)*-10f,225);
+    private void drawRoomBackground(Canvas c,int w,int h,long now){
+        Bitmap b=roomBitmap();
+        float px=(playerX/Math.max(1f,w)-.5f);
+        float py=(playerY/Math.max(1f,h)-.5f);
+
+        drawPerspective(c,b,w,h,px*-20f,py*-8f,255,.075f);
+        if(mid!=null&&room!=14&&room!=15)drawPerspective(c,mid,w,h,px*-38f,py*-15f,175,.055f);
+
+        float pulse=.72f+.28f*(float)Math.sin(now/780.0);
+        int glow=(room==4||room==9)?Color.rgb(194,76,96):(room==5||room==7)?Color.rgb(81,206,139):(room>=12&&room<=14)?Color.rgb(190,73,52):Color.rgb(84,208,255);
+        drawGlow(c,w*.54f,h*.48f,Math.min(w,h)*.31f,withAlpha(glow,(int)(26*pulse)));
+
+        // drifting light dust gives the environment life without making it cartoonish.
+        for(int i=0;i<32;i++){
+            float x=((i*97)+(now*.011f*(1+i%3)))%w;
+            float y=(i*61%Math.max(1,h-100))+80;
+            p.setColor(withAlpha(room>=12?Color.rgb(255,133,72):Color.rgb(170,235,255),28+(i%5)*7));
+            c.drawCircle(x,y,1+(i%3),p);
+        }
+        if(fg!=null&&room!=15)drawPerspective(c,fg,w,h,px*-52f,py*-18f,205,.035f);
+    }
+
+    private void drawPerspective(Canvas c,Bitmap b,int w,int h,float offX,float offY,int alpha,float inset){
+        if(b==null){c.drawColor(Color.rgb(7,12,22));return;}
+        float[] src={0,0,b.getWidth(),0,b.getWidth(),b.getHeight(),0,b.getHeight()};
+        float topInset=w*inset;
+        float[] dst={
+            topInset+offX,h*.015f+offY,
+            w-topInset+offX,h*.015f+offY,
+            w+w*.035f+offX,h*1.035f+offY,
+            -w*.035f+offX,h*1.035f+offY
+        };
+        Matrix m=new Matrix();
+        m.setPolyToPoly(src,0,dst,0,4);
+        p.setAlpha(alpha);c.drawBitmap(b,m,p);p.setAlpha(255);
     }
 
     private void drawDoorHints(Canvas c,int w,int h){
-        stroke.setStrokeWidth(4);
-        if(right[room]>=0)drawDoorArrow(c,w*.925f,h*.53f,0,canTraverse(room,right[room]));
-        if(left[room]>=0)drawDoorArrow(c,w*.075f,h*.53f,180,true);
-        if(up[room]>=0)drawDoorArrow(c,w*.50f,h*.215f,270,canTraverse(room,up[room]));
-        if(down[room]>=0)drawDoorArrow(c,w*.50f,h*.815f,90,canTraverse(room,down[room]));
+        if(right[room]>=0)drawDoorArrow(c,w*.93f,h*.56f,0,canTraverse(room,right[room]));
+        if(left[room]>=0)drawDoorArrow(c,w*.07f,h*.56f,180,canTraverse(room,left[room]));
+        if(up[room]>=0)drawDoorArrow(c,w*.50f,h*.20f,270,canTraverse(room,up[room]));
+        if(down[room]>=0)drawDoorArrow(c,w*.50f,h*.82f,90,canTraverse(room,down[room]));
     }
 
     private void drawDoorArrow(Canvas c,float x,float y,float rot,boolean open){
         c.save();c.translate(x,y);c.rotate(rot);
-        p.setColor(open?Color.argb(205,180,250,255):Color.argb(180,245,116,130));
-        Path a=new Path();a.moveTo(-18,-25);a.lineTo(30,0);a.lineTo(-18,25);a.close();c.drawPath(a,p);
-        if(!open){stroke.setColor(Color.argb(220,255,205,210));stroke.setStrokeWidth(5);c.drawLine(-20,-28,25,28,stroke);}
+        p.setColor(open?Color.argb(190,215,248,255):Color.argb(190,226,79,74));
+        Path a=new Path();a.moveTo(-18,-24);a.lineTo(31,0);a.lineTo(-18,24);a.close();c.drawPath(a,p);
+        stroke.setStrokeWidth(3);stroke.setColor(open?Color.argb(190,124,195,219):Color.argb(230,255,207,171));c.drawPath(a,stroke);
+        if(!open)c.drawLine(-20,-27,25,27,stroke);
         c.restore();
     }
 
     private void drawMonster(Canvas c,int w,int h,long now){
-        int type=monsterType[room];
-        int state=monsterState[room];
+        int type=monsterType[room],state=monsterState[room];
         if(type==M_NONE||state==S_ABSORBED)return;
-        if(state==S_FRIEND&&type!=M_DRAGON)return; // companion is drawn near player
+        if(state==S_FRIEND&&type!=M_DRAGON)return;
         Bitmap b=type==M_MITE?mite:type==M_SPIDER?spider:type==M_LIZARD?lizard:dragon;
-        float rr=Math.min(w,h)*(type==M_DRAGON?.27f:type==M_MITE?.095f:.115f);
-        if(state==S_DEFEATED){
-            p.setAlpha(135);drawSprite(c,b,monsterX,monsterY+rr*.25f,rr,135);p.setAlpha(255);
-        }else{
-            float bob=(float)Math.sin(now/(type==M_DRAGON?520.0:290.0))*rr*.055f;
-            drawSprite(c,b,monsterX,monsterY+bob,rr,255);
-        }
+        float rr=Math.min(w,h)*(type==M_DRAGON?.30f:type==M_MITE?.10f:.125f);
+        float bob=(float)Math.sin(now/(type==M_DRAGON?540.0:300.0))*rr*.035f;
+
+        drawActorShadow(c,monsterX,monsterY,rr,h,type==M_DRAGON?.70f:.48f);
+        drawSpriteDepth(c,b,monsterX,monsterY+bob+(state==S_DEFEATED?rr*.24f:0),rr,state==S_DEFEATED?125:255,false,h);
 
         if(state==S_ALIVE&&type!=M_DRAGON){
-            float max=maxHp(type);
-            float hp=Math.max(0,monsterHp[room]);
-            float bw=rr*1.55f;
-            p.setColor(Color.argb(180,9,16,28));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.25f,monsterX+bw/2,monsterY-rr*1.15f),8,8,p);
-            p.setColor(Color.rgb(244,103,121));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.25f,monsterX-bw/2+bw*(hp/max),monsterY-rr*1.15f),8,8,p);
+            float hp=Math.max(0,monsterHp[room]),max=Math.max(1,monsterMaxHp[room]);
+            float scale=depthScale(monsterY,h),bw=rr*1.65f*scale;
+            p.setColor(Color.argb(185,7,12,19));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX+bw/2,monsterY-rr*1.23f*scale),7,7,p);
+            p.setColor(Color.rgb(205,61,64));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX-bw/2+bw*(hp/max),monsterY-rr*1.23f*scale),7,7,p);
         }
-        if(type==M_DRAGON&&dragonBonded&&!dragonAbsorbed){
-            drawGlow(c,monsterX,monsterY,rr*1.7f,Color.argb(35,154,225,255));
-        }
+        if(type==M_DRAGON&&dragonBonded&&!dragonAbsorbed)drawGlow(c,monsterX,monsterY,rr*1.75f,Color.argb(35,157,220,255));
     }
 
     private void drawCompanions(Canvas c,int w,int h,long now){
-        float rr=Math.min(w,h)*.050f;
-        if(spiderFriend)drawSprite(c,spider,playerX-rr*2.0f,playerY+rr*.9f+(float)Math.sin(now/260.0)*5,rr,225);
-        if(lizardFriend)drawSprite(c,lizard,playerX+rr*2.0f,playerY+rr*.9f+(float)Math.sin(now/300.0+1)*5,rr,225);
+        float rr=Math.min(w,h)*.052f;
+        if(spiderFriend){
+            float x=playerX-rr*2.1f,y=playerY+rr*.9f+(float)Math.sin(now/260.0)*4;
+            drawActorShadow(c,x,y,rr,h,.42f);drawSpriteDepth(c,spider,x,y,rr,220,false,h);
+        }
+        if(lizardFriend){
+            float x=playerX+rr*2.1f,y=playerY+rr*.9f+(float)Math.sin(now/300.0+1)*4;
+            drawActorShadow(c,x,y,rr,h,.42f);drawSpriteDepth(c,lizard,x,y,rr,220,false,h);
+        }
     }
 
     private void drawPlayer(Canvas c,int w,int h,long now){
-        float rr=Math.min(w,h)*.085f;
-        if(currentForm==M_SPIDER&&spider!=null){
-            drawGlow(c,playerX,playerY,rr*1.65f,Color.argb(45,148,215,255));
-            drawSprite(c,spider,playerX,playerY,rr,255);
-        }else if(currentForm==M_LIZARD&&lizard!=null){
-            drawGlow(c,playerX,playerY,rr*1.65f,Color.argb(45,96,255,174));
-            drawSprite(c,lizard,playerX,playerY,rr,255);
-        }else drawAnimeSlime(c,playerX,playerY,rr,now);
-        if(stormHeart)drawGlow(c,playerX,playerY,rr*1.8f,Color.argb(34,170,132,255));
+        float rr=Math.min(w,h)*.088f;
+        drawActorShadow(c,playerX,playerY,rr,h,.52f);
+        if(currentForm==M_SPIDER&&spider!=null)drawSpriteDepth(c,spider,playerX,playerY,rr,255,lastFacing<0,h);
+        else if(currentForm==M_LIZARD&&lizard!=null)drawSpriteDepth(c,lizard,playerX,playerY,rr,255,lastFacing<0,h);
+        else drawAnimeSlime(c,playerX,playerY,rr*depthScale(playerY,h),now);
+        if(stormHeart)drawGlow(c,playerX,playerY,rr*1.9f,Color.argb(32,166,128,255));
     }
 
     private void drawEffects(Canvas c,int w,int h,long now){
@@ -539,46 +604,67 @@ public class CaveWorldView extends View {
             float t=aa/360f;
             Bitmap fx=currentForm==M_SPIDER&&webFx!=null?webFx:slash;
             if(stormHeart&&stormFx!=null)fx=stormFx;
-            float size=Math.min(w,h)*(currentForm==M_SPIDER?.30f:stormHeart?.42f:.34f);
+            float size=Math.min(w,h)*(currentForm==M_SPIDER?.31f:stormHeart?.43f:.35f);
             float x=playerX+lastFacing*size*.65f;
-            drawSpriteAlpha(c,fx,x,playerY,size,(int)(245*(1-t)),lastFacing<0);
+            drawSpriteDepth(c,fx,x,playerY,size,(int)(245*(1-t)),lastFacing<0,h);
         }
         long ha=now-hitStart;
         if(hitStart>0&&ha<300&&impact!=null){
             float t=ha/300f,rr=Math.min(w,h)*(.12f+.08f*t);
-            drawSpriteAlpha(c,impact,monsterX,monsterY,rr,(int)(255*(1-t)),false);
+            drawSpriteDepth(c,impact,monsterX,monsterY,rr,(int)(255*(1-t)),false,h);
         }
         long ab=now-absorbStart;
         if(absorbStart>0&&ab<650&&absorbFx!=null){
             float t=ab/650f,rr=Math.min(w,h)*(.15f+.30f*t);
-            drawSpriteAlpha(c,absorbFx,playerX,playerY,rr,(int)(220*(1-t)),false);
+            drawSpriteDepth(c,absorbFx,playerX,playerY,rr,(int)(220*(1-t)),false,h);
         }
     }
 
     private void drawEssence(Canvas c,float x,float y,float r,long now){
-        float bob=(float)Math.sin(now/250.0)*r*.14f;
-        drawGlow(c,x,y+bob,r*2.2f,Color.argb(48,94,230,255));
-        drawSprite(c,essenceOrb,x,y+bob,r,245);
+        float bob=(float)Math.sin(now/250.0)*r*.13f;
+        drawGlow(c,x,y+bob,r*2.2f,Color.argb(45,86,215,255));
+        drawSpriteDepth(c,essenceOrb,x,y+bob,r,245,false,getHeight());
     }
 
     private void drawMiniMap(Canvas c,int w,int h){
-        float ox=w*.755f,oy=h*.085f,unit=Math.min(w,h)*.052f;
-        p.setColor(Color.argb(120,3,12,24));c.drawRoundRect(new RectF(ox-unit*2.0f,oy-unit*.7f,ox+unit*4.1f,oy+unit*4.6f),18,18,p);
-        int[][] pos={{0,2},{1,2},{2,2},{3,2},{3,1},{3,3},{4,2},{5,2},{6,2}};
+        float unit=Math.min(w,h)*.040f;
+        float ox=w-unit*8.2f,oy=h*.105f+unit*.7f;
+        p.setColor(Color.argb(112,2,8,17));
+        c.drawRoundRect(new RectF(ox-unit*.7f,oy-unit*1.0f,ox+unit*8.0f,oy+unit*5.2f),15,15,p);
+
         for(int a=0;a<roomNames.length;a++){
-            int[] pa=pos[a];
+            if(!visited[a]&&a!=room)continue;
             for(int b:new int[]{left[a],right[a],up[a],down[a]}){
-                if(b<0||b<a)continue;
-                int[] pb=pos[b];
-                stroke.setStrokeWidth(4);stroke.setColor(Color.argb(120,132,210,238));
-                c.drawLine(ox+pa[0]*unit,oy+pa[1]*unit,ox+pb[0]*unit,oy+pb[1]*unit,stroke);
+                if(b<0||b<a||(!visited[b]&&b!=room))continue;
+                stroke.setStrokeWidth(3);stroke.setColor(Color.argb(115,125,189,214));
+                c.drawLine(ox+mapX[a]*unit,oy+mapY[a]*unit,ox+mapX[b]*unit,oy+mapY[b]*unit,stroke);
             }
         }
-        for(int i=0;i<pos.length;i++){
-            float x=ox+pos[i][0]*unit,y=oy+pos[i][1]*unit;
-            p.setColor(i==room?Color.rgb(215,253,255):Color.argb(185,78,141,177));
-            c.drawCircle(x,y,i==room?9:6,p);
+        for(int i=0;i<roomNames.length;i++){
+            if(!visited[i]&&i!=room)continue;
+            float x=ox+mapX[i]*unit,y=oy+mapY[i]*unit;
+            p.setColor(i==room?Color.rgb(229,251,255):Color.argb(205,76,126,153));
+            c.drawCircle(x,y,i==room?7:4.5f,p);
         }
+    }
+
+    private void drawActorShadow(Canvas c,float x,float y,float r,int h,float widthFactor){
+        float s=depthScale(y,h);
+        p.setColor(Color.argb(85,0,0,0));
+        c.drawOval(new RectF(x-r*widthFactor*s,y+r*.73f*s,x+r*widthFactor*s,y+r*.94f*s),p);
+    }
+
+    private float depthScale(float y,int h){
+        return .72f+.38f*clamp(y/Math.max(1f,h),0f,1f);
+    }
+
+    private void drawSpriteDepth(Canvas c,Bitmap b,float x,float y,float r,int alpha,boolean flip,int h){
+        if(b==null)return;
+        float ds=depthScale(y,h);
+        float rr=r*ds;
+        c.save();if(flip)c.scale(-1f,1f,x,y);
+        RectF dst=new RectF(x-rr,y-rr,x+rr,y+rr);
+        p.setAlpha(alpha);c.drawBitmap(b,null,dst,p);p.setAlpha(255);c.restore();
     }
 
     private void drawAnimeSlime(Canvas c,float cx,float cy,float r,long now){
@@ -639,32 +725,24 @@ public class CaveWorldView extends View {
         return colors[Math.max(0,Math.min(colors.length-1,slimeColorIndex))];
     }
 
-    private void drawCover(Canvas c,Bitmap b,int w,int h,float offX,float offY,int alpha){
-        if(b==null){c.drawColor(Color.rgb(8,18,36));return;}
-        float s=Math.max(w/(float)b.getWidth(),h/(float)b.getHeight());
-        float dw=b.getWidth()*s,dh=b.getHeight()*s;
-        RectF dst=new RectF((w-dw)/2f+offX,(h-dh)/2f+offY,(w+dw)/2f+offX,(h+dh)/2f+offY);
-        p.setAlpha(alpha);c.drawBitmap(b,null,dst,p);p.setAlpha(255);
-    }
-
-    private void drawSprite(Canvas c,Bitmap b,float x,float y,float r,int alpha){
-        drawSpriteAlpha(c,b,x,y,r,alpha,false);
-    }
-    private void drawSpriteAlpha(Canvas c,Bitmap b,float x,float y,float r,int alpha,boolean flip){
-        if(b==null)return;
-        c.save();if(flip)c.scale(-1,1,x,y);
-        RectF dst=new RectF(x-r,y-r,x+r,y+r);
-        p.setAlpha(alpha);c.drawBitmap(b,null,dst,p);p.setAlpha(255);c.restore();
-    }
-
     private void drawGlow(Canvas c,float x,float y,float r,int color){
         int transparent=Color.argb(0,Color.red(color),Color.green(color),Color.blue(color));
         p.setShader(new RadialGradient(x,y,r,new int[]{color,transparent},null,Shader.TileMode.CLAMP));
         c.drawCircle(x,y,r,p);p.setShader(null);
     }
 
-    private int maxHp(int type){return type==M_MITE?5:type==M_SPIDER?5:type==M_LIZARD?6:99;}
-    private String monsterLabel(){return monsterType[room]==M_MITE?"Cave Mite":monsterType[room]==M_SPIDER?"Crystal Weaver":monsterType[room]==M_LIZARD?"Scale Runner":"Ancient Dragon";}
+    private String monsterLabel(){
+        if(room==0)return "Cave Mite";
+        if(room==4)return "Abyss Weaver";
+        if(room==5)return "Scale Stalker";
+        if(room==6)return "Crypt Mite";
+        if(room==7)return "Echo Drake";
+        if(room==9)return "Grotto Weaver";
+        if(room==10)return "Vault Mite";
+        if(room==14)return "Ancient Dragon";
+        return monsterType[room]==M_SPIDER?"Abyss Weaver":monsterType[room]==M_LIZARD?"Scale Stalker":"Armored Mite";
+    }
+
     private float distance(float ax,float ay,float bx,float by){float dx=ax-bx,dy=ay-by;return (float)Math.sqrt(dx*dx+dy*dy);}
     private float clamp(float v,float lo,float hi){return Math.max(lo,Math.min(hi,v));}
     private int withAlpha(int color,int a){return Color.argb(a,Color.red(color),Color.green(color),Color.blue(color));}
