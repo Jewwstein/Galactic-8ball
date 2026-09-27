@@ -1928,7 +1928,7 @@ public class MainActivity extends Activity {
         hudOpts.inScaled=false;
         tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud,hudOpts);
       }catch(Exception ignored){tieHud=null;}
-      try{tieHudPortrait=androidx.core.content.ContextCompat.getDrawable(c,R.drawable.tie_arcade_hud_portrait);}catch(Exception ignored){tieHudPortrait=null;}
+      try{tieHudPortrait=c.getResources().getDrawable(R.drawable.tie_arcade_hud_portrait,c.getTheme());}catch(Exception ignored){tieHudPortrait=null;}
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
       for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
@@ -5709,7 +5709,7 @@ public class MainActivity extends Activity {
       // bookkeeping on entry/exit; only copy the cue position for the arcade avatar.
       arcadeSnapshotValid=false;
       arcadeActive=true;tieMode=false;
-      if(MainActivity.this.hud!=null){MainActivity.this.hud.arcadeSummaryOpen=false;MainActivity.this.hud.arcadeSummaryExitRect.setEmpty();}tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
+      tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=1;arcadeImpactFlash=0;if(sfx!=null)sfx.arcadeTransition();MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
