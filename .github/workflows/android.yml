@@ -39,6 +39,22 @@ jobs:
           mkdir -p app/src/main/res/drawable-nodpi
           cat model_assets/tie_hud/tie_arcade_hud.b64.part* | base64 -d > app/src/main/res/drawable-nodpi/tie_arcade_hud.png
           echo "a090f0a5a8222ad068782faf826b47d88bc356578961e4b303f21be92902bff6  app/src/main/res/drawable-nodpi/tie_arcade_hud.png" | sha256sum -c -
+          # Install the owner-approved portrait TIE HUD PNG uploaded under model_assets/tie_hud.
+          rm -f app/src/main/res/drawable/tie_arcade_hud_portrait.xml
+          cp model_assets/tie_hud/file_00000000cc9881f5bca136aa0712d7f9.png app/src/main/res/drawable-nodpi/tie_arcade_hud_portrait.png
+          python - <<'PY'
+          from PIL import Image
+          p="app/src/main/res/drawable-nodpi/tie_arcade_hud_portrait.png"
+          with Image.open(p) as im:
+              im.load()
+              assert im.format=="PNG", im.format
+              rgba=im.convert("RGBA")
+              w,h=rgba.size
+              assert h>w, (w,h)
+              lo,hi=rgba.getchannel("A").getextrema()
+              assert lo==0 and hi==255, (lo,hi)
+              print("Validated portrait TIE HUD:",rgba.size,rgba.mode,"alpha",lo,hi)
+          PY
           python - <<'PY'
           from PIL import Image
           p="app/src/main/res/drawable-nodpi/tie_arcade_hud.png"
