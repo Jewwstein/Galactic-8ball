@@ -2921,8 +2921,10 @@ public class MainActivity extends Activity {
           float dx=worldRearEmitterX-worldEmitterX,dy=worldRearEmitterY-worldEmitterY;
           float d=(float)Math.sqrt(dx*dx+dy*dy);if(d<.001f)d=1f;dx/=d;dy/=d;
           float cx=worldEmitterX+dx*artLen*.50f,cy=worldEmitterY+dy*artLen*.50f;
-          float ang=(float)Math.toDegrees(Math.atan2(dy,dx));
-          RectF dst=new RectF(cx-artLen*.5f,cy-artThick*.5f,cx+artLen*.5f,cy+artThick*.5f);
+          // PNG is authored vertically with emitter at its top. Rotate its vertical
+          // axis onto the world emitter->rear vector, keeping emitter pinned.
+          float ang=(float)Math.toDegrees(Math.atan2(dy,dx))-90f;
+          RectF dst=new RectF(cx-artThick*.5f,cy-artLen*.5f,cx+artThick*.5f,cy+artLen*.5f);
           c.save();c.rotate(ang,cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
         }
       }
@@ -3004,15 +3006,16 @@ public class MainActivity extends Activity {
         float bladeLen=maxTravel*.92f*pullNorm;
         if(bladeLen>1f){
           Bitmap blade=blades[Math.max(0,Math.min(5,r.bladeIndex))];
-          float emitterY=cy+hiltH*.48f;
-          float bladeW=Math.max(13f*ui,hiltW*.48f);
-          RectF bladeBox=new RectF(cx-bladeW*.5f,emitterY-3f*ui,cx+bladeW*.5f,emitterY+bladeLen);
+          // Portrait hilt emitter is the TOP edge. Blade grows vertically upward
+          // while the complete hilt follows the thumb downward.
+          float emitterY=cy-hiltH*.52f;
+          float bladeW=Math.max(13f*ui,hiltW*.34f);
           if(blade!=null){
-            c.save();
-            c.rotate(-90f,cx,emitterY);
-            RectF hb=new RectF(cx-(bladeLen+3f*ui)*.5f,emitterY-bladeW*.5f,cx+(bladeLen+3f*ui)*.5f,emitterY+bladeW*.5f);
-            c.drawBitmap(blade,null,hb,p);
-            c.restore();
+            RectF bladeDst=new RectF(cx-bladeW*.5f,emitterY-bladeLen,cx+bladeW*.5f,emitterY+2f*ui);
+            // Blade source artwork is horizontal; rotate it into a vertical emitter.
+            c.save();c.rotate(-90f,cx,emitterY);
+            RectF hb=new RectF(cx,emitterY-bladeW*.5f,cx+bladeLen,emitterY+bladeW*.5f);
+            c.drawBitmap(blade,null,hb,p);c.restore();
           }else{
             p.setColor(0xEEFFFFFF);
             c.drawRoundRect(bladeBox,bladeW*.5f,bladeW*.5f,p);
@@ -3697,8 +3700,8 @@ public class MainActivity extends Activity {
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         // Portrait and landscape need independent framing: landscape uses a
         // closer chase camera so the wider viewport does not miniaturize combat.
-        float chase=aspect>=1f?12.8f:16.8f;
-        float camY=aspect>=1f?7.5f:8.4f;
+        float chase=aspect>=1f?10.7f:16.8f;
+        float camY=aspect>=1f?7.0f:8.4f;
         cx=arcadeX-fx*chase;cy=camY-fy*2.0f;cz=arcadeZ-fz*chase;
         android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*15f,3.6f+fy*10f,arcadeZ+fz*15f,0,1,0);
       }else{
@@ -3756,7 +3759,7 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(AM,0,arcadeYaw,0,1,0);
         android.opengl.Matrix.rotateM(AM,0,90f-arcadePitch,1,0,0);
         android.opengl.Matrix.rotateM(AM,0,90f,0,0,1);
-        android.opengl.Matrix.scaleM(AM,0,R*.86f,R*.86f,R*.86f);
+        android.opengl.Matrix.scaleM(AM,0,R*.72f,R*.72f,R*.72f);
         drawMesh(sphere,pvCache,AM,cue.tex,new float[]{1,1,1,1});
       }
       if(!arcadeActive&&(state==AIMING||state==CHARGING)&&!gameOver)drawWorldHilt3D(pvCache);
