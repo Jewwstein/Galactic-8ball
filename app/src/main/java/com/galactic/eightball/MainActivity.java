@@ -2226,17 +2226,20 @@ public class MainActivity extends Activity {
       float mx=rad+18f*ui,my=h-rad-18f*ui,ax=w-rad-18f*ui,ay=my;
       arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
       arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
+
+      // The authored cockpit is the background HUD layer. Draw it before the
+      // touch controls so the full-screen PNG can never hide FLIGHT/AIM input.
+      if(r.tieMode&&tieHud!=null&&!tieHud.isRecycled()){
+        p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);
+        c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
+      }
       drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,r.tieMode?"FLIGHT":"MOVE",ui,0xFF5BD6FF);
       drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"AIM • TOUCH FIRE":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
-        // Exact TTS TIE_ARCADE_HUD cockpit/reticle PNG. Stretch to the full
-        // gameplay viewport just like the TTS Custom UI overlay (preserveAspect=false).
-        if(tieHud!=null&&!tieHud.isRecycled()){
-          p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);
-          c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
-        }else{
+        // Fail visibly if the packaged HUD ever becomes undecodable again.
+        if(tieHud==null||tieHud.isRecycled()){
           p.setColor(0xFFFF4040);p.setTextSize(15f*ui);
           c.drawText("TIE HUD ASSET ERROR",w*.5f,62f*ui,p);
         }
