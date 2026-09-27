@@ -3633,7 +3633,7 @@ public class MainActivity extends Activity {
     boolean breakAssistArmed=true;
     boolean englishObjectApplied=false;
     int englishRailCooldown=0;
-    Mesh dogfightXWing,dogfightTie,dogfightBolt;
+    Mesh dogfightXWing,dogfightTie,dogfightBolt,arcadeStarfield;
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
@@ -3713,13 +3713,19 @@ public class MainActivity extends Activity {
       android.opengl.Matrix.multiplyMM(pvCache,0,P,0,V,0);
 
       int skyTex=tex.getOrDefault("sky",0);
-      if(skyTex!=0&&sphere!=null){
+      if(!arcadeActive&&skyTex!=0&&sphere!=null){
         GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
         float[] SM=identity();
         android.opengl.Matrix.translateM(SM,0,cx,cy,cz);
         android.opengl.Matrix.rotateM(SM,0,112f,0,1,0);
         android.opengl.Matrix.scaleM(SM,0,138f,138f,138f);
         drawMesh(sphere,pvCache,SM,skyTex,new float[]{1f,1f,1f,1f});
+        GLES20.glDepthMask(true);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+      }
+
+      if(arcadeActive&&arcadeStarfield!=null){
+        GLES20.glDisable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(false);
+        drawMesh(arcadeStarfield,pvCache,identity(),0,new float[]{1f,1f,1f,1f});
         GLES20.glDepthMask(true);GLES20.glEnable(GLES20.GL_DEPTH_TEST);
       }
 
@@ -3827,7 +3833,7 @@ public class MainActivity extends Activity {
         try{dogfightTie=loadObj("fighters/tie/model.obj");}catch(Exception e){dogfightTie=makeTieMesh();}
         try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
         try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
-        dogfightBolt=makeBoxMesh();
+        dogfightBolt=makeBoxMesh();arcadeStarfield=makeArcadeStarfield();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
           try{realHiltTextures[i]=loadTexture("real_hilts/hilt_"+i+".webp");}catch(Exception e){realHiltTextures[i]=0;}
@@ -3986,6 +3992,22 @@ public class MainActivity extends Activity {
       }
       float[] pp=new float[p.size()],uv=new float[u.size()];
       for(int i=0;i<pp.length;i++)pp[i]=p.get(i);for(int i=0;i<uv.length;i++)uv[i]=u.get(i);
+      return new Mesh(pp,uv);
+    }
+
+    Mesh makeArcadeStarfield(){
+      // Deterministic point-cloud-style tiny quads on a distant shell. Built once.
+      ArrayList<Float> p=new ArrayList<>(),u=new ArrayList<>();
+      long seed=0x51A7BEEFL;
+      for(int i=0;i<180;i++){
+        seed=seed*1664525L+1013904223L;float x=(((seed>>>8)&65535)/32767.5f-1f)*72f;
+        seed=seed*1664525L+1013904223L;float y=5f+(((seed>>>8)&65535)/65535f)*42f;
+        seed=seed*1664525L+1013904223L;float z=(((seed>>>8)&65535)/32767.5f-1f)*72f;
+        float q=.055f+(i%5)*.012f;
+        float[][] v={{x-q,y-q,z,0,0},{x+q,y-q,z,1,0},{x+q,y+q,z,1,1},{x-q,y-q,z,0,0},{x+q,y+q,z,1,1},{x-q,y+q,z,0,1}};
+        for(float[] a:v){p.add(a[0]);p.add(a[1]);p.add(a[2]);u.add(a[3]);u.add(a[4]);}
+      }
+      float[] pp=new float[p.size()],uv=new float[u.size()];for(int i=0;i<pp.length;i++)pp[i]=p.get(i);for(int i=0;i<uv.length;i++)uv[i]=u.get(i);
       return new Mesh(pp,uv);
     }
 
