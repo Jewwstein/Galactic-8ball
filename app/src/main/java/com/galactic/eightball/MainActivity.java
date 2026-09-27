@@ -5510,22 +5510,16 @@ public class MainActivity extends Activity {
     void enterArcade(){
       if(balls.isEmpty()||state==ROLLING)return;
       Ball cue=balls.get(0);
-      arcadeSavedCueX=cue.x;arcadeSavedCueZ=cue.z;arcadeSavedCueVx=cue.vx;arcadeSavedCueVz=cue.vz;
-      arcadeSavedState=state;arcadeSavedCurrentTeam=currentTeam;arcadeSavedActiveShooter=activeShooter;arcadeSavedFirstContact=firstContactBall;arcadeSavedBallInHand=ballInHand;
-      arcadeSavedSunk.clear();arcadeSavedSunk.addAll(ballsSunkThisShot);arcadeSnapshotValid=true;
+      // Arcade is a read-only overlay on pool state. Never touch Box2D or rule
+      // bookkeeping on entry/exit; only copy the cue position for the arcade avatar.
+      arcadeSnapshotValid=false;
       arcadeActive=true;arcadeX=cue.x;arcadeZ=cue.z;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
-      ruleMessage="DEATH STAR ASSAULT";if(net!=null)net.requestArcadeBoard();
+      ruleMessage="DEATH STAR ASSAULT";android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
     void exitArcade(){
       int finalScore=arcadeScore;arcadeActive=false;arcadeFighters.clear();arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeLocked=false;
-      if(arcadeSnapshotValid&&!balls.isEmpty()){
-        Ball cue=balls.get(0);cue.x=arcadeSavedCueX;cue.z=arcadeSavedCueZ;cue.vx=arcadeSavedCueVx;cue.vz=arcadeSavedCueVz;
-        if(cue.body!=null){cue.body.setTransform(new Vec2(arcadeSavedCueX,arcadeSavedCueZ),0);cue.body.setLinearVelocity(new Vec2(arcadeSavedCueVx,arcadeSavedCueVz));cue.body.setAngularVelocity(0);cue.body.setAwake(true);}
-        state=arcadeSavedState;currentTeam=arcadeSavedCurrentTeam;activeShooter=arcadeSavedActiveShooter;firstContactBall=arcadeSavedFirstContact;ballInHand=arcadeSavedBallInHand;
-        ballsSunkThisShot.clear();ballsSunkThisShot.addAll(arcadeSavedSunk);physicsAccum=0;chargePullPx=chargePullWorld=0;power=0;arcadeSnapshotValid=false;
-      }
-      if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
+      android.util.Log.i("GalacticArcade","EXIT arcade score="+finalScore);if(net!=null){net.submitArcadeScore(finalScore);net.requestArcadeBoard();}
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
@@ -5604,8 +5598,10 @@ public class MainActivity extends Activity {
           physicsAccum-=FIXED_DT;loops++;
         }
         if(allStopped()){
-          resolveShotRules();
+          android.util.Log.i("GalacticArcade","POOL_STOPPED begin resolve state="+state+" sunk="+ballsSunkThisShot.size()+" first="+firstContactBall);
+          try{resolveShotRules();}catch(Throwable t){android.util.Log.e("GalacticArcade","resolveShotRules crash prevented",t);ballsSunkThisShot.clear();firstContactBall=0;}
           state=AIMING;englishX=englishY=0;sideSpin=topSpin=0;chargePullPx=0;chargePullWorld=0;physicsAccum=0;
+          android.util.Log.i("GalacticArcade","POOL_STOPPED resolved currentTeam="+currentTeam+" gameOver="+gameOver);
           if(aiEnabled&&!gameOver&&currentTeam==2){
             aiThinking=true;
             aiReadyAt=System.currentTimeMillis()+aiThinkDelayMs();
@@ -5625,7 +5621,9 @@ public class MainActivity extends Activity {
             ruleMessage="GALACTIC AI • "+aiDifficultyName()+" THINKING";
           }else if(System.currentTimeMillis()>=aiReadyAt){
             aiThinking=false;
-            performAiShot();
+            android.util.Log.i("GalacticArcade","AI_SHOT begin");
+            try{performAiShot();android.util.Log.i("GalacticArcade","AI_SHOT complete");}
+            catch(Throwable t){android.util.Log.e("GalacticArcade","AI shot crash prevented",t);aiThinking=false;currentTeam=1;activeShooter=1;ruleMessage="AI RECOVERY • PLAYER TURN";}
           }
         }
       }
