@@ -2236,6 +2236,7 @@ public class MainActivity extends Activity {
 
 
     void drawArcadeHud(Canvas c,int w,int h,float ui,GameRenderer r){
+      if(r.arcadeTransitionKind==1 && System.currentTimeMillis()-r.arcadeTransitionStart<900) arcadeSummaryOpen=false;
       float rad=Math.max(88f*ui,Math.min(w,h)*.155f);
       float inset=r.tieMode?Math.max(46f*ui,w*.055f):18f*ui;
       float lift=r.tieMode?Math.max(42f*ui,h*.075f):18f*ui;
@@ -2248,6 +2249,12 @@ public class MainActivity extends Activity {
       if(r.tieMode&&tieHud!=null&&!tieHud.isRecycled()){
         p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);
         c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
+        // Lightweight cockpit life: subtle scanner sweep and radar contact.
+        long ht=System.currentTimeMillis();float scan=(ht%1800L)/1800f;
+        p.setColor(0x165CFF78);c.drawRect(w*.22f,h*(.22f+.42f*scan),w*.78f,h*(.225f+.42f*scan),p);
+        float rr=Math.min(w,h)*.055f,rcx=w*.5f,rcy=h*.24f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.3f*ui);stroke.setColor(0x665CFF78);
+        c.drawCircle(rcx,rcy,rr,stroke);float ang=(ht%2400L)/2400f*6.283185f;c.drawLine(rcx,rcy,rcx+(float)Math.cos(ang)*rr,rcy+(float)Math.sin(ang)*rr,stroke);
+        if(r.arcadeLocked){p.setColor(0xCCFF5656);c.drawCircle(rcx+(float)Math.cos(ang*.73f)*rr*.62f,rcy+(float)Math.sin(ang*.73f)*rr*.62f,2.8f*ui,p);}
       }
       drawAnalogStick(c,mx,my,rad,arcadeMoveX,arcadeMoveY,r.tieMode?"FLIGHT":"MOVE",ui,0xFF5BD6FF);
       drawAnalogStick(c,ax,ay,rad,arcadeAimX,arcadeAimY,r.tieMode?"AIM • TOUCH FIRE":"AIM",ui,r.tieMode?0xFF73FF8C:0xFFFF5B5B);
@@ -2312,7 +2319,7 @@ public class MainActivity extends Activity {
       // Premium arcade feedback: brief hit flash plus a cinematic iris/fade
       // when entering, swapping craft, or returning to the pool table.
       if(r.arcadeImpactFlash>0){
-        int aa=(int)(Math.min(1f,r.arcadeImpactFlash)*72);p.setColor((aa<<24)|0x00FFF2C0);c.drawRect(0,0,w,h,p);
+        int aa=(int)(Math.min(1f,r.arcadeImpactFlash)*34);p.setColor((aa<<24)|0x00FFF2C0);c.drawRect(0,0,w,h,p);
       }
       long transAge=System.currentTimeMillis()-r.arcadeTransitionStart;
       if(r.arcadeTransitionKind!=0&&transAge<700){
@@ -5701,7 +5708,8 @@ public class MainActivity extends Activity {
       // Arcade is a read-only overlay on pool state. Never touch Box2D or rule
       // bookkeeping on entry/exit; only copy the cue position for the arcade avatar.
       arcadeSnapshotValid=false;
-      arcadeActive=true;tieMode=false;tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
+      arcadeActive=true;tieMode=false;
+      if(MainActivity.this.hud!=null){MainActivity.this.hud.arcadeSummaryOpen=false;MainActivity.this.hud.arcadeSummaryExitRect.setEmpty();}tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=4.2f;arcadeYaw=0;arcadePitch=7;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();
       ruleMessage="DEATH STAR ASSAULT";arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=1;arcadeImpactFlash=0;if(sfx!=null)sfx.arcadeTransition();MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
     }
@@ -5730,7 +5738,7 @@ public class MainActivity extends Activity {
       }
     }
     void stepArcade(float dt){
-      float moveFollow=1f-(float)Math.exp(-dt*9.5f),aimFollow=1f-(float)Math.exp(-dt*18f);
+      float moveFollow=1f-(float)Math.exp(-dt*9.5f),aimFollow=1f-(float)Math.exp(-dt*24f);
       arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*moveFollow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*moveFollow;
       arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*aimFollow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*aimFollow;
 
@@ -5744,8 +5752,8 @@ public class MainActivity extends Activity {
         if(d>1f){float dot=(tx*pax+ty*pay+tz*paz)/d;if(dot>nearDot)nearDot=dot;}
       }
       float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
-      float assist=1f-.56f*proximity*proximity;
-      float yawRate=tieMode?105f:142f,pitchRate=tieMode?82f:98f;
+      float assist=1f-.30f*proximity*proximity;
+      float yawRate=tieMode?96f:132f,pitchRate=tieMode?76f:92f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
       arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch-arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
@@ -5764,7 +5772,7 @@ public class MainActivity extends Activity {
           e.deathT+=dt;
           float fallBoost=.32f+e.deathT*.52f;
           e.y-=2.15f*fallBoost*dt;e.x+=e.vx*.38f*dt;e.z+=e.vz*.38f*dt;
-          if(e.deathT>4.35f)e.active=false;
+          if(e.deathT>1.75f)e.active=false;
           continue;
         }
         float escape=e.age>e.life?1.42f:1f;
@@ -5801,22 +5809,17 @@ public class MainActivity extends Activity {
         float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
         android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
-        float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-2.25f)/1.85f):1f;
+        float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
         if(e.xwing){
-          float sc=e.dying?2.18f*Math.max(.38f,1f-e.deathT*.30f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
-          if(e.dying&&sphere!=null){
-            // Long readable destruction burst: hot core first, then an expanding
-            // orange shell while the fighter spins/falls away.
-            float burst=Math.min(1f,e.deathT/.48f),decay=Math.max(0f,1f-e.deathT/3.65f);
+          if(e.dying&&sphere!=null&&e.deathT<.72f){
+            // Short, warm blast only. Avoid the old overlapping red/green sphere
+            // effect and keep GPU work brief enough for smooth arcade motion.
+            float q=e.deathT/.72f,decay=1f-q;
             float[] E=identity();android.opengl.Matrix.translateM(E,0,e.x,e.y,e.z);
-            float es=.45f+burst*1.55f;android.opengl.Matrix.scaleM(E,0,es,es,es);
-            drawMesh(sphere,pv,E,0,new float[]{1f,.22f,.04f,.82f*decay});
-            if(e.deathT<1.15f){
-              float[] K=identity();android.opengl.Matrix.translateM(K,0,e.x,e.y,e.z);
-              float ks=.24f+e.deathT*1.8f;android.opengl.Matrix.scaleM(K,0,ks,ks,ks);
-              drawMesh(sphere,pv,K,0,new float[]{1f,.92f,.48f,1f});
-            }
+            float es=.28f+q*1.18f;android.opengl.Matrix.scaleM(E,0,es,es,es);
+            drawMesh(sphere,pv,E,0,new float[]{1f,.55f,.12f,.72f*decay});
           }
         }else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
