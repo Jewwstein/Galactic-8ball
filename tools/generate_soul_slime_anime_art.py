@@ -212,6 +212,190 @@ for i in range(16):
 ar=ar.filter(ImageFilter.GaussianBlur(1.0))
 ar.save(OUT/"absorb_ring.png")
 
+
+# ---------- expanded cave room art ----------
+def save_room_variant(name, tint=(0,0,0,0), glows=(), feature=None):
+    room=bg.copy()
+    if tint[3] > 0:
+        overlay=Image.new("RGBA",(W,H),tint)
+        room=Image.alpha_composite(room,overlay)
+    for gx,gy,gr,gcol,ga in glows:
+        room=add_glow(room,gx,gy,gr,gcol,ga)
+    rd=ImageDraw.Draw(room,"RGBA")
+    if feature=="mana":
+        # glowing mana spring and rune bands
+        rd.ellipse((610,610,1310,925),fill=(46,176,218,70),outline=(166,248,255,130),width=8)
+        rd.ellipse((690,665,1230,870),outline=(210,255,255,120),width=5)
+        for i in range(10):
+            a=i*math.pi*2/10
+            x=960+math.cos(a)*360
+            y=740+math.sin(a)*130
+            rd.arc((x-42,y-42,x+42,y+42),20,300,fill=(171,249,255,90),width=4)
+    elif feature=="crossroads":
+        # dark anime passage mouths
+        for box in [(760,90,1160,420),(0,470,250,870),(1670,460,1920,870),(730,700,1190,1080)]:
+            rd.rounded_rectangle(box,radius=95,fill=(2,7,18,220),outline=(77,145,191,80),width=5)
+    elif feature=="web":
+        # stylized web chamber
+        for cx,cy,rr in [(480,360,280),(1410,420,340),(950,250,230)]:
+            for a in range(0,360,30):
+                x2=cx+math.cos(math.radians(a))*rr
+                y2=cy+math.sin(math.radians(a))*rr
+                rd.line((cx,cy,x2,y2),fill=(225,235,255,85),width=3)
+            for ring in (.30,.55,.78,1.0):
+                r2=rr*ring
+                rd.ellipse((cx-r2,cy-r2,cx+r2,cy+r2),outline=(229,239,255,55),width=3)
+    elif feature=="scale":
+        # mossy/emerald crystal growths
+        for cx,cy,rr in [(420,650,82),(610,560,58),(1370,650,95),(1580,540,62)]:
+            draw_crystal(rd,cx,cy,rr,(114,244,184,220),(218,255,236,235))
+        for i in range(22):
+            x=random.randint(130,W-130); y=random.randint(270,800)
+            rd.line((x,y,x+random.randint(-80,80),y+random.randint(25,90)),fill=(91,183,131,45),width=5)
+    elif feature=="gate":
+        # ancient inner gate
+        rd.rounded_rectangle((610,155,1310,890),radius=210,fill=(5,11,26,210),outline=(119,192,255,110),width=12)
+        rd.rounded_rectangle((705,250,1215,885),radius=165,outline=(184,235,255,95),width=6)
+        for i in range(8):
+            a=i*math.pi*2/8
+            x=960+math.cos(a)*410
+            y=520+math.sin(a)*300
+            rd.ellipse((x-24,y-24,x+24,y+24),outline=(185,248,255,95),width=5)
+    elif feature=="dragon":
+        # enormous sanctum / magic seal
+        for rr,a in [(420,55),(325,75),(240,105)]:
+            rd.ellipse((960-rr,470-rr*.55,960+rr,470+rr*.55),outline=(187,126,255,a),width=8)
+        rd.polygon([(760,720),(960,330),(1160,720)],outline=(218,183,255,100))
+    elif feature=="exit":
+        # blinding daylight cave mouth on the right
+        room=add_glow(room,1700,500,420,(245,252,255),185)
+        rd=ImageDraw.Draw(room,"RGBA")
+        rd.rounded_rectangle((1480,180,1920,880),radius=180,fill=(225,247,255,120),outline=(255,255,255,195),width=14)
+    room.save(OUT/name)
+
+save_room_variant("cave_corridor.png",glows=[(420,470,220,(80,215,255),45),(1520,550,220,(130,92,255),35)])
+save_room_variant("cave_mana.png",tint=(0,30,40,20),glows=[(960,700,520,(74,235,255),115),(1250,430,250,(130,116,255),45)],feature="mana")
+save_room_variant("cave_crossroads.png",tint=(5,0,18,18),glows=[(960,520,340,(95,184,255),55)],feature="crossroads")
+save_room_variant("cave_web.png",tint=(38,0,50,26),glows=[(620,430,360,(193,130,255),58),(1400,430,390,(155,118,255),52)],feature="web")
+save_room_variant("cave_scale.png",tint=(0,42,22,24),glows=[(530,600,280,(104,255,179),52),(1450,610,310,(104,255,179),48)],feature="scale")
+save_room_variant("cave_gate.png",tint=(0,0,16,42),glows=[(960,500,420,(100,195,255),55)],feature="gate")
+save_room_variant("cave_dragon.png",tint=(30,0,55,38),glows=[(960,470,600,(150,102,255),85),(960,730,280,(74,218,255),36)],feature="dragon")
+save_room_variant("cave_exit.png",tint=(10,10,0,8),glows=[(1640,510,480,(235,250,255),140)],feature="exit")
+
+# mana / essence orb
+eo=Image.new("RGBA",(384,384),(0,0,0,0))
+eo=add_glow(eo,192,192,145,(95,229,255),120)
+eod=ImageDraw.Draw(eo,"RGBA")
+eod.ellipse((105,105,279,279),fill=(95,221,255,215),outline=(227,254,255,255),width=8)
+eod.ellipse((132,126,210,204),fill=(255,255,255,150))
+eod.arc((80,80,304,304),25,205,fill=(167,112,255,155),width=10)
+eo.save(OUT/"essence_orb.png")
+
+# anime crystal spider
+sp=Image.new("RGBA",(1024,1024),(0,0,0,0))
+sp=add_glow(sp,512,530,330,(177,115,255),55)
+sd=ImageDraw.Draw(sp,"RGBA")
+# legs
+for side in (-1,1):
+    for i,(yy,ang) in enumerate([(380,-70),(465,-48),(550,-30),(630,-12)]):
+        x0=512+side*190; y0=yy
+        x1=512+side*(325+35*i); y1=yy+ang
+        x2=512+side*(405+28*i); y2=yy+ang+95
+        sd.line((x0,y0,x1,y1,x2,y2),fill=(43,26,70,255),width=36,joint="curve")
+        sd.line((x0,y0,x1,y1,x2,y2),fill=(146,93,205,255),width=22,joint="curve")
+# body/head
+sd.ellipse((300,360,724,790),fill=(90,51,145,255),outline=(35,22,58,255),width=16)
+sd.ellipse((350,245,674,530),fill=(145,91,202,255),outline=(35,22,58,255),width=16)
+# cel highlights
+sd.pieslice((330,270,625,525),200,310,fill=(219,166,255,145))
+# big anime eyes
+for ex in (430,594):
+    sd.ellipse((ex-72,330,ex+72,482),fill=(238,250,255,255),outline=(36,22,57,255),width=12)
+    sd.ellipse((ex-38,355,ex+38,455),fill=(58,34,85,255))
+    sd.ellipse((ex-20,370,ex+2,400),fill=(255,255,255,235))
+# fangs + expression
+sd.polygon([(464,500),(492,575),(515,505)],fill=(245,247,255,255))
+sd.polygon([(560,500),(532,575),(509,505)],fill=(245,247,255,255))
+sd.arc((430,470,594,610),15,165,fill=(38,22,59,255),width=12)
+sp.save(OUT/"anime_spider.png")
+
+# anime cave lizard
+lz=Image.new("RGBA",(1024,1024),(0,0,0,0))
+lz=add_glow(lz,510,540,330,(92,255,173),45)
+ld=ImageDraw.Draw(lz,"RGBA")
+# tail
+tail=[(650,600),(850,545),(920,610),(785,670),(680,690)]
+ld.polygon(tail,fill=(69,161,120,255),outline=(24,57,46,255))
+# body
+ld.ellipse((270,390,740,760),fill=(80,189,137,255),outline=(25,60,47,255),width=17)
+# head
+head=[(315,430),(300,270),(455,205),(650,250),(735,390),(660,520),(440,535)]
+ld.polygon(head,fill=(107,213,159,255),outline=(25,60,47,255))
+# lighter anime cheek / belly
+ld.ellipse((355,470,640,720),fill=(149,234,192,150))
+# crest
+for i in range(5):
+    x=400+i*58
+    ld.polygon([(x,278),(x+30,150-i*8),(x+58,285)],fill=(131,246,199,255),outline=(28,68,52,255))
+# eyes
+for ex in (440,615):
+    ld.ellipse((ex-62,315,ex+62,435),fill=(246,252,224,255),outline=(28,64,50,255),width=10)
+    ld.ellipse((ex-22,330,ex+22,422),fill=(32,72,54,255))
+    ld.ellipse((ex-12,342,ex+2,365),fill=(255,255,255,240))
+# smile
+ld.arc((455,420,620,545),10,165,fill=(31,67,53,255),width=11)
+# feet
+for ex in (355,650):
+    ld.ellipse((ex-80,690,ex+65,785),fill=(74,173,128,255),outline=(25,60,47,255),width=12)
+lz.save(OUT/"anime_lizard.png")
+
+# ancient anime dragon
+dr=Image.new("RGBA",(1536,1024),(0,0,0,0))
+dr=add_glow(dr,780,520,460,(144,92,255),62)
+dd=ImageDraw.Draw(dr,"RGBA")
+# wings
+dd.polygon([(565,470),(260,190),(120,260),(330,500),(160,640),(540,625)],fill=(64,48,111,235),outline=(25,23,55,255))
+dd.polygon([(980,470),(1280,185),(1420,270),(1210,500),(1380,650),(995,625)],fill=(64,48,111,235),outline=(25,23,55,255))
+# long body
+dd.ellipse((505,320,1030,850),fill=(79,67,151,255),outline=(24,25,60,255),width=20)
+# neck and head
+dd.polygon([(580,515),(535,275),(650,120),(845,105),(990,260),(952,505)],fill=(103,91,184,255),outline=(24,25,60,255))
+# cel highlight
+dd.polygon([(610,300),(650,160),(790,135),(740,475),(600,600)],fill=(177,151,242,95))
+# horns
+dd.polygon([(640,180),(560,40),(720,140)],fill=(231,225,255,255),outline=(49,44,83,255))
+dd.polygon([(855,155),(965,40),(910,225)],fill=(231,225,255,255),outline=(49,44,83,255))
+# eyes
+for ex in (690,870):
+    dd.polygon([(ex-58,255),(ex+58,240),(ex+38,335),(ex-48,335)],fill=(155,242,255,255))
+    dd.ellipse((ex-15,265,ex+15,330),fill=(23,38,72,255))
+# muzzle / smile
+dd.polygon([(680,345),(790,325),(900,350),(855,455),(715,455)],fill=(126,110,201,255),outline=(40,36,78,255))
+dd.arc((710,365,875,480),10,160,fill=(28,30,67,255),width=12)
+# chest rune
+dd.ellipse((660,550,875,755),outline=(160,236,255,185),width=14)
+dd.polygon([(768,580),(825,660),(768,730),(712,660)],outline=(214,251,255,225))
+dr.save(OUT/"ancient_dragon.png")
+
+# silk projectile / web burst
+wb=Image.new("RGBA",(512,512),(0,0,0,0))
+wd=ImageDraw.Draw(wb,"RGBA")
+for ring in (70,120,170,215):
+    wd.ellipse((256-ring,256-ring,256+ring,256+ring),outline=(232,241,255,135),width=6)
+for a in range(0,360,30):
+    wd.line((256,256,256+math.cos(math.radians(a))*225,256+math.sin(math.radians(a))*225),fill=(240,246,255,155),width=5)
+wb.save(OUT/"web_burst.png")
+
+# dragon storm effect
+st=Image.new("RGBA",(1024,1024),(0,0,0,0))
+std=ImageDraw.Draw(st,"RGBA")
+for i in range(10):
+    x=180+i*70
+    pts=[(x,90),(x+70,310),(x+25,300),(x+105,560),(x+35,535),(x+135,865)]
+    std.line(pts,fill=(188,238,255,210),width=15)
+st=st.filter(ImageFilter.GaussianBlur(1.0))
+st.save(OUT/"storm_burst.png")
+
 print("Generated anime cave assets:")
 for p in sorted(OUT.glob("*.png")):
     print(p.name, p.stat().st_size)
