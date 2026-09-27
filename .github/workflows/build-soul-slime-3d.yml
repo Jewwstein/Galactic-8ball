@@ -37,7 +37,7 @@ jobs:
         run: |
           rm -rf slime-3d/build
           mkdir -p slime-3d/build
-          unzip -q slime-3d/SoulSlime3DTest-v0.3-source.zip -d slime-3d/build
+          unzip -q slime-3d/SoulSlime3DVisual-v0.4-source.zip -d slime-3d/build
 
       - name: Fetch verified CC0 3D assets
         run: |
@@ -91,10 +91,10 @@ jobs:
           find . -type f -name '*.apk' -print
           APK=$(find . -type f -name '*.apk' | head -n 1)
           test -n "$APK"
-          cp "$APK" SoulSlime3DTest-v0.3.apk
-          ls -lh SoulSlime3DTest-v0.3.apk
+          cp "$APK" SoulSlime3DVisual-v0.4.apk
+          ls -lh SoulSlime3DVisual-v0.4.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime3DTest-v0.3
-          path: SoulSlime3DTest-v0.3.apk
+          name: SoulSlime3DVisual-v0.4
+          path: SoulSlime3DVisual-v0.4.apk
