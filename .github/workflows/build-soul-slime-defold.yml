@@ -34,6 +34,18 @@ jobs:
           echo "Generated files:"
           find defold_project -maxdepth 2 -type f | sort
 
+      - name: Normalize Defold embedded component escapes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path("defold_project/main/creator.go")
+          s = p.read_text()
+          s = s.replace('\\\\\\\\n', '\\\\n')
+          p.write_text(s)
+          print("\n".join(s.splitlines()[:15]))
+          assert '\\\\\\\\n' not in s
+          PY
+
       - name: Download Defold 1.13.1 builder
         run: |
           curl -fL "https://github.com/defold/defold/releases/download/1.13.1/bob.jar" -o bob.jar
