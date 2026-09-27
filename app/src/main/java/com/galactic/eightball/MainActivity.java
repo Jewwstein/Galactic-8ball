@@ -1909,7 +1909,11 @@ public class MainActivity extends Activity {
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
       screenAimTouchSlop=ViewConfiguration.get(c).getScaledTouchSlop();
-      tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud);
+      try{
+        android.graphics.BitmapFactory.Options hudOpts=new android.graphics.BitmapFactory.Options();
+        hudOpts.inScaled=false;
+        tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud,hudOpts);
+      }catch(Exception ignored){tieHud=null;}
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
       for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
@@ -2229,8 +2233,12 @@ public class MainActivity extends Activity {
       if(r.tieMode){
         // Exact TTS TIE_ARCADE_HUD cockpit/reticle PNG. Stretch to the full
         // gameplay viewport just like the TTS Custom UI overlay (preserveAspect=false).
-        if(tieHud!=null){
-          p.setAlpha(255);p.setColor(Color.WHITE);c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
+        if(tieHud!=null&&!tieHud.isRecycled()){
+          p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);
+          c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);
+        }else{
+          p.setColor(0xFFFF4040);p.setTextSize(15f*ui);
+          c.drawText("TIE HUD ASSET ERROR",w*.5f,62f*ui,p);
         }
         // Keep only live Android status text/controls over the authored HUD.
         p.setTextSize(21f*ui);p.setColor(0xFF8CFF9B);c.drawText("TIE INTERCEPT",w*.5f,34f*ui,p);
