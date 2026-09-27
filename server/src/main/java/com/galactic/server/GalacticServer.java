@@ -137,6 +137,29 @@ public class GalacticServer {
           if(!requireAuth(c))return;
           sendArcadeLeaderboard(c);
         }
+        case "ARCADE_JOIN" -> {
+          if(!requireAuth(c))return;
+          Room r=roomFor(c);if(r==null)return;
+          try{
+            c.arcadeActive=true;c.arcadeFaction=p.length>1?Math.max(0,Math.min(1,Integer.parseInt(p[1]))):0;c.arcadeHp=3;
+            if(p.length>6){c.arcadeX=Float.parseFloat(p[2]);c.arcadeY=Float.parseFloat(p[3]);c.arcadeZ=Float.parseFloat(p[4]);c.arcadeYaw=Float.parseFloat(p[5]);c.arcadePitch=Float.parseFloat(p[6]);}
+            r.broadcastArcadePeers();
+          }catch(Exception ignored){}
+        }
+        case "ARCADE_LEAVE" -> {
+          Room r=roomFor(c);if(r!=null){c.arcadeActive=false;r.broadcastArcadePeers();}
+        }
+        case "ARCADE_POS" -> {
+          Room r=roomFor(c);if(r==null||!c.arcadeActive)return;
+          try{
+            if(p.length>5){c.arcadeX=Float.parseFloat(p[1]);c.arcadeY=Float.parseFloat(p[2]);c.arcadeZ=Float.parseFloat(p[3]);c.arcadeYaw=Float.parseFloat(p[4]);c.arcadePitch=Float.parseFloat(p[5]);}
+            r.broadcastArcadePeer(c);
+          }catch(Exception ignored){}
+        }
+        case "ARCADE_FIRE" -> {
+          Room r=roomFor(c);if(r==null||!c.arcadeActive)return;
+          if(p.length>6)try{r.arcadeFire(c,Float.parseFloat(p[1]),Float.parseFloat(p[2]),Float.parseFloat(p[3]),Float.parseFloat(p[4]),Float.parseFloat(p[5]),Float.parseFloat(p[6]));}catch(Exception ignored){}
+        }
         case "PROFILE" -> {
           if(!requireAuth(c))return;
           try{
@@ -219,7 +242,7 @@ public class GalacticServer {
 
   static void leaveRoomOnly(Client c,boolean notifySelf){
     String id=c.roomId;
-    c.roomId=null;c.player=0;
+    c.roomId=null;c.player=0;c.arcadeActive=false;
     if(id==null){
       if(notifySelf)send(c.channel,"ROOM_LEFT");
       return;
@@ -301,6 +324,7 @@ public class GalacticServer {
     volatile String authToken;
     volatile int badgeMask=0;
     volatile int unlockMask=0;
+    volatile boolean arcadeActive=false; volatile int arcadeFaction=0,arcadeHp=3; volatile float arcadeX=0,arcadeY=6,arcadeZ=0,arcadeYaw=0,arcadePitch=0;
     Client(WebSocketChannel c){channel=c;}
   }
 
@@ -528,6 +552,42 @@ public class GalacticServer {
       }
       tickCounter++;
       if(tickCounter%8==0)broadcast(snapshot());
+    }
+
+    Client arcadeOpponent(Client c){return c==player1?player2:(c==player2?player1:null);}
+    String arcadePeer(Client c){
+      return "ARCADE_PEER|"+c.player+"|"+encode(c.username)+"|"+c.arcadeFaction+"|"+c.arcadeHp+"|"+c.arcadeX+"|"+c.arcadeY+"|"+c.arcadeZ+"|"+c.arcadeYaw+"|"+c.arcadePitch;
+    }
+    synchronized void broadcastArcadePeer(Client c){
+      Client other=arcadeOpponent(c);if(other!=null&&other.arcadeActive)send(other.channel,arcadePeer(c));
+    }
+    synchronized void broadcastArcadePeers(){
+      if(player1!=null&&player1.arcadeActive&&player2!=null&&player2.arcadeActive){
+        send(player1.channel,arcadePeer(player2));send(player2.channel,arcadePeer(player1));
+      }else{
+        if(player1!=null)send(player1.channel,"ARCADE_PEER_LEFT");
+        if(player2!=null)send(player2.channel,"ARCADE_PEER_LEFT");
+      }
+    }
+    synchronized void arcadeFire(Client shooter,float sx,float sy,float sz,float dx,float dy,float dz){
+      Client target=arcadeOpponent(shooter);
+      if(target==null||!target.arcadeActive||target.arcadeFaction==shooter.arcadeFaction)return;
+      float n=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);if(n<.001f)return;dx/=n;dy/=n;dz/=n;
+      float tx=target.arcadeX-sx,ty=target.arcadeY-sy,tz=target.arcadeZ-sz;
+      float along=tx*dx+ty*dy+tz*dz;if(along<0||along>95f)return;
+      float cx=sx+dx*along,cy=sy+dy*along,cz=sz+dz*along;
+      float ox=target.arcadeX-cx,oy=target.arcadeY-cy,oz=target.arcadeZ-cz;
+      if(ox*ox+oy*oy+oz*oz>3.2f*3.2f)return;
+      target.arcadeHp=Math.max(0,target.arcadeHp-1);
+      send(target.channel,"ARCADE_HIT|"+target.arcadeHp+"|"+encode(shooter.username));
+      send(shooter.channel,"ARCADE_HIT_CONFIRM|"+target.arcadeHp+"|"+encode(target.username));
+      if(target.arcadeHp<=0){
+        send(target.channel,"ARCADE_DESTROYED|"+encode(shooter.username));
+        send(shooter.channel,"ARCADE_KILL|"+encode(target.username));
+        target.arcadeHp=3;
+        target.arcadeX+=(target.player==1?-18f:18f);target.arcadeY=6f;target.arcadeZ+=(target.player==1?12f:-12f);
+        broadcastArcadePeers();
+      }
     }
 
     synchronized void command(Client c,String[] p){
