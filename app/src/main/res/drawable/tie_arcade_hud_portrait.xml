@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="1080dp" android:height="1920dp"
+    android:viewportWidth="1080" android:viewportHeight="1920">
+  <!-- Purpose-built portrait TIE cockpit overlay. Central panes stay transparent
+       so the live 3D arcade scene remains visible. -->
+  <path android:fillColor="#F20B0F14" android:strokeColor="#B85A626E" android:strokeWidth="10"
+      android:pathData="M0,0 L1080,0 L930,180 L150,180 Z"/>
+  <path android:fillColor="#F20B0F14" android:strokeColor="#B85A626E" android:strokeWidth="10"
+      android:pathData="M0,0 L150,180 L205,600 L0,760 Z"/>
+  <path android:fillColor="#F20B0F14" android:strokeColor="#B85A626E" android:strokeWidth="10"
+      android:pathData="M1080,0 L930,180 L875,600 L1080,760 Z"/>
+  <path android:fillColor="#F20B0F14" android:strokeColor="#B85A626E" android:strokeWidth="10"
+      android:pathData="M0,1920 L1080,1920 L860,1590 L220,1590 Z"/>
+  <path android:fillColor="#FA090C11" android:strokeColor="#C0606875" android:strokeWidth="7"
+      android:pathData="M150,175 L215,155 L430,700 L380,735 Z"/>
+  <path android:fillColor="#FA090C11" android:strokeColor="#C0606875" android:strokeWidth="7"
+      android:pathData="M930,175 L865,155 L650,700 L700,735 Z"/>
+  <path android:fillColor="#FA090C11" android:strokeColor="#C0606875" android:strokeWidth="7"
+      android:pathData="M0,760 L35,700 L380,735 L360,790 Z"/>
+  <path android:fillColor="#FA090C11" android:strokeColor="#C0606875" android:strokeWidth="7"
+      android:pathData="M1080,760 L1045,700 L700,735 L720,790 Z"/>
+  <path android:fillColor="#FA090C11" android:strokeColor="#C0606875" android:strokeWidth="8"
+      android:pathData="M455,0 L625,0 L625,220 L455,220 Z"/>
+  <!-- lower instrument housings -->
+  <path android:fillColor="#FA070A0E" android:strokeColor="#C0525A66" android:strokeWidth="8"
+      android:pathData="M85,1650 L330,1650 L330,1870 L85,1870 Z"/>
+  <path android:fillColor="#FA070A0E" android:strokeColor="#C0525A66" android:strokeWidth="8"
+      android:pathData="M750,1650 L995,1650 L995,1870 L750,1870 Z"/>
+  <!-- red cockpit illumination -->
+  <path android:fillColor="#E6E51B25" android:pathData="M85,115 L250,115 L250,135 L85,135 Z"/>
+  <path android:fillColor="#E6E51B25" android:pathData="M830,115 L995,115 L995,135 L830,135 Z"/>
+  <path android:fillColor="#DDE51B25" android:pathData="M35,820 L60,820 L60,1110 L35,1110 Z"/>
+  <path android:fillColor="#DDE51B25" android:pathData="M1020,820 L1045,820 L1045,1110 L1020,1110 Z"/>
+  <path android:fillColor="#E6FF2830" android:pathData="M245,1600 L355,1600 L355,1618 L245,1618 Z"/>
+  <path android:fillColor="#E6FF2830" android:pathData="M725,1600 L835,1600 L835,1618 L725,1618 Z"/>
+</vector>
