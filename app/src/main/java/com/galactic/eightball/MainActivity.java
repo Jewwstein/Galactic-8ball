@@ -60,7 +60,8 @@ public class MainActivity extends Activity {
     crashBreadcrumb=new File(getFilesDir(),"galactic_crash_phase.txt");
     final Thread.UncaughtExceptionHandler previous=Thread.getDefaultUncaughtExceptionHandler();
     Thread.setDefaultUncaughtExceptionHandler((t,e)->{
-      writeCrashPhase("UNCAUGHT "+t.getName()+" :: "+e.getClass().getSimpleName()+" :: "+String.valueOf(e.getMessage()));
+      StackTraceElement[] st=e.getStackTrace();String where=(st!=null&&st.length>0)?(" @ "+st[0].toString()):"";
+      writeCrashPhase("UNCAUGHT "+t.getName()+" :: "+e.getClass().getSimpleName()+" :: "+String.valueOf(e.getMessage())+where);
       if(previous!=null)previous.uncaughtException(t,e);
     });
     getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -3027,8 +3028,12 @@ public class MainActivity extends Activity {
 
 
       if(r.arcadeActive){
-        final int idx=e.getActionIndex(),pid=e.getPointerId(idx);
+        // ACTION_CANCEL may legally arrive without an addressable pointer. Never
+        // index MotionEvent until the action actually requires a pointer.
+        final int idx=e.getActionIndex();
         if(a==MotionEvent.ACTION_DOWN||a==MotionEvent.ACTION_POINTER_DOWN){
+          if(idx<0||idx>=e.getPointerCount())return true;
+          final int pid=e.getPointerId(idx);
           float px=e.getX(idx),py=e.getY(idx);
           if(arcadeExitRect.contains(px,py)){game.queueEvent(()->r.exitArcade());arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;invalidate();return true;}
           if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
@@ -3045,9 +3050,16 @@ public class MainActivity extends Activity {
           }
           return true;
         }
-        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_CANCEL){
-          if(a==MotionEvent.ACTION_CANCEL||pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
-          if(a==MotionEvent.ACTION_CANCEL||pid==arcadeAimPointer){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
+        if(a==MotionEvent.ACTION_CANCEL){
+          arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;
+          game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);});
+          invalidate();return true;
+        }
+        if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP){
+          if(idx<0||idx>=e.getPointerCount())return true;
+          final int pid=e.getPointerId(idx);
+          if(pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
+          if(pid==arcadeAimPointer){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
           invalidate();return true;
         }
         return true;
