@@ -2998,19 +2998,27 @@ public class MainActivity extends Activity {
 
 
       if(r.arcadeActive){
-        int idx=e.getActionIndex(),pid=e.getPointerId(idx);
+        final int idx=e.getActionIndex(),pid=e.getPointerId(idx);
         if(a==MotionEvent.ACTION_DOWN||a==MotionEvent.ACTION_POINTER_DOWN){
-          if(arcadeExitRect.contains(x,y)){game.queueEvent(()->r.exitArcade());arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;invalidate();return true;}
-          if(arcadeMoveRect.contains(x,y)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,x,y);return true;}
-          if(arcadeAimRect.contains(x,y)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,x,y);return true;}
+          float px=e.getX(idx),py=e.getY(idx);
+          if(arcadeExitRect.contains(px,py)){game.queueEvent(()->r.exitArcade());arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;invalidate();return true;}
+          if(arcadeMoveRect.contains(px,py)&&arcadeMovePointer<0){arcadeMovePointer=pid;setArcadeStick(true,px,py);}
+          else if(arcadeAimRect.contains(px,py)&&arcadeAimPointer<0){arcadeAimPointer=pid;setArcadeStick(false,px,py);}
+          return true;
         }
         if(a==MotionEvent.ACTION_MOVE){
-          for(int i=0;i<e.getPointerCount();i++){int id=e.getPointerId(i);if(id==arcadeMovePointer)setArcadeStick(true,e.getX(i),e.getY(i));if(id==arcadeAimPointer)setArcadeStick(false,e.getX(i),e.getY(i));}
+          // Each stick follows its own pointer. Neither pointer cancels or steals
+          // the other, so movement + aim work simultaneously.
+          for(int i=0;i<e.getPointerCount();i++){
+            int id=e.getPointerId(i);
+            if(id==arcadeMovePointer)setArcadeStick(true,e.getX(i),e.getY(i));
+            if(id==arcadeAimPointer)setArcadeStick(false,e.getX(i),e.getY(i));
+          }
           return true;
         }
         if(a==MotionEvent.ACTION_UP||a==MotionEvent.ACTION_POINTER_UP||a==MotionEvent.ACTION_CANCEL){
-          if(pid==arcadeMovePointer||a==MotionEvent.ACTION_CANCEL){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
-          if(pid==arcadeAimPointer||a==MotionEvent.ACTION_CANCEL){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
+          if(a==MotionEvent.ACTION_CANCEL||pid==arcadeMovePointer){arcadeMovePointer=-1;arcadeMoveX=arcadeMoveY=0;game.queueEvent(()->r.setArcadeMove(0,0));}
+          if(a==MotionEvent.ACTION_CANCEL||pid==arcadeAimPointer){arcadeAimPointer=-1;arcadeAimX=arcadeAimY=0;game.queueEvent(()->r.setArcadeAim(0,0));}
           invalidate();return true;
         }
         return true;
