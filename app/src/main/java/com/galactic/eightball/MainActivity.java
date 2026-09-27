@@ -2223,7 +2223,7 @@ public class MainActivity extends Activity {
 
     void drawArcadeHud(Canvas c,int w,int h,float ui,GameRenderer r){
       float rad=Math.max(88f*ui,Math.min(w,h)*.155f);
-      float mx=rad+18f*ui,my=h-rad-18f*ui,ax=w-rad-18f*ui,ay=my;
+      float inset=r.tieMode?Math.max(46f*ui,w*.055f):18f*ui;\n      float lift=r.tieMode?Math.max(42f*ui,h*.075f):18f*ui;\n      float mx=rad+inset,my=h-rad-lift,ax=w-rad-inset,ay=my;
       arcadeMoveRect.set(mx-rad,my-rad,mx+rad,my+rad);
       arcadeAimRect.set(ax-rad,ay-rad,ax+rad,ay+rad);
 
