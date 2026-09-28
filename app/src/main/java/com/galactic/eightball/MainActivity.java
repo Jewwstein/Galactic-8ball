@@ -2286,7 +2286,7 @@ public class MainActivity extends Activity {
         // Keep only live Android status text/controls over the authored HUD.
         p.setTextSize(21f*ui);p.setColor(r.playerXWing?0xFF8CD7FF:0xFF8CFF9B);c.drawText(r.playerXWing?"X-WING INTERCEPT":"TIE INTERCEPT",w*.5f,34f*ui,p);
         p.setTextSize(13f*ui);p.setColor(r.arcadeLocked?0xFFFF6262:0xFF9BFFAA);
-        c.drawText(r.arcadeLocked?"TARGET IN SIGHTS":(r.playerXWing?"ACQUIRE TIE FIGHTER":"ACQUIRE X-WING"),w*.5f,57f*ui,p);
+        c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO-FIRE":(r.playerXWing?"ACQUIRE TIE FIGHTER":"ACQUIRE X-WING"),w*.5f,57f*ui,p);
         if(r.playerXWing){float rr=Math.min(w,h)*.055f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF5757:0xCC8CD7FF);c.drawCircle(w*.5f,h*.39f,rr,stroke);c.drawLine(w*.5f-rr*1.4f,h*.39f,w*.5f-rr*.55f,h*.39f,stroke);c.drawLine(w*.5f+rr*.55f,h*.39f,w*.5f+rr*1.4f,h*.39f,stroke);}
 
         tieFireRect.setEmpty(); // firing is integrated into the right AIM stick
@@ -2306,7 +2306,7 @@ public class MainActivity extends Activity {
         p.setTextSize(16f*ui);p.setColor(0xFFF4C542);
         c.drawText("SCORE "+r.arcadeScore+"   •   WAVE "+r.arcadeWave+"   •   x"+Math.max(1,r.arcadeCombo),w*.5f,62f*ui,p);
         p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
-        c.drawText(r.arcadeLocked?"TARGET IN SIGHTS • TAP TO FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
+        c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO-FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
         float rr=30f*ui;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
         c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
         c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
@@ -5827,7 +5827,7 @@ public class MainActivity extends Activity {
       float preYr=(float)Math.toRadians(arcadeYaw),prePr=(float)Math.toRadians(arcadePitch);
       float pax=(float)Math.sin(preYr)*(float)Math.cos(prePr),pay=(float)Math.sin(prePr),paz=-(float)Math.cos(preYr)*(float)Math.cos(prePr);
       float nearDot=.94f;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&((!tieMode&&e.xwing)||(tieMode&&e.xwing!=playerXWing))){
         float tx=e.x-arcadeX,ty=e.y-(tieMode?arcadeY:2.5f),tz=e.z-arcadeZ,d=(float)Math.sqrt(tx*tx+ty*ty+tz*tz);
         if(d>1f){float dot=(tx*pax+ty*pay+tz*paz)/d;if(dot>nearDot)nearDot=dot;}
       }
@@ -5873,25 +5873,41 @@ public class MainActivity extends Activity {
           if(e.deathT>1.75f)e.active=false;
           continue;
         }
-        float escape=e.age>e.life?1.42f:1f;
-        e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
-        float weave=(float)Math.sin(e.phase*3.0f);
-        e.z+=weave*(e.xwing?1.75f:1.35f)*dt;
-        e.y=e.baseY+(float)Math.sin(e.phase*2.05f)*.68f;
-        if(e.age>e.life+2.0f||Math.abs(e.x)>72||Math.abs(e.z)>42)e.active=false;
+        boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
+        if(hostile){
+          // Hostile bots actively hunt the local pilot instead of merely crossing
+          // the playfield. Their pursuit includes vertical jinks, lateral breaks
+          // and a close-range overshoot so they repeatedly come back at the player.
+          float dx=arcadeX-e.x,dy=(tieMode?arcadeY:2.5f)-e.y,dz=arcadeZ-e.z;
+          float d=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);if(d<.01f)d=.01f;
+          float hunt=9.2f+Math.min(6f,arcadeWave*.24f);
+          float weave=(float)Math.sin(e.phase*3.7f),jink=(float)Math.sin(e.phase*5.3f+1.2f);
+          float nx=dx/d,nz=dz/d,sideX=-nz,sideZ=nx;
+          float close=d<9f?-1f:1f;
+          e.vx+=(nx*hunt*close+sideX*weave*7.2f-e.vx)*Math.min(1f,dt*1.7f);
+          e.vz+=(nz*hunt*close+sideZ*weave*7.2f-e.vz)*Math.min(1f,dt*1.7f);
+          e.vy+=((dy/d)*5.2f+jink*2.8f-e.vy)*Math.min(1f,dt*2.2f);
+          e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;
+          if(d<5.4f){arcadePlayerHp=Math.max(0,arcadePlayerHp-1);arcadeImpactFlash=1f;e.phase+=1.7f;}
+        }else{
+          // Friendly traffic still dogfights nearby but does not ram/chase the player.
+          float escape=e.age>e.life?1.42f:1f;e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
+          e.z+=(float)Math.sin(e.phase*3.0f)*1.35f*dt;e.y=e.baseY+(float)Math.sin(e.phase*2.05f)*.68f;
+        }
+        if(e.age>e.life+5.0f||Math.abs(e.x)>105||Math.abs(e.z)>90||Math.abs(e.y)>38)e.active=false;
       }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       // A shot only counts when the reticle is genuinely on the target.
       // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
       ArcadeFighter best=null;float bestDot=.9978f,bestDist=999;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&e.xwing){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<.001f)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&((!tieMode&&e.xwing)||(tieMode&&e.xwing!=playerXWing))){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<.001f)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
       boolean remoteTarget=false;
       if(net!=null&&net.inRoom&&net.remoteArcadeActive&&net.remoteArcadeFaction!=arcadeFaction()){
         float ex=net.remoteArcadeX-arcadeX,ey=net.remoteArcadeY-arcadeY,ez=net.remoteArcadeZ-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);
         if(d>.001f){float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<95f){best=null;bestDot=dot;bestDist=d;remoteTarget=true;arcadeTargetX=net.remoteArcadeX;arcadeTargetY=net.remoteArcadeY;arcadeTargetZ=net.remoteArcadeZ;}}
       }
-      arcadeLocked=best!=null||remoteTarget;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
+      arcadeLocked=best!=null||remoteTarget;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);\n      // Auto-fire is additive: manual tap-to-fire remains available, but a genuine\n      // reticle lock fires as soon as the weapon cooldown is ready.\n      if(arcadeLocked&&arcadeShotClock<=0)tieFire=true;
       if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
       arcadeWasLocked=arcadeLocked;
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
@@ -5925,8 +5941,7 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
-        if(e.xwing){
-          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+        boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);\n        if(hostile&&!e.dying&&dogfightBolt!=null){float pulse=.35f+.16f*(float)Math.sin(System.currentTimeMillis()*.008+e.phase);float[] H=identity();android.opengl.Matrix.translateM(H,0,e.x,e.y-1.65f,e.z);android.opengl.Matrix.scaleM(H,0,2.45f+pulse,.065f,2.45f+pulse);drawMesh(dogfightBolt,pv,H,0,new float[]{1f,.72f,.10f,.78f});}\n        if(e.xwing){\n          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
