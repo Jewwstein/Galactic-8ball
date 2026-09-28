@@ -40,9 +40,19 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Generate anime cave art
+      - name: Prepare real painted reference art
         run: |
           python -m pip install --quiet pillow
+          python tools/prepare_v7_real_art.py
+          test -s soulapp/src/main/res/drawable-nodpi/slime_master.webp
+          test -s soulapp/src/main/res/drawable-nodpi/dragon_master.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_painted_awakening.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_painted_spider.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_painted_lizard.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_painted_dragon.webp
+
+      - name: Generate supporting cave effects
+        run: |
           python tools/generate_soul_slime_anime_art.py
           test -s soulapp/src/main/res/drawable-nodpi/cave_bg.png
           test -s soulapp/src/main/res/drawable-nodpi/cave_mid.png
@@ -75,25 +85,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v6.apk
-          zip -q SoulSlime-Native-v6-APK.zip SoulSlime-Native-v6.apk
-          zip -qr SoulSlime-Native-v6-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v6-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v6.apk SoulSlime-Native-v6-APK.zip SoulSlime-Native-v6-source.zip
-          sha256sum SoulSlime-Native-v6.apk SoulSlime-Native-v6-APK.zip
+          cp "$APK" SoulSlime-Native-v7.apk
+          zip -q SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7.apk
+          zip -qr SoulSlime-Native-v7-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-Native-v7-APK.zip >/dev/null
+          ls -lh SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7-source.zip
+          sha256sum SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v6
+          name: SoulSlime-Native-v7
           path: |
-            SoulSlime-Native-v6.apk
-            SoulSlime-Native-v6-APK.zip
-            SoulSlime-Native-v6-source.zip
+            SoulSlime-Native-v7.apk
+            SoulSlime-Native-v7-APK.zip
+            SoulSlime-Native-v7-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v6 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v6 --title "Soul Slime Native v6 — Adult Anime Maze" --notes "Adult-anime cave overhaul: analog stick, 16-room looping maze, perspective depth, sharper black/gold/crimson creature art, detailed cave rooms, absorption, morphs, and dragon progression." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v6 SoulSlime-Native-v6.apk SoulSlime-Native-v6-APK.zip SoulSlime-Native-v6-source.zip --clobber
+          gh release view soul-slime-native-v7 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v7 --title "Soul Slime Native v7 — Live Painted Art" --notes "Live-painted art test: exact uploaded slime and ancient dragon references, painted cave room panels, animated illustration motion, premium customization overlays, analog movement, maze progression, combat, befriending, absorption, morphs, and dragon exit." --prerelease --target prototype/soul-slime-native
+          gh release upload soul-slime-native-v7 SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7-source.zip --clobber
