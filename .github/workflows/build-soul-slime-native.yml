@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - 'prototype/soul-slime-v13-spider-fix'
+      - 'prototype/soul-slime-v14-exact-mesh'
   workflow_dispatch:
 
 jobs:
@@ -40,15 +40,15 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Restore real 3D creature assets
+      - name: Restore validated exact 3D creature assets
         run: |
           mkdir -p soulapp/src/main/assets
-          base64 -d soulapp/creature_payload/razorbeast.ssm.b64 > soulapp/src/main/assets/razorbeast.ssm
-          base64 -d soulapp/creature_payload/voidweaver.ssm.b64 > soulapp/src/main/assets/voidweaver.ssm
+          cat soulapp/exact_mesh_payload/razor/part_* | base64 -d > soulapp/src/main/assets/razorbeast.ssm
+          cat soulapp/exact_mesh_payload/void/part_* | base64 -d > soulapp/src/main/assets/voidweaver.ssm
           base64 -d soulapp/creature_payload/razorbeast.jpg.b64 > soulapp/src/main/assets/razorbeast.jpg
           base64 -d soulapp/creature_payload/voidweaver.jpg.b64 > soulapp/src/main/assets/voidweaver.jpg
-          test -s soulapp/src/main/assets/razorbeast.ssm
-          test -s soulapp/src/main/assets/voidweaver.ssm
+          echo "a9440e652069aa71f591cde0d57e902163351ffdbe293aae60874f6d01f25042  soulapp/src/main/assets/razorbeast.ssm" | sha256sum -c -
+          echo "d0643d176ebf04ef06f7f3168806577e46af8abc90cb898e45f7978bc4b83e4e  soulapp/src/main/assets/voidweaver.ssm" | sha256sum -c -
           test -s soulapp/src/main/assets/razorbeast.jpg
           test -s soulapp/src/main/assets/voidweaver.jpg
 
@@ -98,25 +98,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-v13-Spider-Mesh-Fixed.apk
-          zip -q SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed.apk
-          zip -qr SoulSlime-v13-Spider-Mesh-Fixed-source.zip soulapp settings.gradle.kts build.gradle.kts tools/convert_meshy_fbx_mobile.py
-          unzip -t SoulSlime-v13-Spider-Mesh-Fixed-APK.zip >/dev/null
-          ls -lh SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed-source.zip
-          sha256sum SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip
+          cp "$APK" SoulSlime-v14-Exact-Mite-Voidweaver.apk
+          zip -q SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip SoulSlime-v14-Exact-Mite-Voidweaver.apk
+          zip -qr SoulSlime-v14-Exact-Mite-Voidweaver-source.zip soulapp settings.gradle.kts build.gradle.kts tools/fbx_to_ssm2_exact.py
+          unzip -t SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip >/dev/null
+          ls -lh SoulSlime-v14-Exact-Mite-Voidweaver.apk SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip SoulSlime-v14-Exact-Mite-Voidweaver-source.zip
+          sha256sum SoulSlime-v14-Exact-Mite-Voidweaver.apk SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-v13-Spider-Mesh-Fixed
+          name: SoulSlime-v14-Exact-Mite-Voidweaver
           path: |
-            SoulSlime-v13-Spider-Mesh-Fixed.apk
-            SoulSlime-v13-Spider-Mesh-Fixed-APK.zip
-            SoulSlime-v13-Spider-Mesh-Fixed-source.zip
+            SoulSlime-v14-Exact-Mite-Voidweaver.apk
+            SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip
+            SoulSlime-v14-Exact-Mite-Voidweaver-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v13-spider-fix >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v13-spider-fix --title "Soul Slime v13 — Spider Mesh + Axis Fix" --notes "Scene-preserving v13 based on the real v10/v12 branch. Rebuilds the Meshy FBX creatures with topology-preserving vertex clustering, fixes the Void Weaver triangle corruption, removes the incorrect extra Y-axis quarter-turn, grounds Z-up creatures to the painted floor, and preserves all four painted scenes, collisions, progression, HUD, creator, 3D slime, lighting, and combat effects." --prerelease --target prototype/soul-slime-v13-spider-fix
-          gh release upload soul-slime-native-v13-spider-fix SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed-source.zip --clobber
+          gh release view soul-slime-native-v14-exact-mesh >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v14-exact-mesh --title "Soul Slime v14 — Exact Mite + Void Weaver Meshes" --notes "Scene-preserving v14 based on the real v10-v13 branch. Uses every original FBX triangle and UV for the Molten Razorbeast and Armored Void Weaver, split only into OpenGL ES 2-safe draw chunks. No clustering, decimation, face deletion, or mesh approximation. Preserves all four painted scenes, collisions, progression, HUD, creator, 3D slime, grounding, lighting, and combat effects." --prerelease --target prototype/soul-slime-v14-exact-mesh
+          gh release upload soul-slime-native-v14-exact-mesh SoulSlime-v14-Exact-Mite-Voidweaver.apk SoulSlime-v14-Exact-Mite-Voidweaver-APK.zip SoulSlime-v14-Exact-Mite-Voidweaver-source.zip --clobber
