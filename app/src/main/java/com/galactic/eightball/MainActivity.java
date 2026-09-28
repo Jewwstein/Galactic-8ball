@@ -1889,7 +1889,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud; android.graphics.drawable.Drawable tieHudPortrait;
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
     float englishCx,englishCy,englishR;
@@ -1945,6 +1945,11 @@ public class MainActivity extends Activity {
         hudOpts.inScaled=false;
         tieHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.tie_arcade_hud,hudOpts);
       }catch(Exception ignored){tieHud=null;}
+      try{
+        android.graphics.BitmapFactory.Options xwingHudOpts=new android.graphics.BitmapFactory.Options();
+        xwingHudOpts.inScaled=false;
+        xwingHud=BitmapFactory.decodeResource(c.getResources(),R.drawable.xwing_arcade_hud,xwingHudOpts);
+      }catch(Exception ignored){xwingHud=null;}
       try{tieHudPortrait=c.getResources().getDrawable(R.drawable.tie_arcade_hud_portrait,c.getTheme());}catch(Exception ignored){tieHudPortrait=null;}
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
@@ -2264,9 +2269,13 @@ public class MainActivity extends Activity {
 
       // The authored cockpit is the background HUD layer. Draw it before the
       // touch controls so the full-screen PNG can never hide FLIGHT/AIM input.
-      if(r.tieMode&&!r.playerXWing){
-        if(h>w && tieHudPortrait!=null){tieHudPortrait.setBounds(0,0,w,h);tieHudPortrait.draw(c);}
-        else if(tieHud!=null&&!tieHud.isRecycled()){p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);}
+      if(r.tieMode){
+        if(r.playerXWing){
+          if(xwingHud!=null&&!xwingHud.isRecycled()){p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(xwingHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);}
+        }else{
+          if(h>w && tieHudPortrait!=null){tieHudPortrait.setBounds(0,0,w,h);tieHudPortrait.draw(c);}
+          else if(tieHud!=null&&!tieHud.isRecycled()){p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(tieHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);}
+        }
         long ht=System.currentTimeMillis();float scan=(ht%1800L)/1800f;float viewTop=h>w?h*.18f:h*.22f,viewSpan=h*.42f;
         p.setColor(0x165CFF78);c.drawRect(w*.22f,viewTop+viewSpan*scan,w*.78f,viewTop+viewSpan*scan+Math.max(2f,4f*ui),p);
         float rr=Math.min(w,h)*.055f,rcx=w*.5f,rcy=h>w?h*.39f:h*.24f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.3f*ui);stroke.setColor(0x665CFF78);
@@ -2279,9 +2288,9 @@ public class MainActivity extends Activity {
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
         // Fail visibly if the packaged HUD ever becomes undecodable again.
-        if((h>w&&tieHudPortrait==null)||(h<=w&&(tieHud==null||tieHud.isRecycled()))){
+        if((r.playerXWing&&(xwingHud==null||xwingHud.isRecycled()))||(!r.playerXWing&&((h>w&&tieHudPortrait==null)||(h<=w&&(tieHud==null||tieHud.isRecycled()))))){
           p.setColor(0xFFFF4040);p.setTextSize(15f*ui);
-          c.drawText("TIE HUD ASSET ERROR",w*.5f,62f*ui,p);
+          c.drawText(r.playerXWing?"X-WING HUD ASSET ERROR":"TIE HUD ASSET ERROR",w*.5f,62f*ui,p);
         }
         // Keep only live Android status text/controls over the authored HUD.
         p.setTextSize(21f*ui);p.setColor(r.playerXWing?0xFF8CD7FF:0xFF8CFF9B);c.drawText(r.playerXWing?"X-WING INTERCEPT":"TIE INTERCEPT",w*.5f,34f*ui,p);
