@@ -86,25 +86,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v8.apk
-          zip -q SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8.apk
-          zip -qr SoulSlime-Native-v8-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v8-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8-source.zip
-          sha256sum SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip
+          cp "$APK" SoulSlime-Native-v9.apk
+          zip -q SoulSlime-Native-v9-APK.zip SoulSlime-Native-v9.apk
+          zip -qr SoulSlime-Native-v9-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-Native-v9-APK.zip >/dev/null
+          ls -lh SoulSlime-Native-v9.apk SoulSlime-Native-v9-APK.zip SoulSlime-Native-v9-source.zip
+          sha256sum SoulSlime-Native-v9.apk SoulSlime-Native-v9-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v8
+          name: SoulSlime-Native-v9
           path: |
-            SoulSlime-Native-v8.apk
-            SoulSlime-Native-v8-APK.zip
-            SoulSlime-Native-v8-source.zip
+            SoulSlime-Native-v9.apk
+            SoulSlime-Native-v9-APK.zip
+            SoulSlime-Native-v9-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v8 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v8 --title "Soul Slime Native v8 — Painted Four-Room Test" --notes "Painted four-room cave test using the selected HD room scenes and separate HD mite/spider creature masters. Includes analog movement, hand-mapped collision, mana collection, mite combat/absorb/morph, corridor and junction traversal, spider combat/absorb/morph, and live illustration motion." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v8 SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8-source.zip --clobber
+          gh release view soul-slime-native-v9 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v9 --title "Soul Slime Native v9 — 3D Slime Prototype" --notes "3D slime prototype: three real-time slime mesh silhouettes, three procedural material presets, live recoloring, decal overlays, emissive core, transparency/aura controls, creator rotation, and the same 3D slime rendered as the moving cave player over the painted room test." --prerelease --target prototype/soul-slime-native
+          gh release upload soul-slime-native-v9 SoulSlime-Native-v9.apk SoulSlime-Native-v9-APK.zip SoulSlime-Native-v9-source.zip --clobber
