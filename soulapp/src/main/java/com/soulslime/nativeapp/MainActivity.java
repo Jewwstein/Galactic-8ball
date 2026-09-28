@@ -529,7 +529,7 @@ public class MainActivity extends Activity {
         caveObjective.setSingleLine(true);
         caveObjective.setEllipsize(android.text.TextUtils.TruncateAt.END);
 
-        caveContinue=button("EXIT CAVE",Color.rgb(126,238,255),true);
+        caveContinue=button("TEST COMPLETE",Color.rgb(126,238,255),true);
         caveContinue.setTextSize(10);
         caveContinue.setVisibility(View.GONE);
         caveContinue.setOnClickListener(v->showComplete());
@@ -571,6 +571,7 @@ public class MainActivity extends Activity {
         caveBefriend=button("BEFRIEND",Color.rgb(255,191,104),false);
         caveBefriend.setTextSize(11);
         caveBefriend.setOnClickListener(v->{if(caveWorld!=null)caveWorld.befriend();});
+        caveBefriend.setVisibility(View.GONE);
         FrameLayout.LayoutParams friendLp=new FrameLayout.LayoutParams(dp(112),dp(56),Gravity.BOTTOM|Gravity.RIGHT);
         friendLp.setMargins(0,0,dp(151),dp(106));
         root.addView(caveBefriend,friendLp);
@@ -645,9 +646,9 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams fp=new FrameLayout.LayoutParams(width,-2,Gravity.CENTER);
         p.addView(text("MATERIALIZATION COMPLETE",13,CYAN),new LinearLayout.LayoutParams(-1,dp(32)));
         p.addView(text("SOUL VESSEL LOCKED",26,Color.WHITE),new LinearLayout.LayoutParams(-1,dp(52)));
-        p.addView(text("Starting skill: "+prefs.getString("starting_skill","UNASSIGNED")+"\nYour next milestone is awakening inside the Crystal Cave.",13,Color.rgb(190,226,239)),
+        p.addView(text("Painted cave test complete. The mite and Abyss Weaver absorption/morph loop is working through the Silken Nest.",13,Color.rgb(190,226,239)),
             new LinearLayout.LayoutParams(-1,dp(70)));
-        Button replay=button("REPLAY OPENING",CYAN,false);
+        Button replay=button("REPLAY TEST",CYAN,false);
         p.addView(replay,new LinearLayout.LayoutParams(-1,dp(52)));
         replay.setOnClickListener(v->showDeath());
         root.addView(p,fp);
