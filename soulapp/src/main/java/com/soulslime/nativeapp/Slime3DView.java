@@ -1,13 +1,17 @@
 package com.soulslime.nativeapp;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.GLUtils;
 import android.opengl.Matrix;
 import android.view.MotionEvent;
 
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -26,7 +30,7 @@ public class Slime3DView extends GLSurfaceView {
         setZOrderOnTop(true);
         setFocusable(false);
         setFocusableInTouchMode(false);
-        renderer=new SlimeRenderer();
+        renderer=new SlimeRenderer(context.getApplicationContext());
         setRenderer(renderer);
         setRenderMode(RENDERMODE_CONTINUOUSLY);
     }
@@ -42,7 +46,16 @@ public class Slime3DView extends GLSurfaceView {
     }
 
     public void setGameplayPosition(float nx,float ny,float depth,float moveX,float moveY,boolean visible){
-        queueEvent(()->renderer.setGameplay(nx,ny,depth,moveX,moveY,visible));
+        queueEvent(()->renderer.setGameplay(nx,ny,depth,moveX,moveY,visible?0:-1));
+    }
+
+    public void setGameplayState(float nx,float ny,float depth,float moveX,float moveY,int form){
+        queueEvent(()->renderer.setGameplay(nx,ny,depth,moveX,moveY,form));
+    }
+
+    public void setEnemyState(int type,float nx,float groundY,float depth,float facing,int state,
+                              float attackPulse,float hitPulse,boolean visible){
+        queueEvent(()->renderer.setEnemy(type,nx,groundY,depth,facing,state,attackPulse,hitPulse,visible));
     }
 
     public void setPreviewMode(){
@@ -61,19 +74,35 @@ public class Slime3DView extends GLSurfaceView {
     }
 
     static class SlimeRenderer implements Renderer {
-        private int program,coreProgram;
+        private final Context context;
+
+        private int program,coreProgram,creatureProgram;
         private int aPos,aNorm,uMvp,uModel,uColor,uTime,uAlpha,uMaterial,uDecal,uAura;
         private int caPos,cuMvp,cuTime,cuColor;
+
+        private int crPos,crNorm,crUv,crMvp,crModel,crTex,crTint,crAlpha,crEmissive,crLightColor,crTime;
+
         private Mesh[] shapes=new Mesh[3];
         private Mesh sphere;
+        private CreatureMesh razorbeast,voidweaver;
+        private int texRazor=0,texVoid=0;
+
         private int shape=0,material=0,colorIndex=0,decal=0,core=0,alpha=2,aura=2;
         private long start=System.nanoTime(),reactionStart=0;
         private int width=1,height=1;
         private float userYaw=0;
+
         private boolean gameplay=false,gameVisible=true;
-        private float gx=.5f,gy=.5f,gdepth=1f,moveX=0,moveY=0;
+        private int playerForm=0;
+        private float gx=.5f,gy=.5f,gdepth=1f,moveX=0,moveY=0,playerFacing=1f;
+
+        private boolean enemyVisible=false;
+        private int enemyType=0,enemyState=2;
+        private float ex=.5f,enemyGroundY=.5f,edepth=1f,enemyFacing=1f,enemyAttackPulse=0f,enemyHitPulse=0f;
 
         private final float[] proj=new float[16],view=new float[16],model=new float[16],mv=new float[16],mvp=new float[16];
+
+        SlimeRenderer(Context context){ this.context=context; }
 
         void setConfig(int sh,int mat,int col,int dec,int co,int al,int au){
             shape=Math.max(0,Math.min(2,sh));
@@ -85,9 +114,23 @@ public class Slime3DView extends GLSurfaceView {
             aura=Math.max(0,Math.min(4,au));
         }
         void react(){reactionStart=System.nanoTime();}
-        void setPreview(){gameplay=false;gameVisible=true;gx=.5f;gy=.5f;gdepth=1f;moveX=moveY=0;}
-        void setGameplay(float x,float y,float depth,float mx,float my,boolean visible){
-            gameplay=true;gx=x;gy=y;gdepth=depth;moveX=mx;moveY=my;gameVisible=visible;
+        void setPreview(){
+            gameplay=false;gameVisible=true;playerForm=0;
+            gx=.5f;gy=.5f;gdepth=1f;moveX=moveY=0;
+            enemyVisible=false;
+        }
+        void setGameplay(float x,float y,float depth,float mx,float my,int form){
+            gameplay=true;gx=x;gy=y;gdepth=depth;moveX=mx;moveY=my;
+            if(Math.abs(mx)>.05f)playerFacing=mx<0f?-1f:1f;
+            playerForm=form;
+            gameVisible=form>=0;
+        }
+        void setEnemy(int type,float x,float groundY,float depth,float facing,int state,
+                      float attackPulse,float hitPulse,boolean visible){
+            enemyType=type;ex=x;enemyGroundY=groundY;edepth=depth;enemyFacing=facing;enemyState=state;
+            enemyAttackPulse=Math.max(0f,Math.min(1f,attackPulse));
+            enemyHitPulse=Math.max(0f,Math.min(1f,hitPulse));
+            enemyVisible=visible&&type>0&&state!=2;
         }
 
         @Override public void onSurfaceCreated(javax.microedition.khronos.opengles.GL10 gl, javax.microedition.khronos.egl.EGLConfig cfg){
@@ -114,8 +157,30 @@ public class Slime3DView extends GLSurfaceView {
             cuTime=GLES20.glGetUniformLocation(coreProgram,"uTime");
             cuColor=GLES20.glGetUniformLocation(coreProgram,"uColor");
 
+            creatureProgram=link(VS_CREATURE,FS_CREATURE);
+            crPos=GLES20.glGetAttribLocation(creatureProgram,"aPosition");
+            crNorm=GLES20.glGetAttribLocation(creatureProgram,"aNormal");
+            crUv=GLES20.glGetAttribLocation(creatureProgram,"aUv");
+            crMvp=GLES20.glGetUniformLocation(creatureProgram,"uMVP");
+            crModel=GLES20.glGetUniformLocation(creatureProgram,"uModel");
+            crTex=GLES20.glGetUniformLocation(creatureProgram,"uTex");
+            crTint=GLES20.glGetUniformLocation(creatureProgram,"uTint");
+            crAlpha=GLES20.glGetUniformLocation(creatureProgram,"uAlpha");
+            crEmissive=GLES20.glGetUniformLocation(creatureProgram,"uEmissive");
+            crLightColor=GLES20.glGetUniformLocation(creatureProgram,"uLightColor");
+            crTime=GLES20.glGetUniformLocation(creatureProgram,"uTime");
+
             for(int i=0;i<3;i++)shapes[i]=Mesh.slime(i,42,28);
             sphere=Mesh.sphere(30,20);
+
+            try{
+                razorbeast=CreatureMesh.loadSSM(context,"razorbeast.ssm");
+                voidweaver=CreatureMesh.loadSSM(context,"voidweaver.ssm");
+                texRazor=loadTexture("razorbeast.jpg");
+                texVoid=loadTexture("voidweaver.jpg");
+            }catch(Exception ignored){
+                razorbeast=null;voidweaver=null;texRazor=texVoid=0;
+            }
         }
 
         @Override public void onSurfaceChanged(javax.microedition.khronos.opengles.GL10 gl,int w,int h){
@@ -128,8 +193,39 @@ public class Slime3DView extends GLSurfaceView {
 
         @Override public void onDrawFrame(javax.microedition.khronos.opengles.GL10 gl){
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT|GLES20.GL_DEPTH_BUFFER_BIT);
-            if(!gameVisible)return;
+            if(!gameVisible&&!enemyVisible)return;
+
             float t=(System.nanoTime()-start)/1_000_000_000f;
+
+            // Painted cave actors are depth-sorted by their screen Y.  Each actor gets a
+            // fresh depth buffer so the later (lower-on-screen) actor cleanly overlaps.
+            if(gameplay&&enemyVisible&&gameVisible){
+                if(enemyGroundY<gy){
+                    drawEnemy(t);
+                    GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT);
+                    drawPlayer(t);
+                }else{
+                    drawPlayer(t);
+                    GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT);
+                    drawEnemy(t);
+                }
+            }else{
+                if(enemyVisible)drawEnemy(t);
+                if(enemyVisible&&gameVisible)GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT);
+                if(gameVisible)drawPlayer(t);
+            }
+        }
+
+        private void drawPlayer(float t){
+            if(gameplay&&playerForm>0){
+                float facing=playerFacing;
+                // Player creature forms use the same real 3D assets, scaled to the original
+                // player footprint and bottom-anchored to the painted floor.
+                float ground=Math.min(.965f,gy+.057f*Math.max(.80f,Math.min(1.12f,gdepth)));
+                drawCreature(playerForm,gx,ground,gdepth,facing,0,0f,0f,true,t);
+                return;
+            }
+
             float mag=(float)Math.sqrt(moveX*moveX+moveY*moveY);
             float bob=gameplay&&mag>.05f?Math.abs((float)Math.sin(t*10.5f))*.045f:(float)Math.sin(t*2.0f)*.012f;
             float squash=gameplay&&mag>.05f?1f+.055f*(float)Math.sin(t*10.5f):1f+.018f*(float)Math.sin(t*2.1f);
@@ -144,9 +240,9 @@ public class Slime3DView extends GLSurfaceView {
                 float wx=(gx-.5f)*2f*aspect;
                 float wy=(.5f-gy)*2f+bob;
                 Matrix.translateM(model,0,wx,wy,0f);
-                float s=.23f*Math.max(.72f,Math.min(1.12f,gdepth));
-                Matrix.scaleM(model,0,s*squash,s*(2f-squash),s);
-                float face=moveX<-.05f?180f:0f;
+                float ss=.23f*Math.max(.72f,Math.min(1.12f,gdepth));
+                Matrix.scaleM(model,0,ss*squash,ss*(2f-squash),ss);
+                float face=playerFacing<0f?180f:0f;
                 Matrix.rotateM(model,0,face,0,1,0);
             }else{
                 Matrix.translateM(model,0,0,-.06f+bob,0f);
@@ -157,7 +253,6 @@ public class Slime3DView extends GLSurfaceView {
             float[] base=baseColor(colorIndex);
             float auraBoost=.10f+aura*.045f;
 
-            // emissive core first
             if(core!=3){
                 float[] coreModel=model.clone();
                 Matrix.translateM(coreModel,0,0,-.10f,.02f);
@@ -172,7 +267,6 @@ public class Slime3DView extends GLSurfaceView {
                 sphere.drawPositionOnly(caPos);
             }
 
-            // shell
             makeMvp(model);
             GLES20.glUseProgram(program);
             GLES20.glUniformMatrix4fv(uMvp,1,false,mvp,0);
@@ -186,6 +280,96 @@ public class Slime3DView extends GLSurfaceView {
             GLES20.glDepthMask(false);
             shapes[shape].draw(aPos,aNorm);
             GLES20.glDepthMask(true);
+        }
+
+        private void drawEnemy(float t){
+            drawCreature(enemyType,ex,enemyGroundY,edepth,enemyFacing,enemyState,
+                         enemyAttackPulse,enemyHitPulse,false,t);
+        }
+
+        private void drawCreature(int type,float nx,float groundY,float depth,float facing,int state,
+                                  float attackPulse,float hitPulse,boolean player,float t){
+            CreatureMesh mesh=type==1?razorbeast:voidweaver;
+            int texture=type==1?texRazor:texVoid;
+            if(mesh==null||texture==0)return;
+
+            float aspect=width/(float)height;
+            float wx=(nx-.5f)*2f*aspect;
+            float gyWorld=(.5f-groundY)*2f;
+
+            float d=Math.max(.78f,Math.min(1.16f,depth));
+            float baseScale;
+            float minY;
+            if(type==1){
+                baseScale=(player?.205f:.270f)*d;
+                minY=-.69777f;
+            }else{
+                baseScale=(player?.315f:.500f)*d;
+                minY=-.45091f;
+            }
+
+            // Attack motion is a grounded compression/extension only.  There is deliberately
+            // no autonomous yaw rotation: these are world actors, not model-preview turntables.
+            float sx=baseScale*(1f+.055f*attackPulse);
+            float sy=baseScale*(1f-.035f*attackPulse);
+            float centerY=gyWorld-minY*sy;
+
+            Matrix.setIdentityM(model,0);
+            Matrix.translateM(model,0,wx,centerY,0f);
+
+            // Meshy FBX export axes -> side-on painted-cave presentation.
+            // Y then X is intentional; reversing this was one source of the bad v11 pose.
+            Matrix.rotateM(model,0,-90f,0f,1f,0f);
+            Matrix.rotateM(model,0,-90f,1f,0f,0f);
+
+            float flip=facing<0?-1f:1f;
+            Matrix.scaleM(model,0,sx*flip,sy,baseScale);
+
+            makeMvp(model);
+            GLES20.glUseProgram(creatureProgram);
+            GLES20.glUniformMatrix4fv(crMvp,1,false,mvp,0);
+            GLES20.glUniformMatrix4fv(crModel,1,false,model,0);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,texture);
+            GLES20.glUniform1i(crTex,0);
+
+            if(type==1){
+                GLES20.glUniform3f(crTint,1f,.98f,.96f);
+                GLES20.glUniform3f(crLightColor,1f,.28f,.055f);
+            }else{
+                GLES20.glUniform3f(crTint,.96f,.94f,1f);
+                GLES20.glUniform3f(crLightColor,.58f,.22f,1f);
+            }
+
+            float defeated=state==1?1f:0f;
+            float alphaValue=state==1?.64f:1f;
+            float emissive=.045f+hitPulse*.85f+attackPulse*.22f+defeated*.04f;
+            GLES20.glUniform1f(crAlpha,alphaValue);
+            GLES20.glUniform1f(crEmissive,emissive);
+            GLES20.glUniform1f(crTime,t);
+
+            mesh.draw(crPos,crNorm,crUv);
+        }
+
+        private int loadTexture(String asset){
+            try{
+                InputStream in=context.getAssets().open(asset);
+                Bitmap bm=BitmapFactory.decodeStream(in);
+                in.close();
+                int[] id=new int[1];
+                GLES20.glGenTextures(1,id,0);
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,id[0]);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MIN_FILTER,GLES20.GL_LINEAR_MIPMAP_LINEAR);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_MAG_FILTER,GLES20.GL_LINEAR);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_S,GLES20.GL_REPEAT);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D,GLES20.GL_TEXTURE_WRAP_T,GLES20.GL_REPEAT);
+                GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bm,0);
+                GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+                bm.recycle();
+                return id[0];
+            }catch(Exception ignored){
+                return 0;
+            }
         }
 
         private void makeMvp(float[] m){
@@ -246,6 +430,24 @@ public class Slime3DView extends GLSurfaceView {
             " float pupil=1.0-smoothstep(.12,.28,abs((ex-.28)/.13)); pupil*=eye;"+
             " col=mix(col,vec3(.03,.08,.16),eye*.88); col+=vec3(.18,.78,1.0)*eye*.85; col=mix(col,vec3(.01,.02,.06),pupil*.78);"+
             " float a=clamp(uAlpha+fres*.14+eye*.35,0.0,.96); gl_FragColor=vec4(col,a);"+
+            "}";
+
+        static final String VS_CREATURE=
+            "uniform mat4 uMVP; uniform mat4 uModel; attribute vec3 aPosition; attribute vec3 aNormal; attribute vec2 aUv;"+
+            "varying vec3 vNormal; varying vec2 vUv;"+
+            "void main(){vNormal=normalize(mat3(uModel)*aNormal);vUv=aUv;gl_Position=uMVP*vec4(aPosition,1.0);}";
+
+        static final String FS_CREATURE=
+            "precision mediump float; varying vec3 vNormal; varying vec2 vUv;"+
+            "uniform sampler2D uTex; uniform vec3 uTint; uniform vec3 uLightColor;"+
+            "uniform float uAlpha; uniform float uEmissive; uniform float uTime;"+
+            "void main(){"+
+            " vec3 N=normalize(vNormal); vec3 L=normalize(vec3(-.34,.72,.60));"+
+            " float diff=max(dot(N,L),0.0); float rim=pow(1.0-max(N.z,0.0),2.0);"+
+            " vec3 base=texture2D(uTex,vUv).rgb*uTint;"+
+            " float pulse=.82+.18*sin(uTime*3.2);"+
+            " vec3 lit=base*(.42+.72*diff)+uLightColor*(rim*.18+uEmissive*pulse);"+
+            " gl_FragColor=vec4(lit,uAlpha);"+
             "}";
 
         static final String VS_CORE=
