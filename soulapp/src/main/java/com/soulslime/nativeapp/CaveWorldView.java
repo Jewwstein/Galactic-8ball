@@ -37,12 +37,15 @@ public class CaveWorldView extends View {
     private int miteHp=5,spiderHp=8;
     private boolean miteAbsorbed=false,spiderAbsorbed=false;
     private boolean externalSlime3D=true;
+    private boolean externalCreature3D=false;
     private boolean[] roomEssenceTaken=new boolean[5];
 
     private float playerX=-1,playerY=-1,moveX=0,moveY=0,lastFacing=1f;
     private float enemyX=-1,enemyY=-1,enemyDir=1f;
+    private float enemyAttackTargetX=-1,enemyAttackTargetY=-1;
     private long lastFrame=0,transitionCooldown=0;
     private long attackStart=0,hitStart=0,absorbStart=0;
+    private long enemyAttackStart=0,nextEnemyAttack=0;
     private String message="Awakening stabilized. Collect the nearby mana essence.";
 
     // Walkable areas are hand-mapped to the painted floor in each background.
@@ -116,6 +119,9 @@ public class CaveWorldView extends View {
         playerX=playerY=-1;enemyX=enemyY=-1;enemyDir=1f;
         moveX=moveY=0;lastFrame=0;transitionCooldown=0;
         attackStart=hitStart=absorbStart=0;
+        enemyAttackStart=0;
+        nextEnemyAttack=SystemClock.uptimeMillis()+1800;
+        enemyAttackTargetX=enemyAttackTargetY=-1;
         message="Awakening stabilized. Collect the nearby mana essence.";
         notifyState();invalidate();
     }
@@ -212,12 +218,47 @@ public class CaveWorldView extends View {
     }
 
     public void setExternalSlime3D(boolean enabled){ externalSlime3D=enabled; invalidate(); }
+    public void setExternalCreature3D(boolean enabled){ externalCreature3D=enabled; invalidate(); }
+
     public float getPlayerXNorm(){ return getWidth()>0?playerX/getWidth():.5f; }
     public float getPlayerYNorm(){ return getHeight()>0?playerY/getHeight():.5f; }
     public float getPlayerDepth(){ return getHeight()>0?(.76f+.34f*Math.max(0f,Math.min(1f,playerY/getHeight()))):1f; }
     public float getMoveX(){ return moveX; }
     public float getMoveY(){ return moveY; }
     public int getCurrentForm(){ return currentForm; }
+
+    public int getEnemyType(){
+        if(room==0&&miteState!=ABSORBED)return FORM_MITE;
+        if(room==3&&spiderState!=ABSORBED)return FORM_SPIDER;
+        return FORM_SLIME;
+    }
+    public int getEnemyStateFor3D(){ return currentEnemyState(); }
+    public float getEnemyXNorm(){ return getWidth()>0&&enemyX>=0?enemyX/getWidth():.5f; }
+    public float getEnemyGroundYNorm(){
+        if(getHeight()<=0||enemyY<0)return .5f;
+        float radius=getHeight()*(room==0?.092f:room==3?.125f:.08f);
+        return Math.max(.04f,Math.min(.97f,(enemyY+radius*.84f)/getHeight()));
+    }
+    public float getEnemyDepth(){
+        return getHeight()>0&&enemyY>=0?(.76f+.34f*Math.max(0f,Math.min(1f,enemyY/getHeight()))):1f;
+    }
+    public float getEnemyFacing(){ return enemyDir<0?-1f:1f; }
+    public boolean isEnemy3DVisible(){
+        return (room==0||room==3)&&currentEnemyState()!=ABSORBED&&enemyX>=0;
+    }
+    public float getEnemyAttackPulse(){
+        if(enemyAttackStart<=0)return 0f;
+        long age=SystemClock.uptimeMillis()-enemyAttackStart;
+        if(age<0||age>950)return 0f;
+        float t=age/950f;
+        return (float)Math.sin(Math.PI*Math.min(1f,t));
+    }
+    public float getEnemyHitPulse(){
+        if(hitStart<=0)return 0f;
+        long age=SystemClock.uptimeMillis()-hitStart;
+        if(age<0||age>300)return 0f;
+        return 1f-age/300f;
+    }
 
     public String roomName(){ return roomNames[room]; }
     public String message(){ return message; }
@@ -381,21 +422,46 @@ public class CaveWorldView extends View {
 
     private void positionEnemy(int w,int h){
         if(room==0){ enemyX=w*.70f;enemyY=h*.55f;enemyDir=1f; }
-        else if(room==3){ enemyX=w*.69f;enemyY=h*.39f;enemyDir=-1f; }
+        else if(room==3){ enemyX=w*.69f;enemyY=h*.40f;enemyDir=-1f; }
         else { enemyX=enemyY=-1; }
+        enemyAttackStart=0;
+        enemyAttackTargetX=enemyAttackTargetY=-1;
+        nextEnemyAttack=SystemClock.uptimeMillis()+(room==0?1500:room==3?1900:3000);
     }
 
     private void updateEnemy(int w,int h,float dt,long now){
-        if(room==0&&miteState==ALIVE){
-            enemyX+=enemyDir*w*.055f*dt;
-            if(enemyX>w*.80f){enemyX=w*.80f;enemyDir=-1f;}
-            if(enemyX<w*.57f){enemyX=w*.57f;enemyDir=1f;}
-            enemyY=h*(.55f+.018f*(float)Math.sin(now/260.0));
-        }else if(room==3&&spiderState==ALIVE){
-            enemyX+=enemyDir*w*.035f*dt;
-            if(enemyX>w*.78f){enemyX=w*.78f;enemyDir=-1f;}
-            if(enemyX<w*.59f){enemyX=w*.59f;enemyDir=1f;}
-            enemyY=h*(.40f+.012f*(float)Math.sin(now/330.0));
+        boolean alive=(room==0&&miteState==ALIVE)||(room==3&&spiderState==ALIVE);
+        if(!alive)return;
+
+        long attackAge=enemyAttackStart>0?now-enemyAttackStart:Long.MAX_VALUE;
+        boolean attacking=attackAge>=0&&attackAge<950;
+
+        // Grounded patrol: vertical bob was fine for 2D sprites but made the real 3D
+        // meshes look like they were floating. Keep their floor Y fixed.
+        if(room==0){
+            enemyY=h*.55f;
+            if(!attacking){
+                enemyX+=enemyDir*w*.055f*dt;
+                if(enemyX>w*.80f){enemyX=w*.80f;enemyDir=-1f;}
+                if(enemyX<w*.57f){enemyX=w*.57f;enemyDir=1f;}
+            }
+        }else{
+            enemyY=h*.40f;
+            if(!attacking){
+                enemyX+=enemyDir*w*.035f*dt;
+                if(enemyX>w*.78f){enemyX=w*.78f;enemyDir=-1f;}
+                if(enemyX<w*.59f){enemyX=w*.59f;enemyDir=1f;}
+            }
+        }
+
+        // Visual-only enemy attack cycle for this prototype. It drives telegraphs,
+        // creature emissive lighting and impact/web FX without changing the approved
+        // room progression or adding surprise player damage.
+        if(now>=nextEnemyAttack){
+            enemyAttackStart=now;
+            enemyAttackTargetX=playerX;
+            enemyAttackTargetY=playerY;
+            nextEnemyAttack=now+(room==0?2650:3250);
         }
     }
 
@@ -471,6 +537,16 @@ public class CaveWorldView extends View {
         drawGlow(c,w*.52f,h*.53f,Math.min(w,h)*.30f,
             Color.argb((int)(17+22*pulse),Color.red(ambient),Color.green(ambient),Color.blue(ambient)));
 
+        // Creature-local lighting lives in the painted scene so the real 3D mesh feels
+        // planted in the room instead of pasted over it.
+        if(enemyX>=0&&currentEnemyState()==ALIVE&&(room==0||room==3)){
+            float attackBoost=getEnemyAttackPulse();
+            int local=room==0?Color.rgb(255,92,26):Color.rgb(181,62,255);
+            int a=(int)(34+26*pulse+58*attackBoost);
+            drawGlow(c,enemyX,enemyY+Math.min(w,h)*.028f,Math.min(w,h)*(room==0?.20f:.23f),
+                Color.argb(Math.min(150,a),Color.red(local),Color.green(local),Color.blue(local)));
+        }
+
         for(int i=0;i<28;i++){
             float x=((i*127)+(now*.009f*(1+i%3)))%w;
             float y=((i*71)+(now*.003f*(1+i%2)))%Math.max(1,h-90)+45;
@@ -505,20 +581,22 @@ public class CaveWorldView extends View {
 
         drawActorShadow(c,enemyX,enemyY,baseR,room==0?.55f:.68f);
 
-        c.save();
-        c.translate(enemyX,enemyY+(float)Math.sin(now/300.0)*baseR*.035f);
-        c.rotate(state==DEFEATED?8f:sway);
-        c.scale(breathe,2f-breathe);
-        if(enemyDir<0)c.scale(-1f,1f);
-        p.setAlpha(alpha);p.setColorFilter(null);
-        c.drawBitmap(b,null,new RectF(-baseR,-baseR,baseR,baseR),p);
-        p.setAlpha(255);
-        if(state==ALIVE){
-            int glow=room==0?Color.rgb(255,86,30):Color.rgb(232,55,209);
-            float gp=.58f+.42f*(float)Math.sin(now/180.0);
-            drawGlow(c,0,-baseR*.18f,baseR*.55f,Color.argb((int)(28*gp),Color.red(glow),Color.green(glow),Color.blue(glow)));
+        if(!externalCreature3D){
+            c.save();
+            c.translate(enemyX,enemyY);
+            c.rotate(state==DEFEATED?8f:sway);
+            c.scale(breathe,2f-breathe);
+            if(enemyDir<0)c.scale(-1f,1f);
+            p.setAlpha(alpha);p.setColorFilter(null);
+            c.drawBitmap(b,null,new RectF(-baseR,-baseR,baseR,baseR),p);
+            p.setAlpha(255);
+            if(state==ALIVE){
+                int glow=room==0?Color.rgb(255,86,30):Color.rgb(232,55,209);
+                float gp=.58f+.42f*(float)Math.sin(now/180.0);
+                drawGlow(c,0,-baseR*.18f,baseR*.55f,Color.argb((int)(28*gp),Color.red(glow),Color.green(glow),Color.blue(glow)));
+            }
+            c.restore();
         }
-        c.restore();
 
         if(state==ALIVE){
             int hp=room==0?miteHp:spiderHp;
@@ -535,9 +613,9 @@ public class CaveWorldView extends View {
         float r=Math.min(w,h)*.070f;
         drawActorShadow(c,playerX,playerY,r,.52f);
         if(currentForm==FORM_MITE&&miteMaster!=null){
-            drawSprite(c,miteMaster,playerX,playerY,r,255,lastFacing<0);
+            if(!externalCreature3D)drawSprite(c,miteMaster,playerX,playerY,r,255,lastFacing<0);
         }else if(currentForm==FORM_SPIDER&&spiderMaster!=null){
-            drawSprite(c,spiderMaster,playerX,playerY,r*1.06f,255,lastFacing<0);
+            if(!externalCreature3D)drawSprite(c,spiderMaster,playerX,playerY,r*1.06f,255,lastFacing<0);
         }else{
             if(!externalSlime3D){
                 drawLiveSlime(c,playerX,playerY,r,now);
@@ -591,6 +669,35 @@ public class CaveWorldView extends View {
     }
 
     private void drawEffects(Canvas c,int w,int h,long now){
+        long enemyAge=enemyAttackStart>0?now-enemyAttackStart:Long.MAX_VALUE;
+        if(enemyAge>=0&&enemyAge<950&&currentEnemyState()==ALIVE&&(room==0||room==3)){
+            float t=enemyAge/950f;
+            int color=room==0?Color.rgb(255,86,22):Color.rgb(190,70,255);
+            float ring=Math.min(w,h)*(.09f+.12f*Math.min(1f,t*1.8f));
+            drawGlow(c,enemyX,enemyY,ring,
+                Color.argb((int)(62*(1f-Math.min(1f,t*.72f))),Color.red(color),Color.green(color),Color.blue(color)));
+
+            if(enemyAge<470){
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(2f,Math.min(w,h)*.006f));
+                stroke.setColor(Color.argb((int)(190*(1f-enemyAge/470f*.45f)),Color.red(color),Color.green(color),Color.blue(color)));
+                c.drawCircle(enemyX,enemyY,Math.min(w,h)*(.055f+.08f*(enemyAge/470f)),stroke);
+            }else if(enemyAttackTargetX>=0){
+                float q=Math.min(1f,(enemyAge-470f)/480f);
+                float fxX=enemyX+(enemyAttackTargetX-enemyX)*q;
+                float fxY=enemyY+(enemyAttackTargetY-enemyY)*q;
+
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(3f,Math.min(w,h)*(room==0?.009f:.006f)));
+                stroke.setColor(Color.argb((int)(170*(1f-q*.55f)),Color.red(color),Color.green(color),Color.blue(color)));
+                c.drawLine(enemyX,enemyY,fxX,fxY,stroke);
+
+                Bitmap enemyFx=room==3&&webFx!=null?webFx:impactFx;
+                float rr=Math.min(w,h)*(room==0?.075f:.095f);
+                drawSprite(c,enemyFx,fxX,fxY,rr,(int)(235*(1f-q*.35f)),false);
+            }
+        }
+
         long aa=now-attackStart;
         if(attackStart>0&&aa<350){
             float t=aa/350f;
