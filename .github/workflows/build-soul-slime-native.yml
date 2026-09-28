@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - 'prototype/soul-slime-v12-fixed'
+      - 'prototype/soul-slime-v13-spider-fix'
   workflow_dispatch:
 
 jobs:
@@ -98,25 +98,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
-          zip -q SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
-          zip -qr SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip >/dev/null
-          ls -lh SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip
-          sha256sum SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip
+          cp "$APK" SoulSlime-v13-Spider-Mesh-Fixed.apk
+          zip -q SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed.apk
+          zip -qr SoulSlime-v13-Spider-Mesh-Fixed-source.zip soulapp settings.gradle.kts build.gradle.kts tools/convert_meshy_fbx_mobile.py
+          unzip -t SoulSlime-v13-Spider-Mesh-Fixed-APK.zip >/dev/null
+          ls -lh SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed-source.zip
+          sha256sum SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed
+          name: SoulSlime-v13-Spider-Mesh-Fixed
           path: |
-            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
-            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip
-            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip
+            SoulSlime-v13-Spider-Mesh-Fixed.apk
+            SoulSlime-v13-Spider-Mesh-Fixed-APK.zip
+            SoulSlime-v13-Spider-Mesh-Fixed-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v12-fixed >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v12-fixed --title "Soul Slime v12 — v10 Scenes + Grounded 3D Creatures" --notes "Scene-preserving v12 based directly on v10. Keeps Awakening Hollow, Crystal Descent, Forked Gallery, Silken Nest, painted collision paths, 3D slime creator/gameplay, and adds grounded real 3D Molten Razorbeast and Armored Voidweaver actors with encounter lighting and attack effects. No continuous creature spin or floating bob." --prerelease --target prototype/soul-slime-v12-fixed
-          gh release upload soul-slime-native-v12-fixed SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip --clobber
+          gh release view soul-slime-native-v13-spider-fix >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v13-spider-fix --title "Soul Slime v13 — Spider Mesh + Axis Fix" --notes "Scene-preserving v13 based on the real v10/v12 branch. Rebuilds the Meshy FBX creatures with topology-preserving vertex clustering, fixes the Void Weaver triangle corruption, removes the incorrect extra Y-axis quarter-turn, grounds Z-up creatures to the painted floor, and preserves all four painted scenes, collisions, progression, HUD, creator, 3D slime, lighting, and combat effects." --prerelease --target prototype/soul-slime-v13-spider-fix
+          gh release upload soul-slime-native-v13-spider-fix SoulSlime-v13-Spider-Mesh-Fixed.apk SoulSlime-v13-Spider-Mesh-Fixed-APK.zip SoulSlime-v13-Spider-Mesh-Fixed-source.zip --clobber
