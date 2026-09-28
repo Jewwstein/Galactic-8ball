@@ -55,12 +55,12 @@ public class CaveWorldView extends View {
         {.36f,.40f},{.28f,.26f}
     };
     private static final float[][] WALK2={
-        {.18f,.86f},{.82f,.86f},{.86f,.66f},{.73f,.52f},{.91f,.35f},
-        {.83f,.18f},{.55f,.18f},{.50f,.34f},{.43f,.18f},{.18f,.18f},
+        {.18f,.93f},{.82f,.93f},{.86f,.66f},{.73f,.52f},{.91f,.35f},
+        {.83f,.10f},{.56f,.10f},{.50f,.34f},{.43f,.10f},{.18f,.10f},
         {.10f,.36f},{.27f,.54f},{.13f,.68f}
     };
     private static final float[][] WALK3={
-        {.28f,.89f},{.72f,.89f},{.80f,.76f},{.90f,.63f},{.91f,.37f},
+        {.28f,.95f},{.72f,.95f},{.80f,.76f},{.90f,.63f},{.91f,.37f},
         {.79f,.25f},{.58f,.28f},{.48f,.36f},{.33f,.29f},{.17f,.39f},
         {.12f,.62f},{.22f,.76f}
     };
@@ -236,8 +236,7 @@ public class CaveWorldView extends View {
 
     public String objectiveText(){
         if(room==0){
-            int local=localEssenceCount();
-            if(local<5)return "Collect the five mana essence points in the Awakening Hollow.";
+            if(essence<5)return "Collect the five mana essence points in the Awakening Hollow.";
             if(miteState==ALIVE)return "Approach and defeat the Molten Mite.";
             if(miteState==DEFEATED)return "Absorb the defeated mite to unlock Mite Morph.";
             return "The path east is open. Enter the Crystal Descent.";
@@ -335,7 +334,7 @@ public class CaveWorldView extends View {
         if(now<transitionCooldown)return;
 
         if(room==0&&playerX>w*.91f){
-            if(localEssenceCount()<5||miteState!=ABSORBED){
+            if(essence<5||miteState!=ABSORBED){
                 playerX=w*.89f;
                 message="The passage remains sealed until the five essence points are collected and the mite is absorbed.";
                 notifyState();
