@@ -40,16 +40,17 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Prepare real painted reference art
+      - name: Prepare v8 painted room and creature art
         run: |
           python -m pip install --quiet pillow
-          python tools/prepare_v7_real_art.py
+          python tools/prepare_v8_scene_art.py
           test -s soulapp/src/main/res/drawable-nodpi/slime_master.webp
-          test -s soulapp/src/main/res/drawable-nodpi/dragon_master.webp
-          test -s soulapp/src/main/res/drawable-nodpi/room_painted_awakening.webp
-          test -s soulapp/src/main/res/drawable-nodpi/room_painted_spider.webp
-          test -s soulapp/src/main/res/drawable-nodpi/room_painted_lizard.webp
-          test -s soulapp/src/main/res/drawable-nodpi/room_painted_dragon.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_start.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_corridor.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_junction.webp
+          test -s soulapp/src/main/res/drawable-nodpi/room_spider.webp
+          test -s soulapp/src/main/res/drawable-nodpi/mite_master.webp
+          test -s soulapp/src/main/res/drawable-nodpi/spider_master.webp
 
       - name: Generate supporting cave effects
         run: |
@@ -85,25 +86,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v7.apk
-          zip -q SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7.apk
-          zip -qr SoulSlime-Native-v7-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v7-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7-source.zip
-          sha256sum SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip
+          cp "$APK" SoulSlime-Native-v8.apk
+          zip -q SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8.apk
+          zip -qr SoulSlime-Native-v8-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-Native-v8-APK.zip >/dev/null
+          ls -lh SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8-source.zip
+          sha256sum SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v7
+          name: SoulSlime-Native-v8
           path: |
-            SoulSlime-Native-v7.apk
-            SoulSlime-Native-v7-APK.zip
-            SoulSlime-Native-v7-source.zip
+            SoulSlime-Native-v8.apk
+            SoulSlime-Native-v8-APK.zip
+            SoulSlime-Native-v8-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v7 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v7 --title "Soul Slime Native v7 — Live Painted Art" --notes "Live-painted art test: exact uploaded slime and ancient dragon references, painted cave room panels, animated illustration motion, premium customization overlays, analog movement, maze progression, combat, befriending, absorption, morphs, and dragon exit." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v7 SoulSlime-Native-v7.apk SoulSlime-Native-v7-APK.zip SoulSlime-Native-v7-source.zip --clobber
+          gh release view soul-slime-native-v8 >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v8 --title "Soul Slime Native v8 — Painted Four-Room Test" --notes "Painted four-room cave test using the selected HD room scenes and separate HD mite/spider creature masters. Includes analog movement, hand-mapped collision, mana collection, mite combat/absorb/morph, corridor and junction traversal, spider combat/absorb/morph, and live illustration motion." --prerelease --target prototype/soul-slime-native
+          gh release upload soul-slime-native-v8 SoulSlime-Native-v8.apk SoulSlime-Native-v8-APK.zip SoulSlime-Native-v8-source.zip --clobber
