@@ -25,7 +25,7 @@ public class MainActivity extends Activity {
     Scene scene = Scene.DEATH;
     SharedPreferences prefs;
 
-    int body = 0, color = 0, eyes = 0, markings = 1, core = 0, alpha = 2, aura = 2;
+    int body = 0, material = 0, color = 0, eyes = 0, markings = 1, core = 0, alpha = 2, aura = 2;
     String creatorCategory = "BODY";
     String selectedSkill = "";
     String deathDescription = "";
@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
     TextView caveRoomText, caveObjective, caveStats;
     Button caveContinue, caveAttack, caveAbsorb, caveBefriend, caveMorph;
     CaveWorldView caveWorld;
+    Slime3DView creator3D, cave3D;
+    Runnable cave3DSync;
     final ArrayList<Button> categoryButtons = new ArrayList<>();
 
     static final String[] DEATHS = {
@@ -63,7 +65,8 @@ public class MainActivity extends Activity {
         new Skill("WATER AFFINITY", "Gain an early advantage with water magic and fluid control.")
     };
 
-    static final String[] BODY = {"ROUND CORE","DROPLET","WIDE FORM","CREST FORM"};
+    static final String[] BODY = {"STANDARD","TALL CREST","WIDE FORM"};
+    static final String[] MATERIAL = {"COSMIC FLOW","ARCANE VEINS","BUBBLE GLASS"};
     static final String[] COLOR = {"AZURE","AMETHYST","EMBER","JADE","PEARL","SHADOW"};
     static final String[] EYES = {"CALM","SHARP","VOID","STAR"};
     static final String[] MARK = {"NONE","RUNE","SPECKLES","CREST"};
@@ -114,6 +117,9 @@ public class MainActivity extends Activity {
 
     void clearOverlay(){
         root.setOnTouchListener(null);
+        if(creator3D!=null){ try{creator3D.onPause();}catch(Exception ignored){} creator3D=null; }
+        if(cave3D!=null){ try{cave3D.onPause();}catch(Exception ignored){} cave3D=null; }
+        if(cave3DSync!=null){ root.removeCallbacks(cave3DSync); cave3DSync=null; }
         while(root.getChildCount()>1) root.removeViewAt(1);
         categoryButtons.clear();
         optionsContainer=null;
@@ -313,6 +319,14 @@ public class MainActivity extends Activity {
         sp.setMargins(dp(24),dp(54),0,0);
         root.addView(sub,sp);
 
+        creator3D=new Slime3DView(this);
+        creator3D.setInteractive(true);
+        creator3D.setPreviewMode();
+        FrameLayout.LayoutParams glp=new FrameLayout.LayoutParams((int)(screenW()*.50f),Math.max(dp(260),screenH()-dp(105)),Gravity.LEFT|Gravity.BOTTOM);
+        glp.setMargins(dp(10),0,0,dp(8));
+        root.addView(creator3D,glp);
+        syncCreator3D();
+
         int panelWidth=(int)(screenW()*.44f);
         ScrollView scroll=new ScrollView(this);
         scroll.setFillViewport(true);
@@ -356,6 +370,7 @@ public class MainActivity extends Activity {
 
         random.setOnClickListener(v->{
             body=rng.nextInt(BODY.length);
+            material=rng.nextInt(MATERIAL.length);
             color=rng.nextInt(COLOR.length);
             eyes=rng.nextInt(EYES.length);
             markings=rng.nextInt(MARK.length);
@@ -364,7 +379,9 @@ public class MainActivity extends Activity {
             aura=rng.nextInt(AURA.length);
             rebuildOptions();
             canvas.react(true);
-            creatorStatus.setText("RANDOM SOUL FORM GENERATED.");
+            syncCreator3D();
+            if(creator3D!=null)creator3D.react();
+            creatorStatus.setText("RANDOM 3D SOUL FORM GENERATED.");
         });
         save.setOnClickListener(v->{
             saveCreator();
@@ -381,7 +398,7 @@ public class MainActivity extends Activity {
     }
 
     void buildCategoryButtons(LinearLayout parent){
-        String[] cats={"BODY","COLOR","EYES","MARKINGS","SOUL CORE","TRANSPARENCY","AURA"};
+        String[] cats={"BODY","MATERIAL","COLOR","EYES","MARKINGS","SOUL CORE","TRANSPARENCY","AURA"};
         categoryButtons.clear();
         for(int i=0;i<cats.length;i+=2){
             LinearLayout row=new LinearLayout(this);
@@ -418,6 +435,7 @@ public class MainActivity extends Activity {
 
     String[] optionNames(){
         switch(creatorCategory){
+            case "MATERIAL": return MATERIAL;
             case "COLOR": return COLOR;
             case "EYES": return EYES;
             case "MARKINGS": return MARK;
@@ -430,6 +448,7 @@ public class MainActivity extends Activity {
 
     int selectedOption(){
         switch(creatorCategory){
+            case "MATERIAL": return material;
             case "COLOR": return color;
             case "EYES": return eyes;
             case "MARKINGS": return markings;
@@ -442,6 +461,7 @@ public class MainActivity extends Activity {
 
     void setSelectedOption(int idx){
         switch(creatorCategory){
+            case "MATERIAL": material=idx; break;
             case "COLOR": color=idx; break;
             case "EYES": eyes=idx; break;
             case "MARKINGS": markings=idx; break;
@@ -477,6 +497,8 @@ public class MainActivity extends Activity {
                     setSelectedOption(idx);
                     rebuildOptions();
                     canvas.react(false);
+                    syncCreator3D();
+                    if(creator3D!=null)creator3D.react();
                     if(creatorStatus!=null) creatorStatus.setText("SELECTED // "+optionNames()[idx]);
                 });
             }
@@ -485,6 +507,11 @@ public class MainActivity extends Activity {
             optionsContainer.addView(row,rlp);
         }
         canvas.invalidate();
+        syncCreator3D();
+    }
+
+    void syncCreator3D(){
+        if(creator3D!=null)creator3D.setConfig(body,material,color,markings,core,alpha,aura);
     }
 
 
@@ -501,6 +528,14 @@ public class MainActivity extends Activity {
             world->updateCaveHud()
         );
         root.addView(caveWorld,1,new FrameLayout.LayoutParams(-1,-1));
+        caveWorld.setExternalSlime3D(true);
+
+        cave3D=new Slime3DView(this);
+        cave3D.setInteractive(false);
+        cave3D.setConfig(body,material,color,markings,core,alpha,aura);
+        cave3D.setPreviewMode();
+        root.addView(cave3D,new FrameLayout.LayoutParams(-1,-1));
+        startCave3DSync();
 
         // Thin, nearly transparent full-width HUD so gameplay remains visible.
         LinearLayout hud=new LinearLayout(this);
@@ -587,6 +622,25 @@ public class MainActivity extends Activity {
         updateCaveHud();
     }
 
+
+    void startCave3DSync(){
+        cave3DSync=new Runnable(){
+            @Override public void run(){
+                if(scene!=Scene.CAVE||caveWorld==null||cave3D==null)return;
+                cave3D.setGameplayPosition(
+                    caveWorld.getPlayerXNorm(),
+                    caveWorld.getPlayerYNorm(),
+                    caveWorld.getPlayerDepth(),
+                    caveWorld.getMoveX(),
+                    caveWorld.getMoveY(),
+                    caveWorld.getCurrentForm()==0
+                );
+                root.postDelayed(this,16);
+            }
+        };
+        root.post(cave3DSync);
+    }
+
     void bindMove(Button b,float x,float y){
         b.setOnTouchListener((v,e)->{
             if(scene!=Scene.CAVE||caveWorld==null)return false;
@@ -656,13 +710,14 @@ public class MainActivity extends Activity {
 
     void saveCreator(){
         prefs.edit()
-            .putInt("body",body).putInt("color",color).putInt("eyes",eyes)
+            .putInt("body",body).putInt("material",material).putInt("color",color).putInt("eyes",eyes)
             .putInt("markings",markings).putInt("core",core)
             .putInt("alpha",alpha).putInt("aura",aura).apply();
     }
 
     void loadCreator(){
-        body=prefs==null?0:prefs.getInt("body",0);
+        body=prefs==null?0:Math.min(2,prefs.getInt("body",0));
+        material=prefs==null?0:prefs.getInt("material",0);
         color=prefs==null?0:prefs.getInt("color",0);
         eyes=prefs==null?0:prefs.getInt("eyes",0);
         markings=prefs==null?1:prefs.getInt("markings",1);
