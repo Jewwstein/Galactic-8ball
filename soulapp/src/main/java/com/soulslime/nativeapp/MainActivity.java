@@ -833,8 +833,9 @@ public class MainActivity extends Activity {
             if(drawScene==Scene.DEATH) drawDeath(c,w,h,now);
             else if(drawScene==Scene.REBIRTH) drawAnalysis(c,w,h,now,w*.5f,h*.48f,true);
             else if(drawScene==Scene.CREATOR){
+                // 3D prototype: keep only the analysis-space backdrop here.
+                // The slime itself is rendered exclusively by Slime3DView.
                 drawAnalysis(c,w,h,now,w*.29f,h*.52f,false);
-                drawSlime(c,w,h,now);
             }else if(drawScene==Scene.CAVE) drawCaveGameplay(c,w,h,now);
             else drawCave(c,w,h,now);
             postInvalidateDelayed(16);
