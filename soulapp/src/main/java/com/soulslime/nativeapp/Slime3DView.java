@@ -299,31 +299,28 @@ public class Slime3DView extends GLSurfaceView {
 
             float d=Math.max(.78f,Math.min(1.16f,depth));
             float baseScale;
-            float minY;
+            float minZ;
             if(type==1){
                 baseScale=(player?.205f:.270f)*d;
-                minY=-.69777f;
+                minZ=-.69545f;
             }else{
                 baseScale=(player?.315f:.500f)*d;
-                minY=-.45091f;
+                minZ=-.46818f;
             }
 
-            // Attack motion is a grounded compression/extension only.  There is deliberately
-            // no autonomous yaw rotation: these are world actors, not model-preview turntables.
+            // Meshy creature exports are Z-up. Keep X horizontal, map Z to world Y,
+            // and use original Y only as depth. The old extra Y-axis quarter-turn made
+            // the spider appear as a folded side slice even when its world anchor was correct.
             float sx=baseScale*(1f+.055f*attackPulse);
-            float sy=baseScale*(1f-.035f*attackPulse);
-            float centerY=gyWorld-minY*sy;
+            float sz=baseScale*(1f-.035f*attackPulse);
+            float centerY=gyWorld-minZ*sz;
 
             Matrix.setIdentityM(model,0);
             Matrix.translateM(model,0,wx,centerY,0f);
-
-            // Meshy FBX export axes -> side-on painted-cave presentation.
-            // Y then X is intentional; reversing this was one source of the bad v11 pose.
-            Matrix.rotateM(model,0,-90f,0f,1f,0f);
             Matrix.rotateM(model,0,-90f,1f,0f,0f);
 
             float flip=facing<0?-1f:1f;
-            Matrix.scaleM(model,0,sx*flip,sy,baseScale);
+            Matrix.scaleM(model,0,sx*flip,baseScale,sz);
 
             makeMvp(model);
             GLES20.glUseProgram(creatureProgram);
