@@ -5774,7 +5774,7 @@ public class MainActivity extends Activity {
     }
 
     boolean sithHilt(int h){
-      return h==5||h==9||h==11||h==12||h==13;
+      return h==3||h==5||h==9||h==10||h==11||h==12||h==13||h==14;
     }
     int arcadeFaction(){return sithHilt(hiltIndex)?1:0;} // 0 Jedi/X-Wing, 1 Sith/TIE
     void sendArcadeJoin(){
