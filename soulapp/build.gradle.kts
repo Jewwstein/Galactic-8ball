@@ -8,8 +8,8 @@ android {
         applicationId = "com.soulslime.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.8.1-spider-topology-axis-fix"
+        versionCode = 14
+        versionName = "1.8.2-exact-fbx-topology"
     }
 
     buildTypes {
