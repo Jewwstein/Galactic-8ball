@@ -694,7 +694,7 @@ public class MainActivity extends Activity {
         final float[][] crystalNorm={{.22f,.66f},{.39f,.34f},{.57f,.72f},{.74f,.42f},{.86f,.66f}};
         long lastFrame=0,attackStart=0,enemyHitStart=0,absorbStart=0,playerTrailStart=0;
         boolean caveInitialized=false;
-        Bitmap caveBg,caveMid,caveFg,crystalSprite,caveMiteSprite,slashSprite,impactSprite,absorbSprite;
+        Bitmap caveBg,caveMid,caveFg,crystalSprite,caveMiteSprite,slashSprite,impactSprite,absorbSprite,masterSlime;
 
         SoulCanvas(Context c){
             super(c);
@@ -711,6 +711,7 @@ public class MainActivity extends Activity {
             slashSprite=BitmapFactory.decodeResource(getResources(),R.drawable.magic_slash);
             impactSprite=BitmapFactory.decodeResource(getResources(),R.drawable.impact_burst);
             absorbSprite=BitmapFactory.decodeResource(getResources(),R.drawable.absorb_ring);
+            masterSlime=BitmapFactory.decodeResource(getResources(),R.drawable.slime_master);
         }
 
         void setScene(Scene s){ drawScene=s; reactionStart=0; invalidate(); }
@@ -873,91 +874,135 @@ public class MainActivity extends Activity {
         }
 
         void drawAnimeSlime(Canvas c,float cx,float cy,float r,long now,float vx,float vy,boolean gameplay){
+            // v7: the uploaded painted slime illustration is the master art.
+            if(masterSlime==null){
+                p.setColor(slimeColor());
+                c.drawCircle(cx,cy,r,p);
+                return;
+            }
+
             float speed=(float)Math.sqrt(vx*vx+vy*vy);
-            float breath=1f+.022f*(float)Math.sin(now/360.0);
-            float sx=breath, sy=2f-breath, rot=0;
+            float idle=(float)Math.sin(now/360.0);
+            float hop=gameplay&&speed>.01f?Math.abs((float)Math.sin(now/115.0))*r*.08f:0f;
+            float sx=1f+.024f*idle;
+            float sy=1f-.018f*idle;
+            float rot=0f;
+
+            // Creator body choice changes the painted silhouette only through subtle deformation,
+            // preserving all original painted detail.
+            if(body==1){ sx*=.91f; sy*=1.10f; }
+            else if(body==2){ sx*=1.13f; sy*=.91f; }
+            else if(body==3){ sx*=.97f; sy*=1.05f; rot=-2.5f; }
 
             if(gameplay&&speed>.01f){
-                float lean=Math.max(-1f,Math.min(1f,vx/(Math.max(1f,getWidth()*.25f))));
-                rot=lean*8f;
-                sx*=1.035f;sy*=.965f;
+                float lean=Math.max(-1f,Math.min(1f,vx/Math.max(1f,getWidth()*.25f)));
+                rot+=lean*6.5f;
+                sx*=1.04f; sy*=.965f;
             }
 
             long age=now-reactionStart;
             if(!gameplay&&age>=0&&age<520){
                 float t=age/520f;
                 float wave=(float)Math.sin(Math.PI*t);
-                sx*=1f+.13f*wave;
-                sy*=1f-.15f*wave;
-                rot=fullSpin?360f*t:15f*(float)Math.sin(Math.PI*2*t);
+                sx*=1f+.10f*wave; sy*=1f-.09f*wave;
+                rot+=fullSpin?360f*t:10f*(float)Math.sin(Math.PI*2*t);
             }
 
+            float auraA=new float[]{.20f,.42f,.62f,.82f,1f}[Math.max(0,Math.min(4,aura))];
+            int accent=slimeColor();
+            for(int i=4;i>=1;i--){
+                stroke.setStrokeWidth(2+i*2.2f);
+                stroke.setColor(Color.argb((int)(22*auraA*i),Color.red(accent),Color.green(accent),Color.blue(accent)));
+                c.drawCircle(cx,cy-hop,r*(1.02f+i*.085f),stroke);
+            }
+            drawGlow(c,cx,cy-hop,r*1.28f,Color.argb((int)(35+45*auraA),Color.red(accent),Color.green(accent),Color.blue(accent)));
+
             c.save();
-            c.translate(cx,cy);
+            c.translate(cx,cy-hop);
             c.rotate(rot);
             c.scale(sx,sy);
 
-            float auraA=new float[]{.20f,.42f,.62f,.82f,1f}[Math.max(0,Math.min(4,aura))];
-            for(int i=4;i>=1;i--){
-                stroke.setStrokeWidth(2+i*2.5f);
-                stroke.setColor(Color.argb((int)(28*auraA*i),72,226,255));
-                c.drawCircle(0,0,r*(1.00f+i*.085f),stroke);
+            RectF dst=new RectF(-r,-r,r,r);
+            p.setAlpha(new int[]{155,185,220,245}[Math.max(0,Math.min(3,alpha))]);
+            p.setColorFilter(slimePaintFilter(color));
+            c.drawBitmap(masterSlime,null,dst,p);
+            p.setColorFilter(null);
+            p.setAlpha(255);
+
+            // Keep the master painting alive: internal light breathing and drifting bubbles.
+            float pulse=.72f+.28f*(float)Math.sin(now/280.0);
+            drawGlow(c,0,r*.18f,r*.30f,Color.argb((int)(45*pulse),205,252,255));
+            for(int i=0;i<8;i++){
+                double a=(now*.00055)+(i*.91);
+                float br=r*(.015f+(i%3)*.006f);
+                float bx=(float)Math.cos(a*1.7+i)*r*(.22f+.045f*i);
+                float by=(float)Math.sin(a+i*.63)*r*.36f+r*.08f;
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.argb(55+(i%3)*18,230,252,255));
+                c.drawCircle(bx,by,br,p);
             }
 
-            Path shape=slimePath(r);
-            int baseColor=slimeColor();
-            int bodyA=new int[]{165,190,220,242}[Math.max(0,Math.min(3,alpha))];
-            int light=blend(baseColor,Color.WHITE,.60f);
-            int mid=blend(baseColor,Color.WHITE,.15f);
-            int dark=blend(baseColor,Color.rgb(6,24,48),.48f);
+            // Core customization rides over the existing painted core rather than replacing the illustration.
+            if(core!=3){
+                int coreColor=core==1?Color.rgb(255,221,112):core==2?Color.rgb(220,230,255):Color.rgb(139,247,255);
+                float cr=r*(core==1?.105f:.13f);
+                drawGlow(c,0,r*.19f,cr*2.8f,Color.argb(100,Color.red(coreColor),Color.green(coreColor),Color.blue(coreColor)));
+                stroke.setStrokeWidth(Math.max(2.5f,r*.016f));
+                stroke.setColor(Color.argb(185,Color.red(coreColor),Color.green(coreColor),Color.blue(coreColor)));
+                if(core==1)drawStar(c,0,r*.19f,cr,stroke);
+                else if(core==2)c.drawArc(new RectF(-cr,r*.19f-cr,cr,r*.19f+cr),45,245,false,stroke);
+                else c.drawCircle(0,r*.19f,cr,stroke);
+            }
 
-            // Anime outer keyline.
-            stroke.setStrokeWidth(Math.max(6f,r*.045f));
-            stroke.setColor(Color.argb(238,17,39,72));
-            c.drawPath(shape,stroke);
+            // High-quality overlay customization: runes/speckles/crest are light-only overlays.
+            if(markings==1){
+                stroke.setStrokeWidth(Math.max(2f,r*.012f));
+                stroke.setColor(Color.argb(135,210,251,255));
+                c.drawArc(new RectF(-r*.22f,-r*.30f,r*.22f,r*.10f),205,130,false,stroke);
+            }else if(markings==2){
+                for(int i=0;i<12;i++){
+                    float bx=(float)Math.cos(i*.91)*r*(.25f+.025f*i);
+                    float by=(float)Math.sin(i*.77)*r*.34f;
+                    p.setColor(Color.argb(70,240,255,255));
+                    c.drawCircle(bx,by,Math.max(1.5f,r*.012f),p);
+                }
+            }else if(markings==3){
+                stroke.setStrokeWidth(Math.max(3f,r*.018f));
+                stroke.setColor(Color.argb(130,195,247,255));
+                c.drawArc(new RectF(-r*.45f,r*.05f,r*.45f,r*.65f),205,130,false,stroke);
+            }
 
-            // Clean cel-shaded base.
-            p.setShader(new LinearGradient(-r,-r,r,r,
-                new int[]{
-                    Color.argb(bodyA,Color.red(light),Color.green(light),Color.blue(light)),
-                    Color.argb(bodyA,Color.red(mid),Color.green(mid),Color.blue(mid)),
-                    Color.argb(bodyA,Color.red(dark),Color.green(dark),Color.blue(dark))
-                },new float[]{0f,.55f,1f},Shader.TileMode.CLAMP));
-            c.drawPath(shape,p);p.setShader(null);
-
-            // Hard-edged cel shadow clipped to lower/right side.
-            c.save();
-            c.clipPath(shape);
-            p.setColor(Color.argb(58,6,22,55));
-            Path shade=new Path();
-            shade.moveTo(-r*1.1f,r*.20f);
-            shade.cubicTo(-r*.25f,r*.08f,r*.15f,r*.36f,r*1.05f,-r*.05f);
-            shade.lineTo(r*1.1f,r*1.2f);shade.lineTo(-r*1.1f,r*1.2f);shade.close();
-            c.drawPath(shade,p);
-
-            // Big anime glossy highlight.
-            p.setColor(Color.argb(150,255,255,255));
-            c.drawOval(new RectF(-r*.58f,-r*.68f,r*.06f,-r*.34f),p);
-            p.setColor(Color.argb(72,255,255,255));
-            c.drawOval(new RectF(-r*.62f,-r*.24f,-r*.38f,-r*.05f),p);
-            c.restore();
-
-            drawMarkings(c,r);
-            drawCore(c,r);
-            drawEyes(c,r);
-
-            // Tiny expression line gives the slime a more animated/chibi face.
-            stroke.setStrokeWidth(Math.max(2.5f,r*.020f));
-            stroke.setColor(Color.argb(175,16,31,55));
-            RectF mouth=new RectF(-r*.12f,r*.08f,r*.12f,r*.22f);
-            c.drawArc(mouth,15,150,false,stroke);
-
-            // Cyan rim light.
-            stroke.setStrokeWidth(Math.max(2f,r*.014f));
-            stroke.setColor(Color.argb(210,190,249,255));
-            c.drawArc(new RectF(-r*.77f,-r*.84f,r*.77f,r*.86f),198,118,false,stroke);
+            // Eye customization changes glow language while retaining the original painted eyes.
+            int eyeGlow=eyes==1?Color.rgb(115,235,255):eyes==2?Color.rgb(183,94,255):eyes==3?Color.rgb(255,229,121):Color.rgb(190,247,255);
+            float ep=.72f+.28f*(float)Math.sin(now/210.0);
+            drawGlow(c,-r*.27f,-r*.18f,r*.095f,Color.argb((int)(55*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+            drawGlow(c, r*.27f,-r*.18f,r*.095f,Color.argb((int)(55*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+            if(eyes==3){
+                p.setColor(Color.argb((int)(150*ep),255,239,159));
+                drawStar(c,-r*.27f,-r*.18f,r*.035f,p);
+                drawStar(c, r*.27f,-r*.18f,r*.035f,p);
+            }
 
             c.restore();
+        }
+
+        ColorFilter slimePaintFilter(int idx){
+            float[] m;
+            switch(idx){
+                case 1: // amethyst
+                    m=new float[]{.95f,0,.48f,0,0, 0,.60f,.22f,0,0, .28f,0,1.22f,0,0, 0,0,0,1,0};break;
+                case 2: // ember
+                    m=new float[]{1.35f,.18f,0,0,0, .15f,.55f,0,0,0, 0,.04f,.48f,0,0, 0,0,0,1,0};break;
+                case 3: // jade
+                    m=new float[]{.42f,.08f,0,0,0, .08f,1.10f,.10f,0,0, 0,.24f,.70f,0,0, 0,0,0,1,0};break;
+                case 4: // pearl
+                    m=new float[]{.92f,.22f,.22f,0,18, .22f,.92f,.22f,0,18, .22f,.22f,.92f,0,18, 0,0,0,1,0};break;
+                case 5: // shadow
+                    m=new float[]{.42f,0,.16f,0,0, 0,.38f,.10f,0,0, .10f,0,.55f,0,0, 0,0,0,1,0};break;
+                default:
+                    m=new float[]{1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, 0,0,0,1,0};
+            }
+            return new ColorMatrixColorFilter(new ColorMatrix(m));
         }
 
         Path slimePath(float r){
