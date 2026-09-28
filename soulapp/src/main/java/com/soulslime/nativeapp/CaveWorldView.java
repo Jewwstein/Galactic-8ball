@@ -492,7 +492,7 @@ public class CaveWorldView extends View {
         float baseR=Math.min(w,h)*(room==0?.092f:.125f);
         float breathe=1f+.020f*(float)Math.sin(now/(room==0?280.0:350.0));
         float sway=(float)Math.sin(now/(room==0?620.0:880.0))*(room==0?2.2f:1.5f);
-        float alpha=state==DEFEATED?125:255;
+        int alpha=state==DEFEATED?125:255;
 
         drawActorShadow(c,enemyX,enemyY,baseR,room==0?.55f:.68f);
 
