@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     branches:
-      - 'prototype/soul-slime-native'
+      - 'prototype/soul-slime-v12-fixed'
   workflow_dispatch:
 
 jobs:
@@ -39,6 +39,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Restore real 3D creature assets
+        run: |
+          mkdir -p soulapp/src/main/assets
+          base64 -d soulapp/creature_payload/razorbeast.ssm.b64 > soulapp/src/main/assets/razorbeast.ssm
+          base64 -d soulapp/creature_payload/voidweaver.ssm.b64 > soulapp/src/main/assets/voidweaver.ssm
+          base64 -d soulapp/creature_payload/razorbeast.jpg.b64 > soulapp/src/main/assets/razorbeast.jpg
+          base64 -d soulapp/creature_payload/voidweaver.jpg.b64 > soulapp/src/main/assets/voidweaver.jpg
+          test -s soulapp/src/main/assets/razorbeast.ssm
+          test -s soulapp/src/main/assets/voidweaver.ssm
+          test -s soulapp/src/main/assets/razorbeast.jpg
+          test -s soulapp/src/main/assets/voidweaver.jpg
 
       - name: Prepare v8 painted room and creature art
         run: |
@@ -86,25 +98,25 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -n 4
-          cp "$APK" SoulSlime-Native-v10.apk
-          zip -q SoulSlime-Native-v10-APK.zip SoulSlime-Native-v10.apk
-          zip -qr SoulSlime-Native-v10-source.zip soulapp settings.gradle.kts build.gradle.kts
-          unzip -t SoulSlime-Native-v10-APK.zip >/dev/null
-          ls -lh SoulSlime-Native-v10.apk SoulSlime-Native-v10-APK.zip SoulSlime-Native-v10-source.zip
-          sha256sum SoulSlime-Native-v10.apk SoulSlime-Native-v10-APK.zip
+          cp "$APK" SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
+          zip -q SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
+          zip -qr SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip soulapp settings.gradle.kts build.gradle.kts
+          unzip -t SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip >/dev/null
+          ls -lh SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip
+          sha256sum SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SoulSlime-Native-v10
+          name: SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed
           path: |
-            SoulSlime-Native-v10.apk
-            SoulSlime-Native-v10-APK.zip
-            SoulSlime-Native-v10-source.zip
+            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk
+            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip
+            SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip
 
       - name: Publish permanent Soul Slime test download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view soul-slime-native-v10 >/dev/null 2>&1 || \
-            gh release create soul-slime-native-v10 --title "Soul Slime Native v10 — 3D Slime Clean Test" --notes "Clean 3D slime test: removes the legacy 2D slime from creator and cave so only the OpenGL 3D slime is visible. Keeps three mesh silhouettes, three materials, recoloring, decals, emissive core, transparency/aura controls, and painted cave gameplay." --prerelease --target prototype/soul-slime-native
-          gh release upload soul-slime-native-v10 SoulSlime-Native-v10.apk SoulSlime-Native-v10-APK.zip SoulSlime-Native-v10-source.zip --clobber
+          gh release view soul-slime-native-v12-fixed >/dev/null 2>&1 || \
+            gh release create soul-slime-native-v12-fixed --title "Soul Slime v12 — v10 Scenes + Grounded 3D Creatures" --notes "Scene-preserving v12 based directly on v10. Keeps Awakening Hollow, Crystal Descent, Forked Gallery, Silken Nest, painted collision paths, 3D slime creator/gameplay, and adds grounded real 3D Molten Razorbeast and Armored Voidweaver actors with encounter lighting and attack effects. No continuous creature spin or floating bob." --prerelease --target prototype/soul-slime-v12-fixed
+          gh release upload soul-slime-native-v12-fixed SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed.apk SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-APK.zip SoulSlime-v12-v10-Scenes-3D-Creatures-Fixed-source.zip --clobber
