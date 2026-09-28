@@ -36,6 +36,7 @@ public class CaveWorldView extends View {
     private int miteState=ALIVE,spiderState=ALIVE;
     private int miteHp=5,spiderHp=8;
     private boolean miteAbsorbed=false,spiderAbsorbed=false;
+    private boolean externalSlime3D=false;
     private boolean[] roomEssenceTaken=new boolean[5];
 
     private float playerX=-1,playerY=-1,moveX=0,moveY=0,lastFacing=1f;
@@ -209,6 +210,14 @@ public class CaveWorldView extends View {
         message="MIMICRY // "+formName()+" form.";
         notifyState();invalidate();
     }
+
+    public void setExternalSlime3D(boolean enabled){ externalSlime3D=enabled; invalidate(); }
+    public float getPlayerXNorm(){ return getWidth()>0?playerX/getWidth():.5f; }
+    public float getPlayerYNorm(){ return getHeight()>0?playerY/getHeight():.5f; }
+    public float getPlayerDepth(){ return getHeight()>0?(.76f+.34f*Math.max(0f,Math.min(1f,playerY/getHeight()))):1f; }
+    public float getMoveX(){ return moveX; }
+    public float getMoveY(){ return moveY; }
+    public int getCurrentForm(){ return currentForm; }
 
     public String roomName(){ return roomNames[room]; }
     public String message(){ return message; }
@@ -530,7 +539,7 @@ public class CaveWorldView extends View {
         }else if(currentForm==FORM_SPIDER&&spiderMaster!=null){
             drawSprite(c,spiderMaster,playerX,playerY,r*1.06f,255,lastFacing<0);
         }else{
-            drawLiveSlime(c,playerX,playerY,r,now);
+            if(!externalSlime3D)drawLiveSlime(c,playerX,playerY,r,now);
         }
     }
 
