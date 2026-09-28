@@ -36,7 +36,7 @@ public class CaveWorldView extends View {
     private int miteState=ALIVE,spiderState=ALIVE;
     private int miteHp=5,spiderHp=8;
     private boolean miteAbsorbed=false,spiderAbsorbed=false;
-    private boolean externalSlime3D=false;
+    private boolean externalSlime3D=true;
     private boolean[] roomEssenceTaken=new boolean[5];
 
     private float playerX=-1,playerY=-1,moveX=0,moveY=0,lastFacing=1f;
@@ -539,7 +539,10 @@ public class CaveWorldView extends View {
         }else if(currentForm==FORM_SPIDER&&spiderMaster!=null){
             drawSprite(c,spiderMaster,playerX,playerY,r*1.06f,255,lastFacing<0);
         }else{
-            if(!externalSlime3D)drawLiveSlime(c,playerX,playerY,r,now);
+            if(!externalSlime3D){
+                drawLiveSlime(c,playerX,playerY,r,now);
+            }
+            // When externalSlime3D is enabled, the OpenGL player is the only slime.
         }
     }
 
