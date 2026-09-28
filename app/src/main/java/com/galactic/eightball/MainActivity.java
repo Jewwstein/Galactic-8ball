@@ -5916,7 +5916,10 @@ public class MainActivity extends Activity {
         float ex=net.remoteArcadeX-arcadeX,ey=net.remoteArcadeY-arcadeY,ez=net.remoteArcadeZ-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);
         if(d>.001f){float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<95f){best=null;bestDot=dot;bestDist=d;remoteTarget=true;arcadeTargetX=net.remoteArcadeX;arcadeTargetY=net.remoteArcadeY;arcadeTargetZ=net.remoteArcadeZ;}}
       }
-      arcadeLocked=best!=null||remoteTarget;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);\n      // Auto-fire is additive: manual tap-to-fire remains available, but a genuine\n      // reticle lock fires as soon as the weapon cooldown is ready.\n      if(arcadeLocked&&arcadeShotClock<=0)tieFire=true;
+      arcadeLocked=best!=null||remoteTarget;arcadeShotClock-=dt;arcadeLaserT=Math.max(0,arcadeLaserT-dt);arcadeImpactFlash=Math.max(0,arcadeImpactFlash-dt*2.8f);
+      // Auto-fire is additive: manual tap-to-fire remains available, but a genuine
+      // reticle lock fires as soon as the weapon cooldown is ready.
+      if(arcadeLocked&&arcadeShotClock<=0)tieFire=true;
       if(!tieMode&&arcadeLocked&&!arcadeWasLocked&&sfx!=null)sfx.deathStarCharge();
       arcadeWasLocked=arcadeLocked;
       if(best!=null){arcadeTargetX=best.x;arcadeTargetY=best.y;arcadeTargetZ=best.z;}
@@ -5950,7 +5953,10 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
-        boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);\n        if(hostile&&!e.dying&&dogfightBolt!=null){float pulse=.35f+.16f*(float)Math.sin(System.currentTimeMillis()*.008+e.phase);float[] H=identity();android.opengl.Matrix.translateM(H,0,e.x,e.y-1.65f,e.z);android.opengl.Matrix.scaleM(H,0,2.45f+pulse,.065f,2.45f+pulse);drawMesh(dogfightBolt,pv,H,0,new float[]{1f,.72f,.10f,.78f});}\n        if(e.xwing){\n          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+        boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
+        if(hostile&&!e.dying&&dogfightBolt!=null){float pulse=.35f+.16f*(float)Math.sin(System.currentTimeMillis()*.008+e.phase);float[] H=identity();android.opengl.Matrix.translateM(H,0,e.x,e.y-1.65f,e.z);android.opengl.Matrix.scaleM(H,0,2.45f+pulse,.065f,2.45f+pulse);drawMesh(dogfightBolt,pv,H,0,new float[]{1f,.72f,.10f,.78f});}
+        if(e.xwing){
+          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
