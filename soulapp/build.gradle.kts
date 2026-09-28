@@ -8,8 +8,8 @@ android {
         applicationId = "com.soulslime.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.7-3d-slime-prototype"
+        versionCode = 10
+        versionName = "1.7.1-3d-slime-clean"
     }
 
     buildTypes {
