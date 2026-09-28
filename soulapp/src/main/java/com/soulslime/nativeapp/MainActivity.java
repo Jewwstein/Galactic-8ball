@@ -847,8 +847,7 @@ public class MainActivity extends Activity {
             else if(drawScene==Scene.CREATOR){
                 // 3D prototype: keep only the analysis-space backdrop here.
                 // The slime itself is rendered exclusively by Slime3DView.
-                drawAnalysis(c,w,h,now,w*.29f,h*.52f,false);
-            }else if(drawScene==Scene.CAVE) drawCaveGameplay(c,w,h,now);
+                drawAnalysis(c,w,h,now,w*.29f,h*.52f,false);            }else if(drawScene==Scene.CAVE) drawCaveGameplay(c,w,h,now);
             else drawCave(c,w,h,now);
             postInvalidateDelayed(16);
         }
@@ -997,3 +996,439 @@ public class MainActivity extends Activity {
             c.drawBitmap(masterSlime,null,dst,p);
             p.setColorFilter(null);
             p.setAlpha(255);
+
+            // Keep the master painting alive: internal light breathing and drifting bubbles.
+            float pulse=.72f+.28f*(float)Math.sin(now/280.0);
+            drawGlow(c,0,r*.18f,r*.30f,Color.argb((int)(45*pulse),205,252,255));
+            for(int i=0;i<8;i++){
+                double a=(now*.00055)+(i*.91);
+                float br=r*(.015f+(i%3)*.006f);
+                float bx=(float)Math.cos(a*1.7+i)*r*(.22f+.045f*i);
+                float by=(float)Math.sin(a+i*.63)*r*.36f+r*.08f;
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(Color.argb(55+(i%3)*18,230,252,255));
+                c.drawCircle(bx,by,br,p);
+            }
+
+            // Core customization rides over the existing painted core rather than replacing the illustration.
+            if(core!=3){
+                int coreColor=core==1?Color.rgb(255,221,112):core==2?Color.rgb(220,230,255):Color.rgb(139,247,255);
+                float cr=r*(core==1?.105f:.13f);
+                drawGlow(c,0,r*.19f,cr*2.8f,Color.argb(100,Color.red(coreColor),Color.green(coreColor),Color.blue(coreColor)));
+                stroke.setStrokeWidth(Math.max(2.5f,r*.016f));
+                stroke.setColor(Color.argb(185,Color.red(coreColor),Color.green(coreColor),Color.blue(coreColor)));
+                if(core==1)drawStar(c,0,r*.19f,cr,stroke);
+                else if(core==2)c.drawArc(new RectF(-cr,r*.19f-cr,cr,r*.19f+cr),45,245,false,stroke);
+                else c.drawCircle(0,r*.19f,cr,stroke);
+            }
+
+            // High-quality overlay customization: runes/speckles/crest are light-only overlays.
+            if(markings==1){
+                stroke.setStrokeWidth(Math.max(2f,r*.012f));
+                stroke.setColor(Color.argb(135,210,251,255));
+                c.drawArc(new RectF(-r*.22f,-r*.30f,r*.22f,r*.10f),205,130,false,stroke);
+            }else if(markings==2){
+                for(int i=0;i<12;i++){
+                    float bx=(float)Math.cos(i*.91)*r*(.25f+.025f*i);
+                    float by=(float)Math.sin(i*.77)*r*.34f;
+                    p.setColor(Color.argb(70,240,255,255));
+                    c.drawCircle(bx,by,Math.max(1.5f,r*.012f),p);
+                }
+            }else if(markings==3){
+                stroke.setStrokeWidth(Math.max(3f,r*.018f));
+                stroke.setColor(Color.argb(130,195,247,255));
+                c.drawArc(new RectF(-r*.45f,r*.05f,r*.45f,r*.65f),205,130,false,stroke);
+            }
+
+            // Eye customization changes glow language while retaining the original painted eyes.
+            int eyeGlow=eyes==1?Color.rgb(115,235,255):eyes==2?Color.rgb(183,94,255):eyes==3?Color.rgb(255,229,121):Color.rgb(190,247,255);
+            float ep=.72f+.28f*(float)Math.sin(now/210.0);
+            drawGlow(c,-r*.27f,-r*.18f,r*.095f,Color.argb((int)(55*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+            drawGlow(c, r*.27f,-r*.18f,r*.095f,Color.argb((int)(55*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+            if(eyes==3){
+                p.setColor(Color.argb((int)(150*ep),255,239,159));
+                drawStar(c,-r*.27f,-r*.18f,r*.035f,p);
+                drawStar(c, r*.27f,-r*.18f,r*.035f,p);
+            }
+
+            c.restore();
+        }
+
+        ColorFilter slimePaintFilter(int idx){
+            float[] m;
+            switch(idx){
+                case 1: // amethyst
+                    m=new float[]{.95f,0,.48f,0,0, 0,.60f,.22f,0,0, .28f,0,1.22f,0,0, 0,0,0,1,0};break;
+                case 2: // ember
+                    m=new float[]{1.35f,.18f,0,0,0, .15f,.55f,0,0,0, 0,.04f,.48f,0,0, 0,0,0,1,0};break;
+                case 3: // jade
+                    m=new float[]{.42f,.08f,0,0,0, .08f,1.10f,.10f,0,0, 0,.24f,.70f,0,0, 0,0,0,1,0};break;
+                case 4: // pearl
+                    m=new float[]{.92f,.22f,.22f,0,18, .22f,.92f,.22f,0,18, .22f,.22f,.92f,0,18, 0,0,0,1,0};break;
+                case 5: // shadow
+                    m=new float[]{.42f,0,.16f,0,0, 0,.38f,.10f,0,0, .10f,0,.55f,0,0, 0,0,0,1,0};break;
+                default:
+                    m=new float[]{1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, 0,0,0,1,0};
+            }
+            return new ColorMatrixColorFilter(new ColorMatrix(m));
+        }
+
+        Path slimePath(float r){
+            Path q=new Path();
+            if(body==1){
+                q.moveTo(0,-r*.95f);
+                q.cubicTo(r*.30f,-r*.62f,r*.72f,-r*.18f,r*.74f,r*.30f);
+                q.cubicTo(r*.78f,r*.82f,r*.38f,r,0,r);
+                q.cubicTo(-r*.38f,r,-r*.78f,r*.82f,-r*.74f,r*.30f);
+                q.cubicTo(-r*.72f,-r*.18f,-r*.30f,-r*.62f,0,-r*.95f);
+            }else if(body==2){
+                q.moveTo(-r*.88f,r*.32f);
+                q.cubicTo(-r*.92f,-r*.48f,-r*.42f,-r*.78f,0,-r*.80f);
+                q.cubicTo(r*.42f,-r*.78f,r*.92f,-r*.48f,r*.88f,r*.32f);
+                q.cubicTo(r*.80f,r*.87f,r*.28f,r*.96f,0,r*.96f);
+                q.cubicTo(-r*.28f,r*.96f,-r*.80f,r*.87f,-r*.88f,r*.32f);
+            }else if(body==3){
+                q.moveTo(-r*.70f,r*.58f);
+                q.cubicTo(-r*.84f,-r*.20f,-r*.48f,-r*.70f,-r*.24f,-r*.62f);
+                q.lineTo(-r*.10f,-r*.95f);
+                q.lineTo(r*.08f,-r*.64f);
+                q.lineTo(r*.30f,-r*.98f);
+                q.lineTo(r*.38f,-r*.58f);
+                q.cubicTo(r*.72f,-r*.48f,r*.84f,.0f,r*.70f,r*.58f);
+                q.cubicTo(r*.48f,r*.95f,-r*.48f,r*.95f,-r*.70f,r*.58f);
+            }else{
+                q.moveTo(-r*.74f,r*.46f);
+                q.cubicTo(-r*.86f,-r*.28f,-r*.46f,-r*.82f,0,-r*.82f);
+                q.cubicTo(r*.46f,-r*.82f,r*.86f,-r*.28f,r*.74f,r*.46f);
+                q.cubicTo(r*.64f,r*.92f,-r*.64f,r*.92f,-r*.74f,r*.46f);
+            }
+            q.close(); return q;
+        }
+
+        int slimeColor(){
+            int[] colors={
+                Color.rgb(44,184,255),Color.rgb(149,87,255),Color.rgb(255,91,56),
+                Color.rgb(63,214,133),Color.rgb(222,241,250),Color.rgb(50,42,78)
+            };
+            return colors[Math.max(0,Math.min(colors.length-1,color))];
+        }
+
+        void drawEyes(Canvas c,float r){
+            float y=-r*.12f, dx=r*.25f;
+            if(eyes==2){
+                for(int s=-1;s<=1;s+=2){
+                    stroke.setStrokeWidth(5);
+                    stroke.setColor(Color.rgb(175,92,255));
+                    c.drawCircle(s*dx,y,r*.12f,stroke);
+                    p.setColor(Color.rgb(17,8,31));c.drawCircle(s*dx,y,r*.095f,p);
+                    p.setColor(Color.WHITE);c.drawCircle(s*dx-r*.025f,y-r*.030f,r*.025f,p);
+                }
+            }else if(eyes==1){
+                p.setColor(Color.rgb(6,15,29));
+                Path l=new Path();l.moveTo(-dx-r*.13f,y-r*.03f);l.lineTo(-dx+r*.12f,y-r*.10f);l.lineTo(-dx+r*.08f,y+r*.11f);l.lineTo(-dx-r*.11f,y+r*.08f);l.close();c.drawPath(l,p);
+                Path rr=new Path();rr.moveTo(dx+r*.13f,y-r*.03f);rr.lineTo(dx-r*.12f,y-r*.10f);rr.lineTo(dx-r*.08f,y+r*.11f);rr.lineTo(dx+r*.11f,y+r*.08f);rr.close();c.drawPath(rr,p);
+                p.setColor(CYAN_BRIGHT);c.drawCircle(-dx,y,r*.026f,p);c.drawCircle(dx,y,r*.026f,p);
+            }else if(eyes==3){
+                p.setColor(Color.rgb(255,231,112));
+                drawStar(c,-dx,y,r*.12f,p);drawStar(c,dx,y,r*.12f,p);
+            }else{
+                p.setColor(Color.rgb(8,18,37));
+                c.drawOval(new RectF(-dx-r*.115f,y-r*.165f,-dx+r*.115f,y+r*.165f),p);
+                c.drawOval(new RectF(dx-r*.115f,y-r*.165f,dx+r*.115f,y+r*.165f),p);
+                p.setColor(Color.rgb(220,252,255));
+                c.drawCircle(-dx-r*.035f,y-r*.060f,r*.037f,p);
+                c.drawCircle(dx-r*.035f,y-r*.060f,r*.037f,p);
+                p.setColor(Color.argb(140,255,255,255));
+                c.drawCircle(-dx+r*.025f,y+r*.045f,r*.018f,p);
+                c.drawCircle(dx+r*.025f,y+r*.045f,r*.018f,p);
+            }
+        }
+
+        void drawMarkings(Canvas c,float r){
+            if(markings==0)return;
+            if(markings==1){
+                stroke.setStrokeWidth(5);
+                stroke.setColor(Color.argb(170,225,253,255));
+                RectF a=new RectF(-r*.24f,-r*.48f,r*.24f,0);
+                c.drawArc(a,205,130,false,stroke);
+                c.drawLine(0,-r*.55f,0,-r*.35f,stroke);
+            }else if(markings==2){
+                p.setColor(Color.argb(110,244,255,255));
+                for(int i=0;i<16;i++){
+                    float a=i*.87f;
+                    float rr=r*(.18f+.42f*((i*31)%100)/100f);
+                    c.drawCircle((float)Math.cos(a)*rr,(float)Math.sin(a)*rr+r*.16f,2+(i%4),p);
+                }
+            }else{
+                stroke.setStrokeWidth(7);
+                stroke.setColor(Color.argb(150,220,252,255));
+                c.drawArc(new RectF(-r*.46f,r*.08f,r*.46f,r*.84f),205,130,false,stroke);
+            }
+        }
+
+        void drawCore(Canvas c,float r){
+            if(core==3)return;
+            float x=0,y=r*.38f;
+            drawGlow(c,x,y,r*.19f,Color.argb(100,120,244,255));
+            if(core==1){
+                p.setColor(Color.rgb(255,223,83));drawStar(c,x,y,r*.11f,p);
+            }else if(core==2){
+                p.setColor(Color.rgb(235,247,255));c.drawCircle(x,y,r*.105f,p);
+                p.setColor(blend(slimeColor(),Color.BLACK,.25f));c.drawCircle(x+r*.052f,y-r*.018f,r*.095f,p);
+            }else{
+                p.setColor(Color.rgb(131,246,255));c.drawCircle(x,y,r*.105f,p);
+                stroke.setStrokeWidth(3);stroke.setColor(Color.WHITE);c.drawCircle(x,y,r*.105f,stroke);
+                p.setColor(Color.WHITE);c.drawCircle(x-r*.032f,y-r*.035f,r*.026f,p);
+            }
+        }
+
+
+        void drawCaveGameplay(Canvas c,int w,int h,long now){
+            if(!caveInitialized){
+                playerX=w*.18f;playerY=h*.62f;
+                enemyX=w*.76f;enemyY=h*.55f;
+                enemyVx=enemyVy=0;
+                caveInitialized=true;lastFrame=now;
+            }
+            float dt=lastFrame==0?0f:Math.min(.033f,(now-lastFrame)/1000f);
+            lastFrame=now;
+
+            // Movement: responsive anime glide with slight hop/squash handled in slime renderer.
+            float m=(float)Math.sqrt(moveX*moveX+moveY*moveY);
+            float nx=m>.01f?moveX/m:0,ny=m>.01f?moveY/m:0;
+            float speed=Math.min(w,h)*.48f;
+            float vx=nx*speed,vy=ny*speed;
+            playerX+=vx*dt;playerY+=vy*dt;
+            playerX=Math.max(w*.07f,Math.min(w*.93f,playerX));
+            playerY=Math.max(h*.24f,Math.min(h*.82f,playerY));
+
+            if(m>.01f)playerTrailStart=now;
+
+            // Enemy floats toward the player, then gets knocked back by attacks.
+            if(enemyHp>0){
+                float dx=playerX-enemyX,dy=playerY-enemyY;
+                float d=(float)Math.sqrt(dx*dx+dy*dy);
+                if(d>1){
+                    enemyVx+=dx/d*w*.018f*dt;
+                    enemyVy+=dy/d*h*.018f*dt;
+                }
+                enemyVx*=.965f;enemyVy*=.965f;
+                enemyX+=enemyVx*dt;enemyY+=enemyVy*dt;
+                enemyX=Math.max(w*.08f,Math.min(w*.92f,enemyX));
+                enemyY=Math.max(h*.28f,Math.min(h*.80f,enemyY));
+            }
+
+            drawAnimeCave(c,w,h,now);
+
+            // Crystals and auto-pickup.
+            for(int i=0;i<crystalNorm.length;i++){
+                if(crystalTaken[i])continue;
+                float cx=crystalNorm[i][0]*w,cy=crystalNorm[i][1]*h;
+                drawCrystal(c,cx,cy,Math.min(w,h)*.040f,now+i*173);
+                float dx=cx-playerX,dy=cy-playerY;
+                float rr=Math.min(w,h)*.085f;
+                if(dx*dx+dy*dy<rr*rr){
+                    crystalTaken[i]=true;caveCrystals++;
+                    absorbStart=now;
+                    runOnUiThread(()->updateCaveHud());
+                }
+            }
+
+            if(enemyHp>0)drawCaveEnemy(c,enemyX,enemyY,Math.min(w,h)*.075f,now);
+
+            // Movement afterimages / speed streaks.
+            if(m>.01f){
+                p.setColor(Color.argb(45,120,238,255));
+                for(int i=1;i<=3;i++){
+                    float tx=playerX-vx*.035f*i,ty=playerY-vy*.035f*i;
+                    c.drawOval(new RectF(tx-18,ty-9,tx+18,ty+9),p);
+                }
+            }
+
+            drawAnimeSlime(c,playerX,playerY,Math.min(w,h)*.085f,now,vx,vy,true);
+
+            // Anime attack: luminous crescent + impact burst + speed lines.
+            long attackAge=now-attackStart;
+            if(attackStart>0&&attackAge<360){
+                float t=attackAge/360f;
+                float dir=lastFacing>=0?1f:-1f;
+                float reach=Math.min(w,h)*(.13f+.16f*t);
+                float ax=playerX+dir*reach,ay=playerY;
+                if(slashSprite!=null){
+                    float sw=Math.min(w,h)*.40f;
+                    float sh=sw*.50f;
+                    c.save();
+                    if(dir<0)c.scale(-1f,1f,playerX,playerY);
+                    RectF sr=new RectF(playerX,playerY-sh*.62f,playerX+sw,playerY+sh*.38f);
+                    p.setAlpha((int)(245*(1f-t)));
+                    c.drawBitmap(slashSprite,null,sr,p);
+                    p.setAlpha(255);
+                    c.restore();
+                }
+                stroke.setStyle(Paint.Style.STROKE);
+                stroke.setStrokeWidth(Math.max(8f,h*.018f)*(1f-t*.45f));
+                stroke.setColor(Color.argb((int)(245*(1-t)),190,251,255));
+                RectF arc=new RectF(ax-reach*.48f,ay-reach*.70f,ax+reach*.48f,ay+reach*.70f);
+                c.drawArc(arc,dir>0?-72:108,dir>0?144:-144,false,stroke);
+                stroke.setStrokeWidth(3);
+                stroke.setColor(Color.argb((int)(210*(1-t)),86,203,255));
+                c.drawArc(new RectF(arc.left-12,arc.top-12,arc.right+12,arc.bottom+12),
+                    dir>0?-70:110,dir>0?140:-140,false,stroke);
+                for(int i=0;i<12;i++){
+                    float yy=ay+(i-6)*h*.012f;
+                    float len=(1f-t)*w*(.045f+.006f*(i%4));
+                    p.setColor(Color.argb((int)(95*(1-t)),185,246,255));
+                    c.drawRect(dir>0?playerX-len:playerX,yy,dir>0?playerX:playerX+len,yy+2,p);
+                }
+            }
+
+            long hitAge=now-enemyHitStart;
+            if(enemyHitStart>0&&hitAge<300&&enemyHp>=0){
+                float t=hitAge/300f;
+                if(impactSprite!=null){
+                    float rr=Math.min(w,h)*(.11f+.08f*t);
+                    RectF ir=new RectF(enemyX-rr,enemyY-rr,enemyX+rr,enemyY+rr);
+                    p.setAlpha((int)(255*(1f-t)));
+                    c.drawBitmap(impactSprite,null,ir,p);
+                    p.setAlpha(255);
+                }
+                for(int i=0;i<18;i++){
+                    double a=i*Math.PI*2/18.0;
+                    float len=Math.min(w,h)*(.04f+.09f*(1-t));
+                    stroke.setStrokeWidth(3);
+                    stroke.setColor(Color.argb((int)(230*(1-t)),255,238,145));
+                    c.drawLine(enemyX,enemyY,enemyX+(float)Math.cos(a)*len,enemyY+(float)Math.sin(a)*len,stroke);
+                }
+            }
+
+            long absorbAge=now-absorbStart;
+            if(absorbStart>0&&absorbAge<620){
+                float t=absorbAge/620f;
+                if(absorbSprite!=null){
+                    float rr=Math.min(w,h)*(.13f+.27f*t);
+                    RectF ar=new RectF(playerX-rr,playerY-rr,playerX+rr,playerY+rr);
+                    p.setAlpha((int)(220*(1f-t)));
+                    c.drawBitmap(absorbSprite,null,ar,p);
+                    p.setAlpha(255);
+                }
+                stroke.setStrokeWidth(5);
+                stroke.setColor(Color.argb((int)(210*(1-t)),108,255,207));
+                c.drawCircle(playerX,playerY,Math.min(w,h)*(.08f+.26f*t),stroke);
+            }
+
+            if(enemyHp<=0){
+                p.setColor(Color.argb(210,188,255,224));
+                p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(20,h*.036f));
+                c.drawText("CAVE MITE DEFEATED",w*.76f,h*.22f,p);
+                p.setTextAlign(Paint.Align.LEFT);
+            }
+        }
+
+        void drawCoverBitmap(Canvas c,Bitmap bmp,int w,int h,float offX,float offY,int alpha){
+            if(bmp==null)return;
+            float scale=Math.max(w/(float)bmp.getWidth(),h/(float)bmp.getHeight());
+            float dw=bmp.getWidth()*scale,dh=bmp.getHeight()*scale;
+            float left=(w-dw)/2f+offX,top=(h-dh)/2f+offY;
+            RectF dst=new RectF(left,top,left+dw,top+dh);
+            p.setAlpha(alpha);c.drawBitmap(bmp,null,dst,p);p.setAlpha(255);
+        }
+
+        void drawAnimeCave(Canvas c,int w,int h,long now){
+            if(caveBg==null){
+                p.setShader(new LinearGradient(0,0,0,h,Color.rgb(8,15,34),Color.rgb(10,28,48),Shader.TileMode.CLAMP));
+                c.drawRect(0,0,w,h,p);p.setShader(null);
+                drawGlow(c,w*.56f,h*.40f,Math.min(w,h)*.52f,Color.argb(80,90,180,255));
+                return;
+            }
+
+            float nx=caveInitialized?((playerX/Math.max(1f,w))-.5f):0f;
+            float ny=caveInitialized?((playerY/Math.max(1f,h))-.5f):0f;
+            drawCoverBitmap(c,caveBg,w,h,nx*-10f,ny*-5f,255);
+            if(caveMid!=null) drawCoverBitmap(c,caveMid,w,h,nx*-24f,ny*-10f,255);
+
+            // A very subtle moving light pass keeps the painted background alive.
+            float pulse=.72f+.28f*(float)Math.sin(now/850.0);
+            drawGlow(c,w*.53f,h*.43f,Math.min(w,h)*.34f,Color.argb((int)(28*pulse),104,215,255));
+            drawGlow(c,w*.76f,h*.50f,Math.min(w,h)*.19f,Color.argb((int)(18*pulse),191,112,255));
+
+            for(int i=0;i<px.length;i++){
+                float x=(px[i]*w+(now*.009f*(i%3+1)))%w;
+                float y=py[i]*h;
+                p.setColor(Color.argb(35+(i%5)*11,178,244,255));
+                c.drawCircle(x,y,Math.max(1f,ps[i]*.72f),p);
+            }
+
+            if(caveFg!=null) drawCoverBitmap(c,caveFg,w,h,nx*-38f,ny*-14f,255);
+        }
+
+        void drawCrystal(Canvas c,float x,float y,float r,long now){
+            float bob=(float)Math.sin(now/280.0)*r*.10f;
+            if(crystalSprite!=null){
+                drawGlow(c,x,y+bob,r*2.35f,Color.argb(48,78,215,255));
+                RectF dst=new RectF(x-r*1.08f,y+bob-r*1.10f,x+r*1.08f,y+bob+r*1.10f);
+                p.setAlpha(245);
+                c.drawBitmap(crystalSprite,null,dst,p);
+                p.setAlpha(255);
+                return;
+            }
+            c.save();c.translate(x,y+bob);
+            Path q=new Path();
+            q.moveTo(0,-r);q.lineTo(r*.58f,-r*.20f);q.lineTo(r*.34f,r*.78f);
+            q.lineTo(-r*.34f,r*.78f);q.lineTo(-r*.58f,-r*.20f);q.close();
+            p.setColor(Color.rgb(112,227,255));c.drawPath(q,p);
+            stroke.setStrokeWidth(3);stroke.setColor(Color.rgb(214,252,255));c.drawPath(q,stroke);
+            c.restore();
+        }
+
+        void drawCaveEnemy(Canvas c,float x,float y,float r,long now){
+            float bob=(float)Math.sin(now/260.0)*r*.08f;
+            if(caveMiteSprite!=null){
+                drawGlow(c,x,y+bob,r*2.5f,Color.argb(28,161,91,255));
+                float hit=(enemyHitStart>0&&now-enemyHitStart<160)?1f:0f;
+                float squash=hit>0?.90f:1f;
+                RectF dst=new RectF(x-r*1.35f,y+bob-r*1.35f*squash,x+r*1.35f,y+bob+r*1.35f*squash);
+                p.setAlpha(hit>0?190:255);
+                c.drawBitmap(caveMiteSprite,null,dst,p);
+                p.setAlpha(255);
+                return;
+            }
+            p.setColor(Color.rgb(112,55,171));
+            c.drawCircle(x,y+bob,r,p);
+        }
+
+        void drawCave(Canvas c,int w,int h,long now){
+            p.setShader(new LinearGradient(0,0,0,h,Color.rgb(2,8,16),Color.rgb(7,28,42),Shader.TileMode.CLAMP));
+            c.drawRect(0,0,w,h,p);p.setShader(null);
+            drawGlow(c,w*.5f,h*.38f,Math.min(w,h)*.28f,Color.argb(90,80,221,255));
+            p.setColor(Color.rgb(3,11,18));
+            Path top=new Path();top.moveTo(0,0);top.lineTo(w,0);top.lineTo(w,h*.16f);
+            for(int i=0;i<10;i++) top.lineTo(w-i*w/9f,h*(.15f+.18f*((i*17)%100)/100f));
+            top.lineTo(0,h*.22f);top.close();c.drawPath(top,p);
+            p.setColor(Color.rgb(4,17,25));c.drawRect(0,h*.72f,w,h,p);
+        }
+
+        void drawGlow(Canvas c,float x,float y,float r,int color){
+            int transparent=Color.argb(0,Color.red(color),Color.green(color),Color.blue(color));
+            p.setShader(new RadialGradient(x,y,r,new int[]{color,transparent},null,Shader.TileMode.CLAMP));
+            c.drawCircle(x,y,r,p);p.setShader(null);
+        }
+
+        void drawStar(Canvas c,float x,float y,float r,Paint paint){
+            Path s=new Path();
+            for(int i=0;i<10;i++){
+                float rr=(i%2==0)?r:r*.44f;
+                double a=-Math.PI/2+i*Math.PI/5;
+                float xx=x+(float)Math.cos(a)*rr, yy=y+(float)Math.sin(a)*rr;
+                if(i==0)s.moveTo(xx,yy); else s.lineTo(xx,yy);
+            }
+            s.close();c.drawPath(s,paint);
+        }
+
+        int blend(int a,int b,float t){
+            int r=(int)(Color.red(a)*(1-t)+Color.red(b)*t);
+            int g=(int)(Color.green(a)*(1-t)+Color.green(b)*t);
+            int bl=(int)(Color.blue(a)*(1-t)+Color.blue(b)*t);
+            return Color.rgb(r,g,bl);
+        }
+    }
+}
