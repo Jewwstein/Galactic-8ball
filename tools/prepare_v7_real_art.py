@@ -15,13 +15,13 @@ raw=base64.b64decode(payload)
 
 with zipfile.ZipFile(io.BytesIO(raw)) as z:
     names=set(z.namelist())
-    required={"slime_v7q.webp","dragon_v7q.webp","rooms_v7q.webp"}
+    required={"slime_v7mini.webp","dragon_v7mini.webp","rooms_v7mini.webp"}
     missing=required-names
     if missing:
         raise SystemExit(f"Missing v7 art assets: {sorted(missing)}")
-    slime=Image.open(io.BytesIO(z.read("slime_v7q.webp"))).convert("RGBA")
-    dragon=Image.open(io.BytesIO(z.read("dragon_v7q.webp"))).convert("RGBA")
-    rooms=Image.open(io.BytesIO(z.read("rooms_v7q.webp"))).convert("RGB")
+    slime=Image.open(io.BytesIO(z.read("slime_v7mini.webp"))).convert("RGBA")
+    dragon=Image.open(io.BytesIO(z.read("dragon_v7mini.webp"))).convert("RGBA")
+    rooms=Image.open(io.BytesIO(z.read("rooms_v7mini.webp"))).convert("RGB")
 
 # Preserve the actual uploaded painted references as the runtime masters.
 slime.save(OUT/"slime_master.webp","WEBP",quality=92,method=6)
