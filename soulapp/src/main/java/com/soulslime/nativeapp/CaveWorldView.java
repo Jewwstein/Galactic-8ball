@@ -77,6 +77,7 @@ public class CaveWorldView extends View {
 
     private Bitmap caveBase,caveObsidian,caveMana,caveCross,caveWeb,caveScale,caveCrypt,caveEcho,caveShard,caveGrotto,caveVault,caveChasm,caveGate,caveApproach,caveDragon,caveExit;
     private Bitmap mid,fg,crystal,essenceOrb,mite,spider,lizard,dragon,slash,impact,absorbFx,webFx,stormFx;
+    private Bitmap paintedAwakening,paintedSpider,paintedLizard,paintedDragon,masterSlime,masterDragon;
 
     public CaveWorldView(Context c,int body,int color,int eyes,int markings,int core,int alpha,int aura,String skill,Listener l){
         super(c);
@@ -89,6 +90,15 @@ public class CaveWorldView extends View {
     }
 
     private void loadArt(){
+        // Painted v7 masters reconstructed by the build pipeline from the uploaded references.
+        paintedAwakening=load(R.drawable.room_painted_awakening);
+        paintedSpider=load(R.drawable.room_painted_spider);
+        paintedLizard=load(R.drawable.room_painted_lizard);
+        paintedDragon=load(R.drawable.room_painted_dragon);
+        masterSlime=load(R.drawable.slime_master);
+        masterDragon=load(R.drawable.dragon_master);
+
+        // Existing resources remain as fallbacks/effects and for non-final side creatures.
         caveBase=load(R.drawable.cave_bg);
         caveObsidian=load(R.drawable.cave_obsidian);
         caveMana=load(R.drawable.cave_mana);
@@ -108,7 +118,7 @@ public class CaveWorldView extends View {
         mid=load(R.drawable.cave_mid); fg=load(R.drawable.cave_fg);
         crystal=load(R.drawable.crystal_blue); essenceOrb=load(R.drawable.essence_orb);
         mite=load(R.drawable.cave_mite); spider=load(R.drawable.anime_spider);
-        lizard=load(R.drawable.anime_lizard); dragon=load(R.drawable.ancient_dragon);
+        lizard=load(R.drawable.anime_lizard); dragon=masterDragon!=null?masterDragon:load(R.drawable.ancient_dragon);
         slash=load(R.drawable.magic_slash); impact=load(R.drawable.impact_burst);
         absorbFx=load(R.drawable.absorb_ring); webFx=load(R.drawable.web_burst); stormFx=load(R.drawable.storm_burst);
     }
@@ -483,47 +493,72 @@ public class CaveWorldView extends View {
     }
 
     private Bitmap roomBitmap(){
+        // Every chamber is now staged from the painted concept art rather than procedural geometry.
         switch(room){
-            case 0:return caveBase;
-            case 1:return caveObsidian;
-            case 2:return caveMana;
-            case 3:return caveCross;
-            case 4:return caveWeb;
-            case 5:return caveScale;
-            case 6:return caveCrypt;
-            case 7:return caveEcho;
-            case 8:return caveShard;
-            case 9:return caveGrotto;
-            case 10:return caveVault;
-            case 11:return caveChasm;
-            case 12:return caveGate;
-            case 13:return caveApproach;
-            case 14:return caveDragon;
-            case 15:return caveExit;
+            case 0: return paintedAwakening!=null?paintedAwakening:caveBase;
+            case 1: return paintedAwakening!=null?paintedAwakening:caveObsidian;
+            case 2: return paintedAwakening!=null?paintedAwakening:caveMana;
+            case 3: return paintedAwakening!=null?paintedAwakening:caveCross;
+            case 4: return paintedSpider!=null?paintedSpider:caveWeb;
+            case 5: return paintedLizard!=null?paintedLizard:caveScale;
+            case 6: return paintedAwakening!=null?paintedAwakening:caveCrypt;
+            case 7: return paintedLizard!=null?paintedLizard:caveEcho;
+            case 8: return paintedAwakening!=null?paintedAwakening:caveShard;
+            case 9: return paintedSpider!=null?paintedSpider:caveGrotto;
+            case 10:return paintedDragon!=null?paintedDragon:caveVault;
+            case 11:return paintedAwakening!=null?paintedAwakening:caveChasm;
+            case 12:return paintedDragon!=null?paintedDragon:caveGate;
+            case 13:return paintedDragon!=null?paintedDragon:caveApproach;
+            case 14:return paintedDragon!=null?paintedDragon:caveDragon;
+            case 15:return paintedDragon!=null?paintedDragon:caveExit;
         }
-        return caveBase;
+        return paintedAwakening!=null?paintedAwakening:caveBase;
     }
 
     private void drawRoomBackground(Canvas c,int w,int h,long now){
         Bitmap b=roomBitmap();
-        float px=(playerX/Math.max(1f,w)-.5f);
-        float py=(playerY/Math.max(1f,h)-.5f);
+        if(b==null){c.drawColor(Color.rgb(7,12,22));return;}
 
-        drawPerspective(c,b,w,h,px*-20f,py*-8f,255,.075f);
-        if(mid!=null&&room!=14&&room!=15)drawPerspective(c,mid,w,h,px*-38f,py*-15f,175,.055f);
+        // "Live illustration" camera: preserve the painting, only breathe/pan it by a few percent.
+        float phase=(float)Math.sin(now/5400.0);
+        float phase2=(float)Math.cos(now/6600.0);
+        float zoom=1.045f+.012f*(float)Math.sin(now/4100.0);
+        float dw=w*zoom,dh=h*zoom;
+        float panX=phase*w*.012f + (playerX/Math.max(1f,w)-.5f)*-w*.018f;
+        float panY=phase2*h*.010f + (playerY/Math.max(1f,h)-.5f)*-h*.012f;
+        RectF dst=new RectF((w-dw)/2f+panX,(h-dh)/2f+panY,(w+dw)/2f+panX,(h+dh)/2f+panY);
+        p.setAlpha(255);
+        c.drawBitmap(b,null,dst,p);
 
-        float pulse=.72f+.28f*(float)Math.sin(now/780.0);
-        int glow=(room==4||room==9)?Color.rgb(194,76,96):(room==5||room==7)?Color.rgb(81,206,139):(room>=12&&room<=14)?Color.rgb(190,73,52):Color.rgb(84,208,255);
-        drawGlow(c,w*.54f,h*.48f,Math.min(w,h)*.31f,withAlpha(glow,(int)(26*pulse)));
+        // Atmospheric layers make the still painting feel alive without flattening the art.
+        int ambient=(room==4||room==9)?Color.rgb(224,55,79)
+            :(room==5||room==7)?Color.rgb(85,226,157)
+            :(room>=10&&room<=15)?Color.rgb(215,73,44)
+            :Color.rgb(84,218,255);
 
-        // drifting light dust gives the environment life without making it cartoonish.
-        for(int i=0;i<32;i++){
-            float x=((i*97)+(now*.011f*(1+i%3)))%w;
-            float y=(i*61%Math.max(1,h-100))+80;
-            p.setColor(withAlpha(room>=12?Color.rgb(255,133,72):Color.rgb(170,235,255),28+(i%5)*7));
-            c.drawCircle(x,y,1+(i%3),p);
+        float pulse=.70f+.30f*(float)Math.sin(now/760.0);
+        drawGlow(c,w*.52f,h*.53f,Math.min(w,h)*.34f,
+            Color.argb((int)(20+24*pulse),Color.red(ambient),Color.green(ambient),Color.blue(ambient)));
+
+        // Slow layered mist strip.
+        p.setShader(new LinearGradient(0,h*.56f,0,h,
+            new int[]{Color.TRANSPARENT,Color.argb(34,12,20,30),Color.argb(64,3,8,14)},
+            null,Shader.TileMode.CLAMP));
+        c.drawRect(0,h*.55f,w,h,p);p.setShader(null);
+
+        // Mana embers/dust drift in front of the painting.
+        for(int i=0;i<42;i++){
+            float x=((i*113)+(now*.010f*(1+i%4)))%w;
+            float y=((i*67)+(now*.004f*(1+i%3)))%Math.max(1,h-90)+45;
+            float rr=1f+(i%4)*.6f;
+            p.setColor(Color.argb(25+(i%5)*9,Color.red(ambient),Color.green(ambient),Color.blue(ambient)));
+            c.drawCircle(x,y,rr,p);
         }
-        if(fg!=null&&room!=15)drawPerspective(c,fg,w,h,px*-52f,py*-18f,205,.035f);
+
+        // Subtle foreground vignette adds depth without drawing over the scene.
+        p.setShader(new RadialGradient(w*.5f,h*.50f,Math.max(w,h)*.70f,
+            new int[]{Color.TRANSPARENT,Color.argb(72,0,0,0)},new float[]{.48f,1f},Shader.TileMode.CLAMP));
+        c.drawRect(0,0,w,h,p);p.setShader(null);
     }
 
     private void drawPerspective(Canvas c,Bitmap b,int w,int h,float offX,float offY,int alpha,float inset){
@@ -561,20 +596,54 @@ public class CaveWorldView extends View {
         int type=monsterType[room],state=monsterState[room];
         if(type==M_NONE||state==S_ABSORBED)return;
         if(state==S_FRIEND&&type!=M_DRAGON)return;
-        Bitmap b=type==M_MITE?mite:type==M_SPIDER?spider:type==M_LIZARD?lizard:dragon;
-        float rr=Math.min(w,h)*(type==M_DRAGON?.30f:type==M_MITE?.10f:.125f);
-        float bob=(float)Math.sin(now/(type==M_DRAGON?540.0:300.0))*rr*.035f;
 
-        drawActorShadow(c,monsterX,monsterY,rr,h,type==M_DRAGON?.70f:.48f);
-        drawSpriteDepth(c,b,monsterX,monsterY+bob+(state==S_DEFEATED?rr*.24f:0),rr,state==S_DEFEATED?125:255,false,h);
+        Bitmap b=type==M_MITE?mite:type==M_SPIDER?spider:type==M_LIZARD?lizard:(masterDragon!=null?masterDragon:dragon);
+        float rr=Math.min(w,h)*(type==M_DRAGON?.30f:type==M_MITE?.10f:.125f);
+        float bob=(float)Math.sin(now/(type==M_DRAGON?620.0:310.0))*rr*.030f;
+
+        drawActorShadow(c,monsterX,monsterY,rr,h,type==M_DRAGON?.75f:.50f);
+
+        if(type==M_DRAGON&&b!=null){
+            // Live-illustration dragon: breath, head/body sway illusion, wing-scale pulse, eye glow.
+            float breathe=1f+.018f*(float)Math.sin(now/520.0);
+            float sway=(float)Math.sin(now/1700.0)*1.3f;
+            float ds=depthScale(monsterY,h);
+            float r2=rr*ds;
+            c.save();
+            c.translate(monsterX,monsterY+bob+(state==S_DEFEATED?r2*.20f:0));
+            c.rotate(sway);
+            c.scale(breathe,1f+(1f-breathe)*.55f);
+            p.setAlpha(state==S_DEFEATED?125:255);
+            c.drawBitmap(b,null,new RectF(-r2,-r2,r2,r2),p);
+            p.setAlpha(255);
+            float eyePulse=.6f+.4f*(float)Math.sin(now/180.0);
+            drawGlow(c,-r2*.19f,-r2*.36f,r2*.055f,Color.argb((int)(95*eyePulse),255,75,28));
+            c.restore();
+        }else{
+            // Side creatures keep their painted sprite but receive the same live-illustration motion language.
+            float breathe=1f+.026f*(float)Math.sin(now/330.0+(room*.7));
+            float ds=depthScale(monsterY,h);
+            float r2=rr*ds;
+            c.save();
+            c.translate(monsterX,monsterY+bob+(state==S_DEFEATED?r2*.22f:0));
+            c.scale(breathe,2f-breathe);
+            if(state==S_DEFEATED)c.rotate(7f);
+            p.setAlpha(state==S_DEFEATED?125:255);
+            c.drawBitmap(b,null,new RectF(-r2,-r2,r2,r2),p);
+            p.setAlpha(255);
+            c.restore();
+        }
 
         if(state==S_ALIVE&&type!=M_DRAGON){
             float hp=Math.max(0,monsterHp[room]),max=Math.max(1,monsterMaxHp[room]);
             float scale=depthScale(monsterY,h),bw=rr*1.65f*scale;
-            p.setColor(Color.argb(185,7,12,19));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX+bw/2,monsterY-rr*1.23f*scale),7,7,p);
-            p.setColor(Color.rgb(205,61,64));c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX-bw/2+bw*(hp/max),monsterY-rr*1.23f*scale),7,7,p);
+            p.setColor(Color.argb(185,7,12,19));
+            c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX+bw/2,monsterY-rr*1.23f*scale),7,7,p);
+            p.setColor(Color.rgb(205,61,64));
+            c.drawRoundRect(new RectF(monsterX-bw/2,monsterY-rr*1.34f*scale,monsterX-bw/2+bw*(hp/max),monsterY-rr*1.23f*scale),7,7,p);
         }
-        if(type==M_DRAGON&&dragonBonded&&!dragonAbsorbed)drawGlow(c,monsterX,monsterY,rr*1.75f,Color.argb(35,157,220,255));
+        if(type==M_DRAGON&&dragonBonded&&!dragonAbsorbed)
+            drawGlow(c,monsterX,monsterY,rr*1.80f,Color.argb(38,157,220,255));
     }
 
     private void drawCompanions(Canvas c,int w,int h,long now){
@@ -594,8 +663,8 @@ public class CaveWorldView extends View {
         drawActorShadow(c,playerX,playerY,rr,h,.52f);
         if(currentForm==M_SPIDER&&spider!=null)drawSpriteDepth(c,spider,playerX,playerY,rr,255,lastFacing<0,h);
         else if(currentForm==M_LIZARD&&lizard!=null)drawSpriteDepth(c,lizard,playerX,playerY,rr,255,lastFacing<0,h);
-        else drawAnimeSlime(c,playerX,playerY,rr*depthScale(playerY,h),now);
-        if(stormHeart)drawGlow(c,playerX,playerY,rr*1.9f,Color.argb(32,166,128,255));
+        else drawLivePaintedSlime(c,playerX,playerY,rr*depthScale(playerY,h),now);
+        if(stormHeart)drawGlow(c,playerX,playerY,rr*1.9f,Color.argb(34,166,128,255));
     }
 
     private void drawEffects(Canvas c,int w,int h,long now){
@@ -665,6 +734,75 @@ public class CaveWorldView extends View {
         c.save();if(flip)c.scale(-1f,1f,x,y);
         RectF dst=new RectF(x-rr,y-rr,x+rr,y+rr);
         p.setAlpha(alpha);c.drawBitmap(b,null,dst,p);p.setAlpha(255);c.restore();
+    }
+
+    private void drawLivePaintedSlime(Canvas c,float cx,float cy,float r,long now){
+        if(masterSlime==null){ drawAnimeSlime(c,cx,cy,r,now); return; }
+
+        float mag=(float)Math.sqrt(moveX*moveX+moveY*moveY);
+        float idle=(float)Math.sin(now/350.0);
+        float hop=mag>.06f?Math.abs((float)Math.sin(now/118.0))*r*.10f:0f;
+        float sx=1f+.025f*idle,sy=1f-.018f*idle;
+        float rot=Math.max(-7f,Math.min(7f,moveX*7f));
+
+        if(slimeBody==1){sx*=.92f;sy*=1.09f;}
+        else if(slimeBody==2){sx*=1.12f;sy*=.92f;}
+        else if(slimeBody==3){sx*=.98f;sy*=1.05f;rot-=2f;}
+
+        int accent=slimeColor();
+        float auraPower=new float[]{.20f,.42f,.62f,.82f,1f}[Math.max(0,Math.min(4,slimeAura))];
+        drawGlow(c,cx,cy-hop,r*1.32f,Color.argb((int)(34+46*auraPower),Color.red(accent),Color.green(accent),Color.blue(accent)));
+
+        c.save();
+        c.translate(cx,cy-hop);
+        c.rotate(rot);
+        c.scale(sx,sy);
+        p.setAlpha(new int[]{155,185,220,245}[Math.max(0,Math.min(3,slimeAlpha))]);
+        p.setColorFilter(slimePaintFilter(slimeColorIndex));
+        c.drawBitmap(masterSlime,null,new RectF(-r,-r,r,r),p);
+        p.setColorFilter(null);p.setAlpha(255);
+
+        // Bubble drift + core breathing retain the painting while adding live motion.
+        float pulse=.68f+.32f*(float)Math.sin(now/270.0);
+        drawGlow(c,0,r*.18f,r*.30f,Color.argb((int)(45*pulse),210,252,255));
+        for(int i=0;i<6;i++){
+            double a=now*.00065+i*.82;
+            float bx=(float)Math.cos(a*1.4+i)*r*(.20f+i*.045f);
+            float by=(float)Math.sin(a+i*.41)*r*.34f+r*.06f;
+            p.setColor(Color.argb(50+(i%3)*18,235,253,255));
+            c.drawCircle(bx,by,Math.max(1.3f,r*(.012f+(i%2)*.005f)),p);
+        }
+
+        if(slimeCore!=3){
+            int cc=slimeCore==1?Color.rgb(255,222,112):slimeCore==2?Color.rgb(223,229,255):Color.rgb(142,247,255);
+            drawGlow(c,0,r*.19f,r*.28f,Color.argb(86,Color.red(cc),Color.green(cc),Color.blue(cc)));
+        }
+        if(slimeMarkings==1){
+            stroke.setStrokeWidth(Math.max(2f,r*.013f));stroke.setColor(Color.argb(125,215,251,255));
+            c.drawArc(new RectF(-r*.22f,-r*.29f,r*.22f,r*.10f),205,130,false,stroke);
+        }else if(slimeMarkings==3){
+            stroke.setStrokeWidth(Math.max(3f,r*.017f));stroke.setColor(Color.argb(120,194,246,255));
+            c.drawArc(new RectF(-r*.45f,r*.05f,r*.45f,r*.65f),205,130,false,stroke);
+        }
+
+        int eyeGlow=slimeEyes==1?Color.rgb(115,235,255):slimeEyes==2?Color.rgb(183,94,255):slimeEyes==3?Color.rgb(255,229,121):Color.rgb(190,247,255);
+        float ep=.72f+.28f*(float)Math.sin(now/205.0);
+        drawGlow(c,-r*.27f,-r*.18f,r*.092f,Color.argb((int)(50*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+        drawGlow(c, r*.27f,-r*.18f,r*.092f,Color.argb((int)(50*ep),Color.red(eyeGlow),Color.green(eyeGlow),Color.blue(eyeGlow)));
+        c.restore();
+    }
+
+    private ColorFilter slimePaintFilter(int idx){
+        float[] m;
+        switch(idx){
+            case 1:m=new float[]{.95f,0,.48f,0,0, 0,.60f,.22f,0,0, .28f,0,1.22f,0,0, 0,0,0,1,0};break;
+            case 2:m=new float[]{1.35f,.18f,0,0,0, .15f,.55f,0,0,0, 0,.04f,.48f,0,0, 0,0,0,1,0};break;
+            case 3:m=new float[]{.42f,.08f,0,0,0, .08f,1.10f,.10f,0,0, 0,.24f,.70f,0,0, 0,0,0,1,0};break;
+            case 4:m=new float[]{.92f,.22f,.22f,0,18, .22f,.92f,.22f,0,18, .22f,.22f,.92f,0,18, 0,0,0,1,0};break;
+            case 5:m=new float[]{.42f,0,.16f,0,0, 0,.38f,.10f,0,0, .10f,0,.55f,0,0, 0,0,0,1,0};break;
+            default:m=new float[]{1,0,0,0,0, 0,1,0,0,0, 0,0,1,0,0, 0,0,0,1,0};
+        }
+        return new ColorMatrixColorFilter(new ColorMatrix(m));
     }
 
     private void drawAnimeSlime(Canvas c,float cx,float cy,float r,long now){
