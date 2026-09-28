@@ -12,6 +12,12 @@ if not parts:
     raise SystemExit("No v7 art chunks found")
 payload="".join(p.read_text().strip() for p in parts)
 raw=base64.b64decode(payload)
+import hashlib
+EXPECTED_SHA256="f835fc66477f572de493a0f6e640850a94c433e51ea32b589e9a7094a178a3d6"
+actual_sha=hashlib.sha256(raw).hexdigest()
+if actual_sha != EXPECTED_SHA256:
+    raise SystemExit(f"v7 painted-art payload checksum mismatch: {actual_sha}")
+print("v7 painted-art payload verified",actual_sha)
 
 with zipfile.ZipFile(io.BytesIO(raw)) as z:
     names=set(z.namelist())
