@@ -8,8 +8,8 @@ android {
         applicationId = "com.soulslime.nativeapp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.8.0-v10-scenes-3d-creatures-fixed"
+        versionCode = 13
+        versionName = "1.8.1-spider-topology-axis-fix"
     }
 
     buildTypes {
