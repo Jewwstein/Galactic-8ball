@@ -1899,7 +1899,7 @@ public class MainActivity extends Activity {
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
-    int saberHiltPage=0;
+    int saberHiltPage=0, saberPreviewHilt=-1; long saberPreviewStarted=0;
     final RectF saberPrevPageRect=new RectF(),saberNextPageRect=new RectF();
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
@@ -2666,6 +2666,29 @@ public class MainActivity extends Activity {
 
       p.setTextAlign(Paint.Align.CENTER);p.setTextSize((portrait?11.5f:10.5f)*ui);p.setColor(0xFFB9C1CC);
       c.drawText("Locked reward hilts show their challenge source • tap CLOSE to return",w*.5f,y+ph-11*ui,p);
+      if(saberPreviewHilt>=0)drawSaberHologram(c,w,h,ui,saberPreviewHilt);
+    }
+
+    void drawSaberHologram(Canvas c,int w,int h,float ui,int index){
+      Bitmap b=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
+      if(b==null)return;
+      float cx=w*.5f,cy=h*.46f,pw=Math.min(w*.56f,310*ui),ph=Math.min(h*.58f,520*ui);
+      RectF panel=new RectF(cx-pw*.5f,cy-ph*.5f,cx+pw*.5f,cy+ph*.5f);
+      p.setColor(0xE608111B);p.setShadowLayer(28*ui,0,0,0xCC4DDCFF);c.drawRoundRect(panel,22*ui,22*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2*ui);stroke.setColor(0xCC70E8FF);c.drawRoundRect(panel,22*ui,22*ui,stroke);
+      float phase=(android.os.SystemClock.uptimeMillis()-saberPreviewStarted)*.0018f;
+      float sx=.18f+.82f*Math.abs((float)Math.cos(phase));
+      RectF art=new RectF(cx-pw*.23f,panel.top+48*ui,cx+pw*.23f,panel.bottom-52*ui);
+      c.save();c.scale(sx,1f,cx,art.centerY());
+      p.setShadowLayer(24*ui,0,0,0xDD61DFFF);
+      if(index==15){
+        android.graphics.ColorMatrix cm=new android.graphics.ColorMatrix(new float[]{1.42f,0,0,0,20,0,1.42f,0,0,20,0,0,1.42f,0,24,0,0,0,1,0});
+        p.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
+      }
+      drawBitmapFitCenter(c,b,art,p);p.clearShadowLayer();p.setColorFilter(null);c.restore();
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(14*ui);p.setColor(0xFFEAFBFF);
+      c.drawText(hiltNames[index],cx,panel.top+27*ui,p);
+      p.setTextSize(9.5f*ui);p.setColor(0xFF75DFFF);c.drawText("HOLOGRAPHIC SHOWCASE • TAP TO CLOSE",cx,panel.bottom-17*ui,p);
     }
 
     void drawPageButton(Canvas c,RectF rr,String label,boolean enabled,float ui){
@@ -2789,11 +2812,16 @@ public class MainActivity extends Activity {
       // tall two-column card, matching the in-game up/down presentation.
       Bitmap galleryBmp=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
       if(galleryBmp!=null){
-        if(index<BASE_HILT_COUNT){
+        if(index==15){
+          // Nebula art contains unusually deep blacks. Give this gallery card its own
+          // display-light pass without modifying the source PNG.
+          p.setShadowLayer(16*ui,0,0,0xAA8B5CFF);
+          android.graphics.ColorMatrix cm=new android.graphics.ColorMatrix(new float[]{
+            1.38f,0,0,0,18, 0,1.38f,0,0,18, 0,0,1.38f,0,22, 0,0,0,1,0});
+          p.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
           drawBitmapFitCenter(c,galleryBmp,art,p);
-}else{
-          drawBitmapFitCenter(c,galleryBmp,art,p);
-        }
+          p.clearShadowLayer();p.setColorFilter(null);
+        }else drawBitmapFitCenter(c,galleryBmp,art,p);
       }else drawRewardHiltArt(c,art,index,ui);
 
       if(locked){
@@ -3348,6 +3376,7 @@ public class MainActivity extends Activity {
       if(a==MotionEvent.ACTION_DOWN){
         // Saber loadout is a true modal. Tapping anywhere outside closes it.
         if(menuOpen){
+          if(saberPreviewHilt>=0){saberPreviewHilt=-1;invalidate();return true;}
           if(!saberPanelRect.contains(x,y)|| (y<saberPanelRect.top+54*getResources().getDisplayMetrics().density&&x>saberPanelRect.right-125*getResources().getDisplayMetrics().density)){menuOpen=false;invalidate();return true;}
           if(getHeight()>getWidth()){
             int pageCount=(visibleHiltOrder.length+1)/2;
@@ -3365,7 +3394,7 @@ public class MainActivity extends Activity {
               final int k=i;
               MainActivity aMain=ctx instanceof MainActivity?(MainActivity)ctx:null;
               if(aMain!=null&&!aMain.isHiltUnlocked(k))Toast.makeText(ctx,hiltNames[k]+" unlocks from "+rewardHiltSource(k)+".",Toast.LENGTH_SHORT).show();
-              else game.queueEvent(()->r.userSelectHilt(k));
+              else { game.queueEvent(()->r.userSelectHilt(k)); saberPreviewHilt=k; saberPreviewStarted=android.os.SystemClock.uptimeMillis(); invalidate(); }
               return true;
             }
           }
