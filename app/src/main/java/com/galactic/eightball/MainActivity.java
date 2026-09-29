@@ -4235,7 +4235,7 @@ public class MainActivity extends Activity {
       return new Mesh(p,uv);
     }
 
-    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f,11.6f,11.8f};return L[Math.max(0,Math.min(TOTAL_HILT_COUNT-1,hiltIndex))];}
+    float hiltWorldLength(){float[] L={10.8f,10.7f,10.5f,13.8f,10.7f,10.9f,8.8f,10.4f,11.0f,11.4f,11.2f,12.2f,15.2f,11.6f,11.8f,12.6f};int hi=Math.max(0,Math.min(L.length-1,hiltIndex));return L[hi];}
     float hiltWorldRadius(){return hiltIndex==3?.72f:(hiltIndex==11?.83f:.78f);}
     float hiltFrontEmitterOffset(){
       float L=hiltWorldLength();
