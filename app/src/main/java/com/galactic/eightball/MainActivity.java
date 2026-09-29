@@ -36,7 +36,7 @@ public class MainActivity extends Activity {
   static final String APK_MIME="application/vnd.android.package-archive";
   static final String REWARD_PREFS="galactic_rewards";
   static final int BADGE_CLEAN=1<<0,BADGE_SPEED=1<<1,BADGE_COMBO=1<<2,BADGE_SITH_TRIAL=1<<3,
-    BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6,BADGE_SOLIDS=1<<7,BADGE_STRIPES=1<<8;
+    BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6,BADGE_SOLIDS=1<<7,BADGE_STRIPES=1<<8,BADGE_RUN_TABLE=1<<9;
   static final int UNLOCK_YODA=1<<0,UNLOCK_AHSOKA=1<<1,UNLOCK_ANAKIN=1<<2,UNLOCK_NIHILUS=1<<3,
     UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6,UNLOCK_BABSY=1<<7,UNLOCK_BLUE_WRAITH=1<<8;
   static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=15;
@@ -725,7 +725,7 @@ public class MainActivity extends Activity {
 
     offlineSinglePlayer=offline;
     final int diff=Math.max(0,Math.min(3,difficulty));
-    final int challenge=Math.max(0,Math.min(6,challengeId));
+    final int challenge=Math.max(0,Math.min(9,challengeId));
 
     // Offline play never attempts login, room discovery, or any server action.
     // A saved account/token remains untouched so the player can go online later.
@@ -755,6 +755,7 @@ public class MainActivity extends Activity {
       case 6:return "Sith Victor";
       case 7:return "Solid Victory";
       case 8:return "Stripe Victory";
+      case 9:return "Run the Table";
       default:return "Challenge";
     }
   }
@@ -813,6 +814,7 @@ public class MainActivity extends Activity {
       case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
       case 7:awardReward(BADGE_SOLIDS,UNLOCK_BABSY,"SOLID VICTORY","Mystic Ninja Blade");break;
       case 8:awardReward(BADGE_STRIPES,UNLOCK_BLUE_WRAITH,"STRIPE VICTORY","Blue Wraith");break;
+      case 9:awardReward(BADGE_RUN_TABLE,0,"RUN THE TABLE","");break;
     }
   }
 
@@ -1891,7 +1893,7 @@ public class MainActivity extends Activity {
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
-    RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[10];
+    RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
     int saberHiltPage=0;
@@ -1953,7 +1955,7 @@ public class MainActivity extends Activity {
       try{tieHudPortrait=c.getResources().getDrawable(R.drawable.tie_arcade_hud_portrait,c.getTheme());}catch(Exception ignored){tieHudPortrait=null;}
       stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(4);
       for(int i=0;i<TOTAL_HILT_COUNT;i++)hiltChoices[i]=new RectF();
-      for(int i=0;i<10;i++)aiSubmenuRects[i]=new RectF();
+      for(int i=0;i<11;i++)aiSubmenuRects[i]=new RectF();
       for(int i=0;i<6;i++){
         hilts[i]=loadPortraitHilt(c,hiltFiles[i]);blades[i]=loadBlade(c,bladeFiles[i]);
         bladeChoices[i]=new RectF();
@@ -2039,7 +2041,7 @@ public class MainActivity extends Activity {
         // Central, screen-filling Galactic menu with deliberate tap-out space.
         float marginX=(portrait?22:54)*ui;
         float panelW=Math.min(w-marginX*2,portrait?Math.max(340*ui,w*.88f):Math.max(620*ui,w*.76f));
-        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?10:5);
+        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?11:5);
         float availableH=Math.max(300*ui,h-(portrait?150:110)*ui);
         float headerH=(portrait?58:62)*ui;
         float itemGap=(aiSubmenu==0?12:8)*ui;
@@ -2189,8 +2191,9 @@ public class MainActivity extends Activity {
         drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
         drawPremiumButton(c,aiSubmenuRects[6],"SOLID VICTORY","WIN AS SOLIDS • UNLOCK MYSTIC NINJA BLADE",ui,0xFF63D7FF,r.challengeMode&&r.challengeId==7);
         drawPremiumButton(c,aiSubmenuRects[7],"STRIPE VICTORY","WIN AS STRIPES • UNLOCK BLUE WRAITH",ui,0xFF63AFFF,r.challengeMode&&r.challengeId==8);
-        drawPremiumButton(c,aiSubmenuRects[8],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
-        drawPremiumButton(c,aiSubmenuRects[9],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
+        drawPremiumButton(c,aiSubmenuRects[8],"RUN THE TABLE","CLEAR YOUR SUIT + 8 IN ONE VISIT • HILT COMING LATER",ui,0xFFF4C542,r.challengeMode&&r.challengeId==9);
+        drawPremiumButton(c,aiSubmenuRects[9],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
+        drawPremiumButton(c,aiSubmenuRects[10],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
         return;
       }
 
@@ -3372,7 +3375,7 @@ public class MainActivity extends Activity {
         }
 
         if(sideMenuOpen&&aiSubmenu==2){
-          for(int i=0;i<7;i++){
+          for(int i=0;i<9;i++){
             if(aiSubmenuRects[i].contains(x,y)){
               final int challenge=i+1;
               sideMenuOpen=false;aiSubmenu=0;invalidate();
@@ -3388,7 +3391,7 @@ public class MainActivity extends Activity {
               return true;
             }
           }
-          if(aiSubmenuRects[8].contains(x,y)){
+          if(aiSubmenuRects[9].contains(x,y)){
             sideMenuOpen=false;aiSubmenu=0;invalidate();
             game.queueEvent(()->{
               r.aiDifficulty=1;r.challengeMode=false;r.challengeId=0;r.resetRack();
@@ -3397,7 +3400,7 @@ public class MainActivity extends Activity {
             Toast.makeText(ctx,"Standard Normal AI started. Beat it to unlock the Stormtrooper hilt.",Toast.LENGTH_SHORT).show();
             return true;
           }
-          if(aiSubmenuRects[9].contains(x,y)){aiSubmenu=0;invalidate();return true;}
+          if(aiSubmenuRects[10].contains(x,y)){aiSubmenu=0;invalidate();return true;}
           return true;
         }
 
@@ -3781,6 +3784,7 @@ public class MainActivity extends Activity {
     volatile int aiDifficulty=1; // 0 easy, 1 normal, 2 hard, 3 expert
     volatile boolean challengeMode=false,challengeComplete=false,challengeFailed=false;
     volatile int challengeId=0,challengePlayerShots=0,challengeScratches=0,challengeObjectsThisShot=0;
+    final HashSet<Integer> runTablePocketed=new HashSet<>();
     // Every AI game tracks every accolade simultaneously. challengeId is now
     // only the challenge the HUD/menu is focused on; it no longer gates rewards.
     volatile int challengeCompletedThisGameMask=0;
@@ -4889,6 +4893,7 @@ public class MainActivity extends Activity {
         case 6:return "SITH VICTOR";
         case 7:return "SOLID VICTORY";
         case 8:return "STRIPE VICTORY";
+        case 9:return "RUN THE TABLE";
         default:return "GALACTIC CHALLENGE";
       }
     }
@@ -4906,6 +4911,7 @@ public class MainActivity extends Activity {
         case 6:return "SITH VICTOR • WIN WITH A SITH HILT";
         case 7:return "SOLID VICTORY • WIN THE GAME AS SOLIDS";
         case 8:return "STRIPE VICTORY • WIN THE GAME AS STRIPES";
+        case 9:return "RUN THE TABLE • CLEAR YOUR SUIT + 8 IN ONE VISIT";
         default:return challengeName();
       }
     }
@@ -4913,7 +4919,7 @@ public class MainActivity extends Activity {
     void completeChallenge(){ completeChallenge(challengeId); }
 
     void completeChallenge(int rewardId){
-      if(!aiEnabled||rewardId<1||rewardId>8)return;
+      if(!aiEnabled||rewardId<1||rewardId>9)return;
       int bit=1<<(rewardId-1);
       if((challengeCompletedThisGameMask&bit)!=0)return;
       challengeCompletedThisGameMask|=bit;
@@ -4942,6 +4948,10 @@ public class MainActivity extends Activity {
         if(MainActivity.isSithHiltIndex(hiltIndex))completeChallenge(6);
         if(teamSuit[0]==1)completeChallenge(7);
         if(teamSuit[0]==2)completeChallenge(8);
+        int rs=teamSuit[0],start=rs==1?1:9,end=rs==1?7:15;
+        boolean ran=rs!=0;
+        for(int i=start;ran&&i<=end;i++)ran=runTablePocketed.contains(i);
+        if(ran)completeChallenge(9);
         if(aiDifficulty==1&&ctx instanceof MainActivity)
           new Handler(Looper.getMainLooper()).post(()->((MainActivity)ctx).awardNormalAiWin());
       }else if(challengeMode){
@@ -4953,12 +4963,13 @@ public class MainActivity extends Activity {
       if(sfx!=null){sfx.stopHum();sfx.stopVictory();}
       currentTeam=1;winnerTeam=0;activeShooter=1;teamSuit[0]=teamSuit[1]=0;
       tableOpen=true;gameOver=false;ballInHand=false;firstContactBall=0;ballsSunkThisShot.clear();
-      challengeComplete=false;challengeFailed=false;challengePlayerShots=0;challengeScratches=0;challengeObjectsThisShot=0;challengeCompletedThisGameMask=0;
+      challengeComplete=false;challengeFailed=false;challengePlayerShots=0;challengeScratches=0;challengeObjectsThisShot=0;challengeCompletedThisGameMask=0;runTablePocketed.clear();
       ruleMessage=challengeMode?("CHALLENGE • "+challengeName()):"BREAK • TEAM 1";
     }
 
     void recordPocket(int index){
       if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
           challengeScratches++;
@@ -4993,12 +5004,22 @@ public class MainActivity extends Activity {
       boolean scratch=ballsSunkThisShot.contains(0);
       boolean eight=ballsSunkThisShot.contains(8);
       int shooterSuit=teamSuit[teamIdx];
-      boolean eightReady=shooterSuit!=0&&remainingForSuit(shooterSuit)==0;
 
-      // The 8-ball is legal only after the shooter's entire suit is gone, and
-      // pocketing the cue ball with the 8 is always a loss.
+      // Reconstruct the shooter's PRE-SHOT remaining count. Pocketed balls have
+      // already been removed from the table by the time rules resolve, so using
+      // remainingForSuit() alone incorrectly turns the final suit-ball shot into
+      // an "8-ball first" foul.
+      int ownSunkThisShot=0;
+      if(shooterSuit!=0)for(Integer idx:ballsSunkThisShot)if(suitForBall(idx)==shooterSuit)ownSunkThisShot++;
+      int remainingAfter=shooterSuit==0?0:remainingForSuit(shooterSuit);
+      int remainingBefore=remainingAfter+ownSunkThisShot;
+      boolean eightReadyBefore=shooterSuit!=0&&remainingBefore==0;
+
+      // The 8-ball is legal only if the shooter was already on the 8 before
+      // this stroke. Sinking the final suit ball and the 8 on the same stroke
+      // therefore does not retroactively make the 8 legal.
       if(eight){
-        boolean legal=eightReady&&!scratch&&firstContactBall==8;
+        boolean legal=eightReadyBefore&&!scratch&&firstContactBall==8;
         winnerTeam=legal?shooter:other;gameOver=true;ballInHand=false;
         ruleMessage=legal?("8 BALL • TEAM "+shooter+" WINS"):
           (scratch?("SCRATCH ON 8 • TEAM "+other+" WINS"):("EARLY/ILLEGAL 8 BALL • TEAM "+other+" WINS"));
@@ -5010,7 +5031,11 @@ public class MainActivity extends Activity {
         ballsSunkThisShot.clear();firstContactBall=0;return;
       }
 
-      boolean wrongFirst=!legalFirstContact(shooter,firstContactBall);
+      boolean wrongFirst;
+      if(firstContactBall<=0)wrongFirst=true;
+      else if(tableOpen||shooterSuit==0)wrongFirst=firstContactBall==8;
+      else if(eightReadyBefore)wrongFirst=firstContactBall!=8;
+      else wrongFirst=suitForBall(firstContactBall)!=shooterSuit;
       if(scratch||wrongFirst){
         awardBallInHand(other,scratch?"SCRATCH":"FOUL • WRONG FIRST BALL");
         ballsSunkThisShot.clear();firstContactBall=0;return;
@@ -5037,6 +5062,7 @@ public class MainActivity extends Activity {
         ruleMessage=remain==0?("TEAM "+shooter+" • 8 BALL READY"):("TEAM "+shooter+" CONTINUES");
       }else{
         currentTeam=other;activeShooter=other;ruleMessage="TEAM "+other+" TURN";
+        if(aiEnabled&&shooter==1)runTablePocketed.clear();
       }
       ballsSunkThisShot.clear();firstContactBall=0;
     }
