@@ -3991,7 +3991,7 @@ public class MainActivity extends Activity {
       float cx,cy,cz;
       if(arcadeActive){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
-        float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
+        float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=-(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         if(tieMode){
           // True first-person TIE pilot camera: eye at fighter center, looking
           // directly through the HUD reticle. The player TIE is intentionally hidden.
@@ -6108,7 +6108,11 @@ public class MainActivity extends Activity {
         if(e.age>e.life+5.0f||Math.abs(e.x)>105||Math.abs(e.z)>90||Math.abs(e.y)>38)e.active=false;
       }
       float yr2=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
-      float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
+      // Aim ray must match the visible reticle. Android screen Y increases down,
+      // while the world camera's positive pitch looks upward; invert pitch here.
+      // This was the Death Star miss-offset: its centered HUD reticle and hit ray
+      // were using opposite vertical conventions.
+      float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=-(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       // A shot only counts when the reticle is genuinely on the target.
       // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
       ArcadeFighter best=null;float bestDot=.9978f,bestDist=999;
