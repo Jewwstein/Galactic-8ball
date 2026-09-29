@@ -1731,7 +1731,7 @@ public class MainActivity extends Activity {
           android.graphics.Matrix m=new android.graphics.Matrix();
           // Nebula's source emitter faces the opposite side from the other reward
           // portraits. Use the opposite quarter-turn for the horizontal bezel.
-          m.postRotate("galactic_nebula.png".equals(n)?-90f:90f);
+          m.postRotate(90f);
           b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
@@ -3122,7 +3122,7 @@ public class MainActivity extends Activity {
           // axis onto the world emitter->rear vector, keeping emitter pinned.
           float ang=(float)Math.toDegrees(Math.atan2(dy,dx))-90f;
           RectF dst=new RectF(cx-artThick*.5f,cy-artLen*.5f,cx+artThick*.5f,cy+artLen*.5f);
-          c.save();c.rotate(ang+(r.hiltIndex==15?90f:0f),cx,cy);RectF worldArt=r.hiltIndex==15?new RectF(cx-artLen*.5f,cy-artThick*.5f,cx+artLen*.5f,cy+artThick*.5f):dst;drawBitmapFitCenter(c,reward,worldArt,p);c.restore();
+          c.save();c.rotate(ang+(r.hiltIndex==15?18f:0f),cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
         }
       }
 
@@ -3197,9 +3197,9 @@ public class MainActivity extends Activity {
         RectF rewardArt=new RectF(cx-hiltW*.5f,cy-hiltH*.52f,cx+hiltW*.5f,cy+hiltH*.48f);
         if(reward!=null){
           if(r.hiltIndex==15){
-            // Galactic Nebula source art is sideways relative to gameplay. Rotate only
-            // at render time so its emitter is at the TOP; keep the 4K master untouched.
-            c.save();c.rotate(90f,rewardArt.centerX(),rewardArt.centerY());RectF nebulaArt=new RectF(rewardArt.centerX()-rewardArt.height()*.5f,rewardArt.centerY()-rewardArt.width()*.5f,rewardArt.centerX()+rewardArt.height()*.5f,rewardArt.centerY()+rewardArt.width()*.5f);drawBitmapFitCenter(c,reward,nebulaArt,p);c.restore();
+            // The crescent grip is already portrait; it only needs a small correction
+            // so the curved emitter points straight up.
+            c.save();c.rotate(18f,rewardArt.centerX(),rewardArt.centerY());drawBitmapFitCenter(c,reward,rewardArt,p);c.restore();
           }else drawBitmapFitCenter(c,reward,rewardArt,p);
         }else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
 
