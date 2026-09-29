@@ -2672,23 +2672,37 @@ public class MainActivity extends Activity {
     void drawSaberHologram(Canvas c,int w,int h,float ui,int index){
       Bitmap b=index<BASE_HILT_COUNT?hilts[index]:((index-BASE_HILT_COUNT)>=0&&(index-BASE_HILT_COUNT)<rewardHilts.length?rewardHilts[index-BASE_HILT_COUNT]:null);
       if(b==null)return;
-      float cx=w*.5f,cy=h*.46f,pw=Math.min(w*.56f,310*ui),ph=Math.min(h*.58f,520*ui);
-      RectF panel=new RectF(cx-pw*.5f,cy-ph*.5f,cx+pw*.5f,cy+ph*.5f);
-      p.setColor(0xE608111B);p.setShadowLayer(28*ui,0,0,0xCC4DDCFF);c.drawRoundRect(panel,22*ui,22*ui,p);p.clearShadowLayer();
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2*ui);stroke.setColor(0xCC70E8FF);c.drawRoundRect(panel,22*ui,22*ui,stroke);
-      float phase=(android.os.SystemClock.uptimeMillis()-saberPreviewStarted)*.0018f;
-      float sx=.18f+.82f*Math.abs((float)Math.cos(phase));
-      RectF art=new RectF(cx-pw*.23f,panel.top+48*ui,cx+pw*.23f,panel.bottom-52*ui);
-      c.save();c.scale(sx,1f,cx,art.centerY());
-      p.setShadowLayer(24*ui,0,0,0xDD61DFFF);
+      float cx=w*.5f;
+      // Near-full-screen presentation: no fake 3D flattening until authored meshes exist.
+      RectF panel=new RectF(14*ui,28*ui,w-14*ui,h-28*ui);
+      p.setShader(new RadialGradient(cx,panel.bottom*.88f,Math.max(w,h)*.72f,
+        new int[]{0xFF183B55,0xFA07131F,0xFE02060B},new float[]{0f,.38f,1f},Shader.TileMode.CLAMP));
+      c.drawRoundRect(panel,24*ui,24*ui,p);p.setShader(null);
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(0xCC78E9FF);c.drawRoundRect(panel,24*ui,24*ui,stroke);
+
+      // Bright projector core from below plus layered hologram rings.
+      float baseY=panel.bottom-62*ui;
+      p.setShader(new RadialGradient(cx,baseY,Math.min(w*.48f,230*ui),0xF4DFFFFF,0x0075DFFF,Shader.TileMode.CLAMP));
+      c.drawOval(new RectF(cx-w*.40f,baseY-52*ui,cx+w*.40f,baseY+38*ui),p);p.setShader(null);
+      stroke.setStrokeWidth(3.5f*ui);stroke.setColor(0xB6A9F7FF);
+      c.drawOval(new RectF(cx-w*.28f,baseY-15*ui,cx+w*.28f,baseY+15*ui),stroke);
+      stroke.setStrokeWidth(1.3f*ui);stroke.setColor(0x6675DFFF);
+      c.drawOval(new RectF(cx-w*.38f,baseY-25*ui,cx+w*.38f,baseY+25*ui),stroke);
+
+      RectF art=new RectF(panel.left+24*ui,panel.top+74*ui,panel.right-24*ui,baseY-22*ui);
+      p.setShadowLayer(34*ui,0,8*ui,0xEE67E7FF);
       if(index==15){
         android.graphics.ColorMatrix cm=new android.graphics.ColorMatrix(new float[]{1.42f,0,0,0,20,0,1.42f,0,0,20,0,0,1.42f,0,24,0,0,0,1,0});
         p.setColorFilter(new android.graphics.ColorMatrixColorFilter(cm));
       }
-      drawBitmapFitCenter(c,b,art,p);p.clearShadowLayer();p.setColorFilter(null);c.restore();
-      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(14*ui);p.setColor(0xFFEAFBFF);
-      c.drawText(hiltNames[index],cx,panel.top+27*ui,p);
-      p.setTextSize(9.5f*ui);p.setColor(0xFF75DFFF);c.drawText("HOLOGRAPHIC SHOWCASE • TAP TO CLOSE",cx,panel.bottom-17*ui,p);
+      drawBitmapFitCenter(c,b,art,p);p.clearShadowLayer();p.setColorFilter(null);
+
+      // Soft vertical light shafts make the static PNG feel projected without distorting it.
+      p.setShader(new LinearGradient(cx,panel.bottom,cx,panel.top,0x4475E9FF,0x0075E9FF,Shader.TileMode.CLAMP));
+      c.drawRect(cx-3*ui,panel.top+58*ui,cx+3*ui,baseY,p);p.setShader(null);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(18*ui);p.setColor(0xFFF0FDFF);
+      c.drawText(hiltNames[index],cx,panel.top+38*ui,p);
+      p.setTextSize(10.5f*ui);p.setColor(0xFF86E8FF);c.drawText("GALACTIC HOLOGRAPHIC SHOWCASE • TAP ANYWHERE TO CLOSE",cx,panel.bottom-18*ui,p);
     }
 
     void drawPageButton(Canvas c,RectF rr,String label,boolean enabled,float ui){
@@ -3150,7 +3164,7 @@ public class MainActivity extends Activity {
           // axis onto the world emitter->rear vector, keeping emitter pinned.
           float ang=(float)Math.toDegrees(Math.atan2(dy,dx))-90f;
           RectF dst=new RectF(cx-artThick*.5f,cy-artLen*.5f,cx+artThick*.5f,cy+artLen*.5f);
-          c.save();c.rotate(ang+(r.hiltIndex==15?18f:0f),cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
+          c.save();c.rotate(ang+(r.hiltIndex==15?-18f:0f),cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
         }
       }
 
@@ -3227,7 +3241,7 @@ public class MainActivity extends Activity {
           if(r.hiltIndex==15){
             // The crescent grip is already portrait; it only needs a small correction
             // so the curved emitter points straight up.
-            c.save();c.rotate(18f,rewardArt.centerX(),rewardArt.centerY());drawBitmapFitCenter(c,reward,rewardArt,p);c.restore();
+            c.save();c.rotate(-18f,rewardArt.centerX(),rewardArt.centerY());drawBitmapFitCenter(c,reward,rewardArt,p);c.restore();
           }else drawBitmapFitCenter(c,reward,rewardArt,p);
         }else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
 
