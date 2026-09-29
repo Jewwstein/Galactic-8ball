@@ -90,16 +90,17 @@ jobs:
           from pathlib import Path
           from PIL import Image
           files=sorted(Path("app/src/main/assets/new_hilts").glob("*.png"))
-          assert len(files)==14, f"expected 14 canonical hilts, found {len(files)}"
+          assert len(files)==15, f"expected 15 canonical hilts, found {len(files)}"
           for p in files:
               with Image.open(p) as im:
                   im.load()
                   assert im.format=="PNG", p
-                  assert im.size==(1024,2048), (p,im.size)
+                  expected=(2048,4096) if p.name=="galactic_nebula.png" else (1024,2048)
+                  assert im.size==expected, (p,im.size,expected)
                   assert im.mode=="RGBA", (p,im.mode)
                   lo,hi=im.getchannel("A").getextrema()
                   assert lo==0 and hi==255, f"{p} must contain true transparency"
-                  print("Validated canonical hilt:",p.name,im.size,im.mode)
+                  print("Validated canonical hilt:",p.name,im.size,im.mode,"alpha",lo,hi)
           PY
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/9481049145480738435/79C9D5534EE116AADE73A4333A9F46ADB58648EE/" -o app/src/main/assets/galactic_table.unity3d
           curl -L --fail --retry 3 -A "Mozilla/5.0" "https://steamusercontent-a.akamaihd.net/ugc/17620175737392888259/B4D4189372EB896223A54B115BDBF9CBCF93F132/" -o app/src/main/assets/bundles/01_Tatooine.unity3d
@@ -247,7 +248,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Fix final suit-ball rule resolution so a legal pocket continues directly to the 8-ball shot. Add Run the Table challenge tracking with no hilt reward assigned yet.
+            UpdateNotes: Run the Table now unlocks the Galactic Nebula Blade. The owner-uploaded 2048x4096 RGBA PNG is validated and packaged byte-for-byte at full resolution. Developer all-hilts unlock sequence added.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
@@ -255,4 +256,4 @@ jobs:
 
 
 
-# Release trigger: v0.8.49 build 66 final-suit continuation + Run the Table challenge
+# Release trigger: Galactic Nebula full-resolution reward + developer unlock
