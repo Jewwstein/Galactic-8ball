@@ -6156,7 +6156,15 @@ public class MainActivity extends Activity {
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
-        if(hostile&&!e.dying&&dogfightBolt!=null){float pulse=.35f+.16f*(float)Math.sin(System.currentTimeMillis()*.008+e.phase);float[] H=identity();android.opengl.Matrix.translateM(H,0,e.x,e.y-1.65f,e.z);android.opengl.Matrix.scaleM(H,0,2.45f+pulse,.065f,2.45f+pulse);drawMesh(dogfightBolt,pv,H,0,new float[]{1f,.72f,.10f,.78f});}
+        // Hostile identification is now a restrained model-shaped aura rather
+        // than a flat marker under the craft. Draw a slightly enlarged translucent
+        // copy first so only a thin red/orange rim peeks around the real mesh.
+        if(hostile&&!e.dying){
+          float pulse=1.035f+.012f*(float)Math.sin(System.currentTimeMillis()*.006+e.phase);
+          float[] O=M.clone();
+          if(e.xwing){float sc=2.18f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
+          else{float sc=.46f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightTie,pv,O,0,new float[]{1f,.12f,.025f,.30f});}
+        }
         if(e.xwing){
           float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
