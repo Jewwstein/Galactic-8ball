@@ -247,7 +247,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Reconstruct and validate the TIE cockpit HUD before build, draw the HUD behind mobile flight/aim controls, and preserve the current first-person TIE combat refinements.
+            UpdateNotes: Fix final suit-ball rule resolution so a legal pocket continues directly to the 8-ball shot. Add Run the Table challenge tracking with no hilt reward assigned yet.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
@@ -255,4 +255,4 @@ jobs:
 
 
 
-# Release trigger: v0.8.48 build 65 X-Wing HUD auto-fire pursuit AI highlights
+# Release trigger: v0.8.49 build 66 final-suit continuation + Run the Table challenge
