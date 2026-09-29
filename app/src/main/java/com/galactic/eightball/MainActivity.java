@@ -38,8 +38,8 @@ public class MainActivity extends Activity {
   static final int BADGE_CLEAN=1<<0,BADGE_SPEED=1<<1,BADGE_COMBO=1<<2,BADGE_SITH_TRIAL=1<<3,
     BADGE_NORMAL=1<<4,BADGE_JEDI=1<<5,BADGE_SITH=1<<6,BADGE_SOLIDS=1<<7,BADGE_STRIPES=1<<8,BADGE_RUN_TABLE=1<<9;
   static final int UNLOCK_YODA=1<<0,UNLOCK_AHSOKA=1<<1,UNLOCK_ANAKIN=1<<2,UNLOCK_NIHILUS=1<<3,
-    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6,UNLOCK_BABSY=1<<7,UNLOCK_BLUE_WRAITH=1<<8;
-  static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=15;
+    UNLOCK_STORMTROOPER=1<<4,UNLOCK_KYLO=1<<5,UNLOCK_MAUL_REWARD=1<<6,UNLOCK_BABSY=1<<7,UNLOCK_BLUE_WRAITH=1<<8,UNLOCK_NEBULA=1<<9;
+  static final int BASE_HILT_COUNT=6,TOTAL_HILT_COUNT=16;
   GameView game;
   HudView hud;
   MultiplayerManager multiplayer;
@@ -777,7 +777,7 @@ public class MainActivity extends Activity {
   boolean isHiltUnlocked(int index){
     if(index<BASE_HILT_COUNT)return true;
     int bit=index-BASE_HILT_COUNT;
-    return bit>=0&&bit<9&&(localUnlockMask()&(1<<bit))!=0;
+    return bit>=0&&bit<10&&(localUnlockMask()&(1<<bit))!=0;
   }
 
   static boolean isJediHiltIndex(int index){
@@ -814,7 +814,7 @@ public class MainActivity extends Activity {
       case 6:awardReward(BADGE_SITH,UNLOCK_KYLO,"SITH VICTOR","Kylo Ren");break;
       case 7:awardReward(BADGE_SOLIDS,UNLOCK_BABSY,"SOLID VICTORY","Mystic Ninja Blade");break;
       case 8:awardReward(BADGE_STRIPES,UNLOCK_BLUE_WRAITH,"STRIPE VICTORY","Blue Wraith");break;
-      case 9:awardReward(BADGE_RUN_TABLE,0,"RUN THE TABLE","");break;
+      case 9:awardReward(BADGE_RUN_TABLE,UNLOCK_NEBULA,"RUN THE TABLE","Galactic Nebula Blade");break;
     }
   }
 
@@ -1664,9 +1664,9 @@ public class MainActivity extends Activity {
     final GameView game;
     final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG|Paint.DITHER_FLAG);
     final Paint glow=new Paint(Paint.ANTI_ALIAS_FLAG);
-    final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[9],blades=new Bitmap[6];
+    final Bitmap[] hilts=new Bitmap[6],rewardHilts=new Bitmap[10],blades=new Bitmap[6];
     final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png","galactic_nebula.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final int[] bladeColors={0xFFEAF7FF,0xFFFFC54A,0xFFB064FF,0xFF48FF7A,0xFFFF3D38,0xFF4DA8FF};
     volatile long pulseUntil=0;
@@ -1891,7 +1891,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[9], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
@@ -1900,6 +1900,7 @@ public class MainActivity extends Activity {
     final RectF saberPrevPageRect=new RectF(),saberNextPageRect=new RectF();
     int aiSubmenu=0; // 0 main game menu, 1 AI difficulty, 2 Galactic challenges
     boolean screenAimCandidate=false,screenAimSwipe=false;
+    int devUnlockTaps=0; long devUnlockTapStart=0;
     float camPrevDist=0,camPrevMidX=0,camPrevMidY=0,hiltPullStartX=0,hiltPullStartY=0,thumbPullStartY=0,lastAimTapX=0,lastAimTapY=0,aimStartFingerAngle=0,aimStartWorldAngle=0;
     float screenAimDownX=0,screenAimDownY=0,screenAimLastX=0,aimStickX=0,aimStickY=0,cameraStickX=0,cameraStickY=0,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0; int arcadeMovePointer=-1,arcadeAimPointer=-1,tieFirePointer=-1; volatile boolean arcadeUiActive=false,arcadeSummaryOpen=false; long cueTapAt=0,tieAimDownAt=0; float tieAimDownX=0,tieAimDownY=0;
     long lastAimTapMs=0;
@@ -1931,13 +1932,13 @@ public class MainActivity extends Activity {
     };
 
     final String[] hiltFiles={"obiwan.png","luke_blue.png","mace.png","obiwan.png","luke_green.png","vader.png"};
-    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png"};
+    final String[] rewardHiltFiles={"yoda.png","ahsoka.png","anakin.png","nihilus.png","stormtrooper.png","kylo.png","maul_double.png","babsyblade.png","bluewraith.png","galactic_nebula.png"};
     final String[] bladeFiles={"blade_dark.png","blade_gold.png","blade_purple.png","blade_green.png","blade_red.png","blade_blue.png"};
     final String[] hiltNames={"OBI-WAN","LUKE BLUE","MACE WINDU","DARTH MAUL","LUKE GREEN","DARTH VADER",
-      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","MYSTIC NINJA BLADE","BLUE WRAITH"};
+      "YODA","AHSOKA FULCRUM","ANAKIN CLASSIC","DARTH NIHILUS","STORMTROOPER","KYLO REN","DARTH MAUL DOUBLE","MYSTIC NINJA BLADE","BLUE WRAITH","GALACTIC NEBULA BLADE"};
     final String[] bladeNames={"DARK","GOLD","PURPLE","GREEN","RED","BLUE"};
     // Slot 3 remains internally valid for old saves, but the original Darth Maul hilt is removed from the loadout gallery.
-    final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12,13,14};
+    final int[] visibleHiltOrder={0,1,2,4,5,6,7,8,9,10,11,12,13,14,15};
 
     HudView(Context c,GameView g){
       super(c);ctx=c;game=g;setLayerType(View.LAYER_TYPE_SOFTWARE,null);
@@ -2191,7 +2192,7 @@ public class MainActivity extends Activity {
         drawPremiumButton(c,aiSubmenuRects[5],"SITH VICTOR","WIN WITH SITH HILT • UNLOCK KYLO",ui,0xFFFF3D45,r.challengeMode&&r.challengeId==6);
         drawPremiumButton(c,aiSubmenuRects[6],"SOLID VICTORY","WIN AS SOLIDS • UNLOCK MYSTIC NINJA BLADE",ui,0xFF63D7FF,r.challengeMode&&r.challengeId==7);
         drawPremiumButton(c,aiSubmenuRects[7],"STRIPE VICTORY","WIN AS STRIPES • UNLOCK BLUE WRAITH",ui,0xFF63AFFF,r.challengeMode&&r.challengeId==8);
-        drawPremiumButton(c,aiSubmenuRects[8],"RUN THE TABLE","CLEAR YOUR SUIT + 8 IN ONE VISIT • HILT COMING LATER",ui,0xFFF4C542,r.challengeMode&&r.challengeId==9);
+        drawPremiumButton(c,aiSubmenuRects[8],"RUN THE TABLE","CLEAR YOUR SUIT + 8 IN ONE VISIT • UNLOCK GALACTIC NEBULA BLADE",ui,0xFFF4C542,r.challengeMode&&r.challengeId==9);
         drawPremiumButton(c,aiSubmenuRects[9],"STANDARD AI","NORMAL WIN • STORMTROOPER REWARD",ui,0xFFB88CFF,!r.challengeMode);
         drawPremiumButton(c,aiSubmenuRects[10],"‹ BACK","RETURN TO GAME MENU",ui,0xFFA9B5C7,false);
         return;
@@ -2653,6 +2654,8 @@ public class MainActivity extends Activity {
         case 11:return "SITH VICTOR";
         case 12:return "JEDI VICTOR";
         case 13:return "SOLID VICTORY";
+        case 14:return "STRIPE VICTORY";
+        case 15:return "RUN THE TABLE";
         default:return "";
       }
     }
@@ -3405,6 +3408,16 @@ public class MainActivity extends Activity {
         }
 
         if(sideMenuOpen&&saberMenuRect.contains(x,y)){
+          long now=System.currentTimeMillis();
+          if(now-devUnlockTapStart>5000){devUnlockTapStart=now;devUnlockTaps=0;}
+          devUnlockTaps++;
+          if(devUnlockTaps>=7&&ctx instanceof MainActivity){
+            MainActivity a=(MainActivity)ctx;
+            String key=a.rewardProfileKey();
+            a.getSharedPreferences(REWARD_PREFS,MODE_PRIVATE).edit().putInt("unlocks_"+key,(1<<10)-1).apply();
+            devUnlockTaps=0;devUnlockTapStart=0;
+            Toast.makeText(ctx,"DEVELOPER LOADOUT • ALL HILTS UNLOCKED",Toast.LENGTH_LONG).show();
+          }
           menuOpen=true;sideMenuOpen=false;aiSubmenu=0;
           if(game.r.sfx!=null)game.r.sfx.uiTransition();
           if(ctx instanceof MainActivity&&((MainActivity)ctx).saberBezel!=null)
