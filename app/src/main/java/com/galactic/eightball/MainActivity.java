@@ -1787,6 +1787,7 @@ public class MainActivity extends Activity {
     void drawSaber(Canvas c,int hiltIndex,Bitmap hilt,Bitmap blade,float emitterX,float emitterY,float angle,float bladeLen,float bladeThick,int color){
       c.save();
       c.rotate(angle,emitterX,emitterY);
+      if(hiltIndex==15)c.rotate(-20f,emitterX,emitterY);
 
       // Static color-matched energy aura behind the authored blade texture.
       glow.setStyle(Paint.Style.FILL);
@@ -1854,8 +1855,11 @@ public class MainActivity extends Activity {
       float horizontalHiltInset=corner;
       float horizontalBladeExtra=Math.max(dpv(22),corner*.46f);
       float horizontalBladeLen=w-(edge+horizontalHiltInset)*2+horizontalBladeExtra;
-      drawSaber(c,hi,hilt,blade,edge+horizontalHiltInset,edge+thick*.45f,0,horizontalBladeLen,thick,color);
-      drawSaber(c,hi,hilt,blade,w-edge-horizontalHiltInset,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
+      // Center the single-saber top/bottom rails as a complete hilt+blade unit.
+      // Preserve all lengths/sizes; shift only their anchor positions. Side rails stay untouched.
+      float horizontalCenterShift=horizontalBladeExtra*.5f;
+      drawSaber(c,hi,hilt,blade,edge+horizontalHiltInset-horizontalCenterShift,edge+thick*.45f,0,horizontalBladeLen,thick,color);
+      drawSaber(c,hi,hilt,blade,w-edge-horizontalHiltInset+horizontalCenterShift,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
 
       // Split each tall side rail into TWO shorter sabers instead of one
       // stretched blade. Opposing blades meet near the screen midpoint.
@@ -3164,7 +3168,7 @@ public class MainActivity extends Activity {
           // axis onto the world emitter->rear vector, keeping emitter pinned.
           float ang=(float)Math.toDegrees(Math.atan2(dy,dx))-90f;
           RectF dst=new RectF(cx-artThick*.5f,cy-artLen*.5f,cx+artThick*.5f,cy+artLen*.5f);
-          c.save();c.rotate(ang+(r.hiltIndex==15?-18f:0f),cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
+          c.save();c.rotate(ang+(r.hiltIndex==15?-20f:0f),cx,cy);drawBitmapFitCenter(c,reward,dst,p);c.restore();
         }
       }
 
@@ -3241,7 +3245,7 @@ public class MainActivity extends Activity {
           if(r.hiltIndex==15){
             // The crescent grip is already portrait; it only needs a small correction
             // so the curved emitter points straight up.
-            c.save();c.rotate(-18f,rewardArt.centerX(),rewardArt.centerY());drawBitmapFitCenter(c,reward,rewardArt,p);c.restore();
+            c.save();c.rotate(-20f,rewardArt.centerX(),rewardArt.centerY());drawBitmapFitCenter(c,reward,rewardArt,p);c.restore();
           }else drawBitmapFitCenter(c,reward,rewardArt,p);
         }else drawRewardHiltArt(c,rewardArt,r.hiltIndex,ui);
 
