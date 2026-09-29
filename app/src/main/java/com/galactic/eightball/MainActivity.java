@@ -1728,7 +1728,10 @@ public class MainActivity extends Activity {
         Bitmap b=BitmapFactory.decodeStream(in);
         // HD reward art is portrait for the selector; bezel presentation is horizontal.
         if(b!=null&&b.getHeight()>b.getWidth()){
-          android.graphics.Matrix m=new android.graphics.Matrix();m.postRotate(90);
+          android.graphics.Matrix m=new android.graphics.Matrix();
+          // Nebula's source emitter faces the opposite side from the other reward
+          // portraits. Use the opposite quarter-turn for the horizontal bezel.
+          m.postRotate("galactic_nebula.png".equals(n)?-90f:90f);
           b=Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);
         }
         return b;
