@@ -248,7 +248,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Run the Table now unlocks the Galactic Nebula Blade. The owner-uploaded 2048x4096 RGBA PNG is validated and packaged byte-for-byte at full resolution. Developer all-hilts unlock sequence added.
+            UpdateNotes: Arcade combat rework: Death Star reticle/laser timing corrected; TIE and Death Star now use regenerating shields, breakable hull, three hull lives, enemy damage, impact feedback, and run-ending third hull loss.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
@@ -256,4 +256,4 @@ jobs:
 
 
 
-# Release trigger: v0.8.50 build 67 compile-fix republish
+# Release trigger: v0.8.51 build 68 arcade shields hull lives targeting rework
