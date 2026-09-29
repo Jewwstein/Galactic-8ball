@@ -2339,7 +2339,7 @@ public class MainActivity extends Activity {
 
       // Premium lower-left survivability console: compact, bezel-safe and readable
       // over either authored cockpit without covering the reticle or flight controls.
-      float panelW=Math.min(224f*ui,w*.48f),panelH=112f*ui;
+      float panelW=Math.min(292f*ui,w*.62f),panelH=146f*ui;
       float panelX=Math.max(18f*ui,w*.045f),panelBottom=h-(r.tieMode?Math.max(215f*ui,h*.245f):Math.max(190f*ui,h*.215f));
       float panelY=Math.max(104f*ui,panelBottom-panelH);
       RectF vitals=new RectF(panelX,panelY,panelX+panelW,panelY+panelH);
@@ -2350,7 +2350,7 @@ public class MainActivity extends Activity {
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10f*ui);p.setColor(0xFFB9C9D8);c.drawText("DEFENSE SYSTEMS",panelX+14f*ui,panelY+19f*ui,p);
       p.setTextAlign(Paint.Align.RIGHT);p.setColor(r.arcadeShieldDelay>0?0xFFFFC85A:0xFF79E8FF);c.drawText(r.arcadeShieldDelay>0?"RECHARGE DELAY":"SHIELD ONLINE",panelX+panelW-14f*ui,panelY+19f*ui,p);
 
-      float bx=panelX+14f*ui,bw=panelW-28f*ui,bh=13f*ui,shieldY=panelY+36f*ui,hullY=panelY+68f*ui;
+      float bx=panelX+14f*ui,bw=panelW-28f*ui,bh=13f*ui,shieldY=panelY+46f*ui,hullY=panelY+88f*ui;
       p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10.5f*ui);p.setColor(0xFFDCEEFF);c.drawText("SHIELD",bx,shieldY-4f*ui,p);
       p.setTextAlign(Paint.Align.RIGHT);p.setColor(0xFF8BE8FF);c.drawText(Math.round(r.arcadeShield)+"%",bx+bw,shieldY-4f*ui,p);
       p.setColor(0xFF101C29);c.drawRoundRect(new RectF(bx,shieldY,bx+bw,shieldY+bh),bh*.5f,bh*.5f,p);
@@ -2366,11 +2366,11 @@ public class MainActivity extends Activity {
       stroke.setColor(0x99FFB458);c.drawRoundRect(new RectF(bx,hullY,bx+bw,hullY+bh),bh*.5f,bh*.5f,stroke);
 
       // Three hull cores are the lives. Lit cores remain; destroyed cores become dark cracked diamonds.
-      float coreY=panelY+98f*ui,coreR=6f*ui;
+      float coreY=panelY+127f*ui,coreR=8f*ui;
       p.setTextAlign(Paint.Align.LEFT);p.setTextSize(9.5f*ui);p.setColor(0xFF9DAAB8);c.drawText("HULL CORES",bx,coreY+3f*ui,p);
-      float coreX=bx+83f*ui;
+      float coreX=bx+112f*ui;
       for(int i=0;i<3;i++){
-        float cx=coreX+i*25f*ui;android.graphics.Path diamond=new android.graphics.Path();diamond.moveTo(cx,coreY-coreR);diamond.lineTo(cx+coreR,coreY);diamond.lineTo(cx,coreY+coreR);diamond.lineTo(cx-coreR,coreY);diamond.close();
+        float cx=coreX+i*34f*ui;android.graphics.Path diamond=new android.graphics.Path();diamond.moveTo(cx,coreY-coreR);diamond.lineTo(cx+coreR,coreY);diamond.lineTo(cx,coreY+coreR);diamond.lineTo(cx-coreR,coreY);diamond.close();
         boolean alive=i<r.arcadeHullLives;p.setColor(alive?0xFFFFC15A:0xFF2B3038);c.drawPath(diamond,p);stroke.setStrokeWidth(1f*ui);stroke.setColor(alive?0xFFFFE6A3:0xFF6B3030);c.drawPath(diamond,stroke);
         if(!alive){stroke.setColor(0xCCFF514C);c.drawLine(cx-coreR*.65f,coreY-coreR*.5f,cx+coreR*.55f,coreY+coreR*.65f,stroke);}
       }
@@ -3929,7 +3929,7 @@ public class MainActivity extends Activity {
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
-    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock;int hp=1;boolean xwing=true,active=true,dying=false;}
+    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
     volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
@@ -5993,15 +5993,19 @@ public class MainActivity extends Activity {
     }
 
     void spawnArcadeWave(){
-      int count=Math.min(3+arcadeWave,8);
-      for(int i=0;i<count;i++){
-        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.83f;e.fireClock=1.0f+i*.23f;
+      // Combat comes in discrete four-opponent groups. A new group does not
+      // enter until every fighter in the current group has been cleared.
+      int activeCount=0;
+      for(ArcadeFighter f:arcadeFighters)if(f.active&&!f.dying)activeCount++;
+      if(activeCount>0)return;
+      for(int i=0;i<4;i++){
+        ArcadeFighter e=new ArcadeFighter();
+        // Death Star mode fights X-Wings. In fighter mode spawn only the opposing faction.
+        e.xwing=tieMode?!playerXWing:true;e.phase=i*1.37f;e.fireClock=1.15f+i*.34f;
         float side=(i&1)==0?-1f:1f;
-        e.x=side*(50f+(i%3)*4f);e.baseY=4.25f+(i%4)*.78f;e.y=e.baseY;e.z=-18f+(i*8f)%36f;
-        float attack=6.7f+arcadeWave*.28f;e.vx=-side*attack;e.vz=(i%3-1)*1.55f;e.life=8.4f+(i%3)*.60f;
+        e.x=side*(48f+(i%2)*7f);e.baseY=4.25f+(i%4)*.72f;e.y=e.baseY;e.z=-18f+i*12f;
+        float attack=6.5f+Math.min(3.0f,arcadeWave*.18f);e.vx=-side*attack;e.vz=(i%3-1)*1.4f;e.life=12.0f;
         arcadeFighters.add(e);
-        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.fireClock=1.35f+i*.19f;t.x=e.x+side*6f;t.baseY=Math.max(3.25f,e.baseY-.60f);t.y=t.baseY;t.z=e.z+4.5f;
-        t.vx=e.vx*.94f;t.vz=-e.vz*.55f;t.life=e.life+.65f;arcadeFighters.add(t);
       }
     }
     void stepArcade(float dt){
@@ -6053,9 +6057,13 @@ public class MainActivity extends Activity {
       if(net!=null&&net.inRoom&&System.currentTimeMillis()-arcadeNetPosAt>=80L){
         arcadeNetPosAt=System.currentTimeMillis();net.send("ARCADE_POS|"+arcadeX+"|"+arcadeY+"|"+arcadeZ+"|"+arcadeYaw+"|"+arcadePitch);
       }
-      if(arcadeBotsEnabled){arcadeSpawnClock-=dt;if(arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=Math.max(4.4f,7.4f-arcadeWave*.22f);arcadeWave++;}}
+      if(arcadeBotsEnabled){
+        arcadeSpawnClock-=dt;
+        int combatants=0;for(ArcadeFighter f:arcadeFighters)if(f.active&&!f.dying)combatants++;
+        if(combatants==0&&arcadeSpawnClock<=0){spawnArcadeWave();arcadeSpawnClock=1.8f;arcadeWave++;}
+      }
       for(ArcadeFighter e:arcadeFighters)if(e.active&&arcadeBotsEnabled){
-        e.age+=dt;e.phase+=dt;
+        e.age+=dt;e.phase+=dt;e.enemyBoltT=Math.max(0f,e.enemyBoltT-dt);
         if(e.dying){
           e.deathT+=dt;
           float fallBoost=.32f+e.deathT*.52f;
@@ -6080,7 +6088,18 @@ public class MainActivity extends Activity {
           e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;
           e.fireClock-=dt;
           if(d<5.4f){takeArcadeDamage(46f);e.phase+=1.7f;e.fireClock=1.6f;}
-          else if(d<42f&&e.fireClock<=0f){takeArcadeDamage(18f+Math.min(8f,arcadeWave*.35f));e.fireClock=Math.max(1.35f,2.55f-arcadeWave*.035f);}
+          else if(d<42f&&e.fireClock<=0f){
+            // Telegraph hostile fire: launch a visible bolt first, then apply damage
+            // after its travel window so the pilot has time to evade.
+            e.enemyBoltT=.72f;e.enemyBoltX=arcadeX;e.enemyBoltY=tieMode?arcadeY:2.5f;e.enemyBoltZ=arcadeZ;
+            e.fireClock=Math.max(1.75f,3.0f-arcadeWave*.03f);
+          }
+          if(e.enemyBoltT>0f&&e.enemyBoltT<=.12f){
+            float px=arcadeX-e.enemyBoltX,py=(tieMode?arcadeY:2.5f)-e.enemyBoltY,pz=arcadeZ-e.enemyBoltZ;
+            // Moving roughly a fighter-width away from the targeted point dodges the shot.
+            if(px*px+py*py+pz*pz<7.5f)takeArcadeDamage(18f+Math.min(8f,arcadeWave*.35f));
+            e.enemyBoltT=0f;
+          }
         }else{
           // Friendly traffic still dogfights nearby but does not ram/chase the player.
           float escape=e.age>e.life?1.42f:1f;e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
