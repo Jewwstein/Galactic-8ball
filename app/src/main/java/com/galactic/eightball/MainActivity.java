@@ -6170,6 +6170,23 @@ public class MainActivity extends Activity {
           }
         }else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
       }
+      // Hostile bolts are bright red/orange tracers aimed at the player's position
+      // at fire time. Their visible travel window is also the player's dodge window.
+      if(dogfightBolt!=null)for(ArcadeFighter e:arcadeFighters)if(e.active&&e.enemyBoltT>0f){
+        float total=.72f,age=total-e.enemyBoltT,t=Math.max(0f,Math.min(1f,age/total));
+        float sx=e.x,sy=e.y,sz=e.z,ex=e.enemyBoltX,ey=e.enemyBoltY,ez=e.enemyBoltZ;
+        float hx=sx+(ex-sx)*t,hy=sy+(ey-sy)*t,hz=sz+(ez-sz)*t;
+        float dx=ex-sx,dy=ey-sy,dz=ez-sz,full=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(full>.05f){
+          float nx=dx/full,ny=dy/full,nz=dz/full,len=Math.min(7f,full*.22f);
+          float tx=hx-nx*len,ty=hy-ny*len,tz=hz-nz*len;
+          float bx=hx-tx,by=hy-ty,bz=hz-tz,dist=(float)Math.sqrt(bx*bx+by*by+bz*bz);
+          float yaw=(float)Math.toDegrees(Math.atan2(bx,bz)),pitch=(float)-Math.toDegrees(Math.atan2(by,Math.sqrt(bx*bx+bz*bz)));
+          float[] B=identity();android.opengl.Matrix.translateM(B,0,(tx+hx)*.5f,(ty+hy)*.5f,(tz+hz)*.5f);
+          android.opengl.Matrix.rotateM(B,0,yaw,0,1,0);android.opengl.Matrix.rotateM(B,0,pitch,1,0,0);android.opengl.Matrix.scaleM(B,0,.28f,.28f,Math.max(.15f,dist*.5f));
+          drawMesh(dogfightBolt,pv,B,0,new float[]{1f,.12f,.04f,1f});
+        }
+      }
       if(arcadeLaserT>0){
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
