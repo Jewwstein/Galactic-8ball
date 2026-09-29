@@ -3412,9 +3412,9 @@ public class MainActivity extends Activity {
           if(now-devUnlockTapStart>30000){devUnlockTapStart=now;devUnlockTaps=0;}
           devUnlockTaps++;
           if(devUnlockTaps>=7&&ctx instanceof MainActivity){
-            MainActivity a=(MainActivity)ctx;
-            String key=a.rewardProfileKey();
-            a.getSharedPreferences(REWARD_PREFS,MODE_PRIVATE).edit().putInt("unlocks_"+key,(1<<10)-1).apply();
+            MainActivity devActivity=(MainActivity)ctx;
+            String key=devActivity.rewardProfileKey();
+            devActivity.getSharedPreferences(REWARD_PREFS,MODE_PRIVATE).edit().putInt("unlocks_"+key,(1<<10)-1).apply();
             devUnlockTaps=0;devUnlockTapStart=0;
             Toast.makeText(ctx,"DEVELOPER LOADOUT • ALL HILTS UNLOCKED",Toast.LENGTH_LONG).show();
           }
