@@ -53,3 +53,19 @@ for n in NAMES:
     target=DST/(n+".png")
     out.save(target,format="PNG",optimize=True)
     print("Canonical hilt",n,"source",p.stat().st_size,"=>",out.size,out.mode,target.stat().st_size)
+
+
+# Galactic Nebula Blade: preserve the owner's original 2048x4096 RGBA pixels.
+# Do not resize, recompress, rotate, or substitute a generated derivative.
+nebula=SRC/"Nebula_Crescent_Hilt_2048x4096_RGBA.png"
+with Image.open(nebula) as raw:
+    raw.load()
+    assert raw.format=="PNG", raw.format
+    assert raw.size==(2048,4096), raw.size
+    assert raw.mode=="RGBA", raw.mode
+    lo,hi=raw.getchannel("A").getextrema()
+    assert lo==0 and hi==255, (lo,hi)
+# Byte-for-byte copy into the packaged asset path.
+import shutil
+shutil.copyfile(nebula,DST/"galactic_nebula.png")
+print("Canonical hilt galactic_nebula source preserved byte-for-byte:",nebula.stat().st_size,"bytes",raw.size,raw.mode,"alpha",lo,hi)
