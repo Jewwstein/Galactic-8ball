@@ -2325,19 +2325,57 @@ public class MainActivity extends Activity {
         c.drawLine(w*.5f+rr*.55f,h*.5f,w*.5f+rr*1.35f,h*.5f,stroke);
       }
 
-      // Arcade survivability HUD: regenerating shield plus three breakable hull lives.
-      float meterY=94f*ui,meterW=Math.min(150f*ui,w*.28f),meterH=12f*ui;
-      float leftX=Math.max(16f*ui,w*.06f),rightX=w-Math.max(16f*ui,w*.06f)-meterW;
-      p.setStyle(Paint.Style.FILL);p.setColor(0xB0101722);c.drawRoundRect(new RectF(leftX,meterY,leftX+meterW,meterY+meterH),6f*ui,6f*ui,p);
-      p.setColor(0xDD4CB8FF);c.drawRoundRect(new RectF(leftX,meterY,leftX+meterW*Math.max(0f,Math.min(1f,r.arcadeShield/100f)),meterY+meterH),6f*ui,6f*ui,p);
-      p.setTextAlign(Paint.Align.LEFT);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(10f*ui);p.setColor(Color.WHITE);c.drawText("SHIELD "+Math.round(r.arcadeShield)+"%",leftX,meterY-4f*ui,p);
-      p.setColor(0xB0101722);c.drawRoundRect(new RectF(rightX,meterY,rightX+meterW,meterY+meterH),6f*ui,6f*ui,p);
-      p.setColor(r.arcadeHull<35f?0xFFFF5656:0xFFFFB84C);c.drawRoundRect(new RectF(rightX,meterY,rightX+meterW*Math.max(0f,Math.min(1f,r.arcadeHull/100f)),meterY+meterH),6f*ui,6f*ui,p);
-      p.setTextAlign(Paint.Align.RIGHT);p.setColor(Color.WHITE);c.drawText("HULL "+Math.round(r.arcadeHull)+"%  •  LIVES "+r.arcadeHullLives,rightX+meterW,meterY-4f*ui,p);
+      // Premium lower-left survivability console: compact, bezel-safe and readable
+      // over either authored cockpit without covering the reticle or flight controls.
+      float panelW=Math.min(224f*ui,w*.48f),panelH=112f*ui;
+      float panelX=Math.max(18f*ui,w*.045f),panelBottom=h-(r.tieMode?Math.max(215f*ui,h*.245f):Math.max(190f*ui,h*.215f));
+      float panelY=Math.max(104f*ui,panelBottom-panelH);
+      RectF vitals=new RectF(panelX,panelY,panelX+panelW,panelY+panelH);
+      p.setStyle(Paint.Style.FILL);p.setColor(0xE30A111B);p.setShadowLayer(12f*ui,0,4f*ui,0xB0000000);c.drawRoundRect(vitals,15f*ui,15f*ui,p);p.clearShadowLayer();
+      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(1.8f*ui);stroke.setColor(r.arcadeShield>0?0xCC61D9FF:0xCCFF665E);c.drawRoundRect(vitals,15f*ui,15f*ui,stroke);
+      // layered inner frame and corner hardware
+      stroke.setStrokeWidth(.8f*ui);stroke.setColor(0x665E748A);c.drawRoundRect(new RectF(panelX+5f*ui,panelY+5f*ui,panelX+panelW-5f*ui,panelY+panelH-5f*ui),11f*ui,11f*ui,stroke);
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10f*ui);p.setColor(0xFFB9C9D8);c.drawText("DEFENSE SYSTEMS",panelX+14f*ui,panelY+19f*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setColor(r.arcadeShieldDelay>0?0xFFFFC85A:0xFF79E8FF);c.drawText(r.arcadeShieldDelay>0?"RECHARGE DELAY":"SHIELD ONLINE",panelX+panelW-14f*ui,panelY+19f*ui,p);
+
+      float bx=panelX+14f*ui,bw=panelW-28f*ui,bh=13f*ui,shieldY=panelY+36f*ui,hullY=panelY+68f*ui;
+      p.setTextAlign(Paint.Align.LEFT);p.setTextSize(10.5f*ui);p.setColor(0xFFDCEEFF);c.drawText("SHIELD",bx,shieldY-4f*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setColor(0xFF8BE8FF);c.drawText(Math.round(r.arcadeShield)+"%",bx+bw,shieldY-4f*ui,p);
+      p.setColor(0xFF101C29);c.drawRoundRect(new RectF(bx,shieldY,bx+bw,shieldY+bh),bh*.5f,bh*.5f,p);
+      float sf=Math.max(0f,Math.min(1f,r.arcadeShield/100f));
+      if(sf>0){p.setShader(new android.graphics.LinearGradient(bx,0,bx+bw,0,0xFF2479C9,0xFF7DEBFF,android.graphics.Shader.TileMode.CLAMP));c.drawRoundRect(new RectF(bx,shieldY,bx+bw*sf,shieldY+bh),bh*.5f,bh*.5f,p);p.setShader(null);}
+      stroke.setStrokeWidth(1f*ui);stroke.setColor(0x9969DFFF);c.drawRoundRect(new RectF(bx,shieldY,bx+bw,shieldY+bh),bh*.5f,bh*.5f,stroke);
+
+      p.setTextAlign(Paint.Align.LEFT);p.setColor(0xFFFFE4C0);c.drawText("HULL",bx,hullY-4f*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setColor(r.arcadeHull<35f?0xFFFF6A62:0xFFFFB95E);c.drawText(Math.round(r.arcadeHull)+"%",bx+bw,hullY-4f*ui,p);
+      p.setColor(0xFF211613);c.drawRoundRect(new RectF(bx,hullY,bx+bw,hullY+bh),bh*.5f,bh*.5f,p);
+      float hf=Math.max(0f,Math.min(1f,r.arcadeHull/100f));
+      if(hf>0){p.setShader(new android.graphics.LinearGradient(bx,0,bx+bw,0,r.arcadeHull<35f?0xFFB52626:0xFFB56524,r.arcadeHull<35f?0xFFFF625A:0xFFFFD26A,android.graphics.Shader.TileMode.CLAMP));c.drawRoundRect(new RectF(bx,hullY,bx+bw*hf,hullY+bh),bh*.5f,bh*.5f,p);p.setShader(null);}
+      stroke.setColor(0x99FFB458);c.drawRoundRect(new RectF(bx,hullY,bx+bw,hullY+bh),bh*.5f,bh*.5f,stroke);
+
+      // Three hull cores are the lives. Lit cores remain; destroyed cores become dark cracked diamonds.
+      float coreY=panelY+98f*ui,coreR=6f*ui;
+      p.setTextAlign(Paint.Align.LEFT);p.setTextSize(9.5f*ui);p.setColor(0xFF9DAAB8);c.drawText("HULL CORES",bx,coreY+3f*ui,p);
+      float coreX=bx+83f*ui;
+      for(int i=0;i<3;i++){
+        float cx=coreX+i*25f*ui;android.graphics.Path diamond=new android.graphics.Path();diamond.moveTo(cx,coreY-coreR);diamond.lineTo(cx+coreR,coreY);diamond.lineTo(cx,coreY+coreR);diamond.lineTo(cx-coreR,coreY);diamond.close();
+        boolean alive=i<r.arcadeHullLives;p.setColor(alive?0xFFFFC15A:0xFF2B3038);c.drawPath(diamond,p);stroke.setStrokeWidth(1f*ui);stroke.setColor(alive?0xFFFFE6A3:0xFF6B3030);c.drawPath(diamond,stroke);
+        if(!alive){stroke.setColor(0xCCFF514C);c.drawLine(cx-coreR*.65f,coreY-coreR*.5f,cx+coreR*.55f,coreY+coreR*.65f,stroke);}
+      }
+
+      // Damage feedback stays peripheral: shield energy ripples first; hull damage uses
+      // sparse fractured edge arcs instead of the previous full-screen geometric scratches.
       if(r.arcadeDamageFlash>0f){
-        int alpha=(int)(105f*r.arcadeDamageFlash);stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((2f+5f*r.arcadeDamageFlash)*ui);stroke.setColor((alpha<<24)|0x005CCBFF);
-        c.drawOval(new RectF(8f*ui,8f*ui,w-8f*ui,h-8f*ui),stroke);
-        if(r.arcadeShield<=0f){stroke.setColor((Math.min(180,alpha+45)<<24)|0x00FF6A55);stroke.setStrokeWidth(1.6f*ui);for(int i=0;i<7;i++){float sx=w*(.18f+i*.105f),sy=h*(.22f+(i%3)*.08f);c.drawLine(sx,sy,sx+(i%2==0?1:-1)*w*.08f,sy+h*.12f,stroke);}}
+        float q=Math.max(0f,Math.min(1f,r.arcadeDamageFlash));int alpha=(int)(145f*q);
+        stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((1.5f+3.5f*q)*ui);
+        if(r.arcadeShield>0f){
+          stroke.setColor((alpha<<24)|0x0059D9FF);RectF ring=new RectF(10f*ui,10f*ui,w-10f*ui,h-10f*ui);c.drawRoundRect(ring,34f*ui,34f*ui,stroke);
+          stroke.setStrokeWidth(1.2f*ui);stroke.setColor(((alpha/2)<<24)|0x0088EEFF);c.drawRoundRect(new RectF(18f*ui,18f*ui,w-18f*ui,h-18f*ui),28f*ui,28f*ui,stroke);
+        }else{
+          stroke.setColor((alpha<<24)|0x00FF5A50);stroke.setStrokeWidth(2f*ui);
+          float e=34f*ui;c.drawLine(0,h*.22f,e,h*.25f,stroke);c.drawLine(w-e,h*.31f,w,h*.27f,stroke);c.drawLine(0,h*.72f,e,h*.68f,stroke);c.drawLine(w-e,h*.76f,w,h*.80f,stroke);
+          stroke.setStrokeWidth(1f*ui);c.drawLine(e,h*.25f,e*1.45f,h*.285f,stroke);c.drawLine(w-e,h*.31f,w-e*1.5f,h*.35f,stroke);
+        }
       }
       if(r.arcadeRunOver&&!arcadeSummaryOpen){arcadeSummaryOpen=true;arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;}
 
