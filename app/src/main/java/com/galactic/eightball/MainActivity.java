@@ -2321,9 +2321,25 @@ public class MainActivity extends Activity {
         p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);
         c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO-FIRE":"MOVE RETICLE OVER AN X-WING",w*.5f,82f*ui,p);
         float rr=30f*ui;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2.2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF4B4B:0xCCFFFFFF);
-        c.drawCircle(w*.5f,h*.46f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.46f,w*.5f-rr*.55f,h*.46f,stroke);
-        c.drawLine(w*.5f+rr*.55f,h*.46f,w*.5f+rr*1.35f,h*.46f,stroke);
+        c.drawCircle(w*.5f,h*.5f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.5f,w*.5f-rr*.55f,h*.5f,stroke);
+        c.drawLine(w*.5f+rr*.55f,h*.5f,w*.5f+rr*1.35f,h*.5f,stroke);
       }
+
+      // Arcade survivability HUD: regenerating shield plus three breakable hull lives.
+      float meterY=94f*ui,meterW=Math.min(150f*ui,w*.28f),meterH=12f*ui;
+      float leftX=Math.max(16f*ui,w*.06f),rightX=w-Math.max(16f*ui,w*.06f)-meterW;
+      p.setStyle(Paint.Style.FILL);p.setColor(0xB0101722);c.drawRoundRect(new RectF(leftX,meterY,leftX+meterW,meterY+meterH),6f*ui,6f*ui,p);
+      p.setColor(0xDD4CB8FF);c.drawRoundRect(new RectF(leftX,meterY,leftX+meterW*Math.max(0f,Math.min(1f,r.arcadeShield/100f)),meterY+meterH),6f*ui,6f*ui,p);
+      p.setTextAlign(Paint.Align.LEFT);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(10f*ui);p.setColor(Color.WHITE);c.drawText("SHIELD "+Math.round(r.arcadeShield)+"%",leftX,meterY-4f*ui,p);
+      p.setColor(0xB0101722);c.drawRoundRect(new RectF(rightX,meterY,rightX+meterW,meterY+meterH),6f*ui,6f*ui,p);
+      p.setColor(r.arcadeHull<35f?0xFFFF5656:0xFFFFB84C);c.drawRoundRect(new RectF(rightX,meterY,rightX+meterW*Math.max(0f,Math.min(1f,r.arcadeHull/100f)),meterY+meterH),6f*ui,6f*ui,p);
+      p.setTextAlign(Paint.Align.RIGHT);p.setColor(Color.WHITE);c.drawText("HULL "+Math.round(r.arcadeHull)+"%  •  LIVES "+r.arcadeHullLives,rightX+meterW,meterY-4f*ui,p);
+      if(r.arcadeDamageFlash>0f){
+        int alpha=(int)(105f*r.arcadeDamageFlash);stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth((2f+5f*r.arcadeDamageFlash)*ui);stroke.setColor((alpha<<24)|0x005CCBFF);
+        c.drawOval(new RectF(8f*ui,8f*ui,w-8f*ui,h-8f*ui),stroke);
+        if(r.arcadeShield<=0f){stroke.setColor((Math.min(180,alpha+45)<<24)|0x00FF6A55);stroke.setStrokeWidth(1.6f*ui);for(int i=0;i<7;i++){float sx=w*(.18f+i*.105f),sy=h*(.22f+(i%3)*.08f);c.drawLine(sx,sy,sx+(i%2==0?1:-1)*w*.08f,sy+h*.12f,stroke);}}
+      }
+      if(r.arcadeRunOver&&!arcadeSummaryOpen){arcadeSummaryOpen=true;arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;}
 
       // Large, animated score plate and world-space hit points.
       long scoreAge=System.currentTimeMillis()-r.arcadeScoreFlashAt;
@@ -3814,9 +3830,9 @@ public class MainActivity extends Activity {
     int dogfightXWingTex=0,dogfightTieTex=0;
     float dogfightClock=0f,dogfightStart=18f,dogfightDuration=8.2f,dogfightYaw=0f;
     boolean dogfightActive=false;
-    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT;int hp=1;boolean xwing=true,active=true,dying=false;}
+    static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true; volatile int arcadePlayerHp=3; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -5835,7 +5851,7 @@ public class MainActivity extends Activity {
       // Arcade is a read-only overlay on pool state. Never touch Box2D or rule
       // bookkeeping on entry/exit; only copy the cue position for the arcade avatar.
       arcadeSnapshotValid=false;
-      arcadeActive=true;playerXWing=arcadeFaction()==0;tieMode=true;arcadePlayerHp=3;
+      arcadeActive=true;playerXWing=arcadeFaction()==0;tieMode=true;arcadePlayerHp=3;arcadeHullLives=3;arcadeShield=100f;arcadeHull=100f;arcadeDamageFlash=0f;arcadeDamageCooldown=0f;arcadeShieldDelay=0f;arcadeRunOver=false;
       tieFire=false;arcadeX=cue.x;arcadeZ=cue.z;arcadeY=6.0f;arcadeYaw=0;arcadePitch=0;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=arcadeMoveSmoothX=arcadeMoveSmoothY=arcadeAimSmoothX=arcadeAimSmoothY=0;arcadeScore=0;arcadeWave=1;arcadeCombo=0;arcadeSpawnClock=0;arcadeShotClock=0;arcadeFighters.clear();captureArcadePoolObservation();arcadePoolNotice="";arcadePoolNoticeUntil=0;
       ruleMessage=playerXWing?"JEDI X-WING INTERCEPT":"SITH TIE INTERCEPT";sendArcadeJoin();arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=1;arcadeImpactFlash=0;if(sfx!=null)sfx.arcadeTransition();MainActivity.writeCrashPhase("ARCADE_ENTER");android.util.Log.i("GalacticArcade","ENTER arcade");if(net!=null)net.requestArcadeBoard();
@@ -5852,20 +5868,47 @@ public class MainActivity extends Activity {
     void fireTieShot(){if(tieMode)fireArcadeShot();}
     void fireArcadeShot(){if(arcadeActive){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
     void nudgeTieY(float dy){if(tieMode)arcadeY=Math.max(2.4f,Math.min(12f,arcadeY+dy));}
+    void takeArcadeDamage(float amount){
+      if(!arcadeActive||arcadeRunOver||arcadeDamageCooldown>0f)return;
+      arcadeDamageCooldown=.28f;arcadeShieldDelay=3.2f;arcadeDamageFlash=1f;arcadeImpactFlash=1f;
+      float left=amount;
+      if(arcadeShield>0f){
+        float used=Math.min(arcadeShield,left);arcadeShield-=used;left-=used;
+        if(sfx!=null)sfx.arcadeLaser();
+        arcadeNotice(arcadeShield<=0f?"SHIELDS DOWN":"SHIELD HIT • "+Math.round(arcadeShield)+"%",1200L);
+      }
+      if(left>0f){
+        arcadeHull=Math.max(0f,arcadeHull-left);if(sfx!=null)sfx.arcadeExplosion();
+        arcadeNotice("HULL DAMAGE • "+Math.round(arcadeHull)+"%",1400L);
+        if(arcadeHull<=0f){
+          arcadeHullLives--;arcadePlayerHp=Math.max(0,arcadeHullLives);
+          if(arcadeHullLives<=0){
+            arcadeRunOver=true;tieFire=false;arcadeLocked=false;
+            arcadeNotice("HULL DESTROYED • RUN OVER",5000L);beginArcadeExit();
+          }else{
+            arcadeHull=100f;arcadeShield=100f;arcadeDamageCooldown=2.0f;arcadeShieldDelay=3.2f;
+            arcadeNotice("HULL LOST • "+arcadeHullLives+" LIVES REMAIN",2600L);
+          }
+        }
+      }
+    }
 
     void spawnArcadeWave(){
       int count=Math.min(3+arcadeWave,8);
       for(int i=0;i<count;i++){
-        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.83f;
+        ArcadeFighter e=new ArcadeFighter();e.xwing=true;e.phase=i*.83f;e.fireClock=1.0f+i*.23f;
         float side=(i&1)==0?-1f:1f;
         e.x=side*(50f+(i%3)*4f);e.baseY=4.25f+(i%4)*.78f;e.y=e.baseY;e.z=-18f+(i*8f)%36f;
         float attack=6.7f+arcadeWave*.28f;e.vx=-side*attack;e.vz=(i%3-1)*1.55f;e.life=8.4f+(i%3)*.60f;
         arcadeFighters.add(e);
-        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.x=e.x+side*6f;t.baseY=Math.max(3.25f,e.baseY-.60f);t.y=t.baseY;t.z=e.z+4.5f;
+        ArcadeFighter t=new ArcadeFighter();t.xwing=false;t.phase=e.phase+1.25f;t.fireClock=1.35f+i*.19f;t.x=e.x+side*6f;t.baseY=Math.max(3.25f,e.baseY-.60f);t.y=t.baseY;t.z=e.z+4.5f;
         t.vx=e.vx*.94f;t.vz=-e.vz*.55f;t.life=e.life+.65f;arcadeFighters.add(t);
       }
     }
     void stepArcade(float dt){
+      arcadeDamageCooldown=Math.max(0f,arcadeDamageCooldown-dt);arcadeShieldDelay=Math.max(0f,arcadeShieldDelay-dt);arcadeDamageFlash=Math.max(0f,arcadeDamageFlash-dt*2.4f);
+      if(arcadeShieldDelay<=0f&&arcadeShield<100f&&!arcadeRunOver)arcadeShield=Math.min(100f,arcadeShield+18f*dt);
+      if(arcadeRunOver)return;
       float moveFollow=1f-(float)Math.exp(-dt*9.5f),aimFollow=1f-(float)Math.exp(-dt*24f);
       arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*moveFollow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*moveFollow;
       arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*aimFollow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*aimFollow;
@@ -5936,7 +5979,9 @@ public class MainActivity extends Activity {
           e.vz+=(nz*hunt*close+sideZ*weave*7.2f-e.vz)*Math.min(1f,dt*1.7f);
           e.vy+=((dy/d)*5.2f+jink*2.8f-e.vy)*Math.min(1f,dt*2.2f);
           e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;
-          if(d<5.4f){arcadePlayerHp=Math.max(0,arcadePlayerHp-1);arcadeImpactFlash=1f;e.phase+=1.7f;}
+          e.fireClock-=dt;
+          if(d<5.4f){takeArcadeDamage(46f);e.phase+=1.7f;e.fireClock=1.6f;}
+          else if(d<42f&&e.fireClock<=0f){takeArcadeDamage(18f+Math.min(8f,arcadeWave*.35f));e.fireClock=Math.max(1.35f,2.55f-arcadeWave*.035f);}
         }else{
           // Friendly traffic still dogfights nearby but does not ram/chase the player.
           float escape=e.age>e.life?1.42f:1f;e.x+=e.vx*escape*dt;e.z+=e.vz*dt;
@@ -5971,7 +6016,7 @@ public class MainActivity extends Activity {
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(!tieMode&&tieFire&&arcadeShotClock<=0){
         if(best==null){arcadeTargetX=arcadeX+ax*76f;arcadeTargetY=2.5f+ay*76f;arcadeTargetZ=arcadeZ+az*76f;}
-        arcadeLaserT=.62f;arcadeShotClock=.46f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
+        arcadeLaserT=.26f;arcadeShotClock=.24f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
       for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
@@ -6021,10 +6066,10 @@ public class MainActivity extends Activity {
           float nx=fullDx/fullDist,ny=fullDy/fullDist,nz=fullDz/fullDist;
           // arcadeLaserT starts at .78 in TIE mode. Advance a short bright bolt
           // from the muzzle to the target so the player can actually watch it fire.
-          float age=tieMode?Math.max(0f,.78f-arcadeLaserT):Math.max(0f,.34f-arcadeLaserT);
-          float travel=tieMode?Math.min(fullDist,age*72f):fullDist;
-          float boltLen=tieMode?Math.min(13.0f,Math.max(4.8f,fullDist*.24f)):fullDist;
-          float head=Math.min(fullDist,travel),tail=tieMode?Math.max(0f,head-boltLen):0f;
+          float age=tieMode?Math.max(0f,.78f-arcadeLaserT):Math.max(0f,.26f-arcadeLaserT);
+          float travel=tieMode?Math.min(fullDist,age*72f):Math.min(fullDist,age*150f);
+          float boltLen=tieMode?Math.min(13.0f,Math.max(4.8f,fullDist*.24f)):Math.min(7.0f,Math.max(2.8f,fullDist*.12f));
+          float head=Math.min(fullDist,travel),tail=Math.max(0f,head-boltLen);
           float bsx=sx+nx*tail,bsy=sy+ny*tail,bsz=sz+nz*tail;
           float bex=sx+nx*head,bey=sy+ny*head,bez=sz+nz*head;
           float dx=bex-bsx,dy=bey-bsy,dz=bez-bsz,dist=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
