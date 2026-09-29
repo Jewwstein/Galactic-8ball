@@ -3409,7 +3409,7 @@ public class MainActivity extends Activity {
 
         if(sideMenuOpen&&saberMenuRect.contains(x,y)){
           long now=System.currentTimeMillis();
-          if(now-devUnlockTapStart>5000){devUnlockTapStart=now;devUnlockTaps=0;}
+          if(now-devUnlockTapStart>30000){devUnlockTapStart=now;devUnlockTaps=0;}
           devUnlockTaps++;
           if(devUnlockTaps>=7&&ctx instanceof MainActivity){
             MainActivity a=(MainActivity)ctx;
