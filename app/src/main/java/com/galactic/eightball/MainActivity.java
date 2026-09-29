@@ -1787,7 +1787,6 @@ public class MainActivity extends Activity {
     void drawSaber(Canvas c,int hiltIndex,Bitmap hilt,Bitmap blade,float emitterX,float emitterY,float angle,float bladeLen,float bladeThick,int color){
       c.save();
       c.rotate(angle,emitterX,emitterY);
-      if(hiltIndex==15)c.rotate(-20f,emitterX,emitterY);
 
       // Static color-matched energy aura behind the authored blade texture.
       glow.setStyle(Paint.Style.FILL);
@@ -1820,7 +1819,11 @@ public class MainActivity extends Activity {
           float maxH=Math.max(dpv(42),bladeThick*2.85f);
           if(hh>maxH){hh=maxH;hw=hh*srcAspect;}
           RectF hr=new RectF(emitterX-hw+dpv(5),emitterY-hh*.5f,emitterX+dpv(5),emitterY+hh*.5f);
-          c.drawBitmap(reward,null,hr,paint);
+          // Correct only the curved Nebula HILT artwork around its emitter.
+          // The blade stays on the rail axis instead of being tilted with the hilt.
+          if(hiltIndex==15){
+            c.save();c.rotate(-20f,emitterX,emitterY);c.drawBitmap(reward,null,hr,paint);c.restore();
+          }else c.drawBitmap(reward,null,hr,paint);
         }else drawBezelRewardHilt(c,hiltIndex,emitterX,emitterY,bladeThick);
       }
       c.restore();
@@ -1857,9 +1860,11 @@ public class MainActivity extends Activity {
       float horizontalBladeLen=w-(edge+horizontalHiltInset)*2+horizontalBladeExtra;
       // Center the single-saber top/bottom rails as a complete hilt+blade unit.
       // Preserve all lengths/sizes; shift only their anchor positions. Side rails stay untouched.
-      float horizontalCenterShift=horizontalBladeExtra*.5f;
-      drawSaber(c,hi,hilt,blade,edge+horizontalHiltInset-horizontalCenterShift,edge+thick*.45f,0,horizontalBladeLen,thick,color);
-      drawSaber(c,hi,hilt,blade,w-edge-horizontalHiltInset+horizontalCenterShift,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
+      float horizontalCenterShift=Math.max(dpv(18),corner*.34f);
+      // Move the complete single-saber rails toward the center. Keep their exact
+      // hilt/blade lengths and leave the two-saber left/right rails unchanged.
+      drawSaber(c,hi,hilt,blade,edge+horizontalHiltInset+horizontalCenterShift,edge+thick*.45f,0,horizontalBladeLen,thick,color);
+      drawSaber(c,hi,hilt,blade,w-edge-horizontalHiltInset-horizontalCenterShift,h-edge-thick*.45f,180,horizontalBladeLen,thick,color);
 
       // Split each tall side rail into TWO shorter sabers instead of one
       // stretched blade. Opposing blades meet near the screen midpoint.
