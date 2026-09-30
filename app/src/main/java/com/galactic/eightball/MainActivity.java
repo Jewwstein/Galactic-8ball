@@ -6003,8 +6003,8 @@ public class MainActivity extends Activity {
         // Death Star mode fights X-Wings. In fighter mode spawn only the opposing faction.
         e.xwing=tieMode?!playerXWing:true;e.phase=i*1.37f;e.fireClock=1.15f+i*.34f;
         float side=(i&1)==0?-1f:1f;
-        e.x=side*(48f+(i%2)*7f);e.baseY=4.25f+(i%4)*.72f;e.y=e.baseY;e.z=-18f+i*12f;
-        float attack=6.5f+Math.min(3.0f,arcadeWave*.18f);e.vx=-side*attack;e.vz=(i%3-1)*1.4f;e.life=12.0f;
+        e.x=arcadeX+side*(30f+(i%2)*5f);e.baseY=(tieMode?arcadeY:2.5f)+(i-1.5f)*1.35f;e.y=e.baseY;e.z=arcadeZ-28f+i*9f;
+        float attack=5.8f+Math.min(2.4f,arcadeWave*.14f);e.vx=-side*attack;e.vz=(i%3-1)*1.4f;e.life=12.0f;
         arcadeFighters.add(e);
       }
     }
@@ -6012,7 +6012,7 @@ public class MainActivity extends Activity {
       arcadeDamageCooldown=Math.max(0f,arcadeDamageCooldown-dt);arcadeShieldDelay=Math.max(0f,arcadeShieldDelay-dt);arcadeDamageFlash=Math.max(0f,arcadeDamageFlash-dt*2.4f);
       if(arcadeShieldDelay<=0f&&arcadeShield<100f&&!arcadeRunOver)arcadeShield=Math.min(100f,arcadeShield+18f*dt);
       if(arcadeRunOver)return;
-      float moveFollow=1f-(float)Math.exp(-dt*9.5f),aimFollow=1f-(float)Math.exp(-dt*24f);
+      float moveFollow=1f-(float)Math.exp(-dt*7.0f),aimFollow=1f-(float)Math.exp(-dt*10.5f);
       arcadeMoveSmoothX+=(arcadeMoveX-arcadeMoveSmoothX)*moveFollow;arcadeMoveSmoothY+=(arcadeMoveY-arcadeMoveSmoothY)*moveFollow;
       arcadeAimSmoothX+=(arcadeAimX-arcadeAimSmoothX)*aimFollow;arcadeAimSmoothY+=(arcadeAimY-arcadeAimSmoothY)*aimFollow;
 
@@ -6029,8 +6029,9 @@ public class MainActivity extends Activity {
       // progressively brake rotation as the reticle closes on an X-Wing.
       // This is slowdown only -- no magnetic snap or auto-aim.
       float proximity=Math.max(0f,Math.min(1f,(nearDot-.965f)/.035f));
-      float assist=tieMode?(1f-.82f*proximity*proximity):1f;
-      float yawRate=tieMode?96f:132f,pitchRate=tieMode?76f:92f;
+      float assist=tieMode?(1f-.55f*proximity*proximity):1f;
+      // Softer fighter steering: lower rates plus slower stick filtering prevent twitchy over-correction.
+      float yawRate=tieMode?66f:112f,pitchRate=tieMode?54f:82f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
       arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch+arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
@@ -6040,7 +6041,7 @@ public class MainActivity extends Activity {
         // Free-flight TIE: substantially faster, no table bounds and no ball/table
         // collision cage. Forward/back follows the full look vector, so pitching
         // down can carry the fighter below the table and pitching up can climb.
-        float speed=28.5f*(.12f+.88f*inputMag);
+        float speed=23.5f*(.10f+.90f*inputMag);
         float prMove=(float)Math.toRadians(arcadePitch);
         float fmx=(float)Math.sin(yr)*(float)Math.cos(prMove),fmy=(float)Math.sin(prMove),fmz=-(float)Math.cos(yr)*(float)Math.cos(prMove);
         arcadeX+=(rx*mx+fmx*(-my))*speed*dt;
@@ -6115,8 +6116,8 @@ public class MainActivity extends Activity {
       float ax=(float)Math.sin(yr2)*(float)Math.cos(pr),ay=-(float)Math.sin(pr),az=-(float)Math.cos(yr2)*(float)Math.cos(pr);
       // A shot only counts when the reticle is genuinely on the target.
       // 0.9978 ~= a 3.8 degree cone; aim assist merely helps the player stay there.
-      ArcadeFighter best=null;float bestDot=.9978f,bestDist=999;
-      for(ArcadeFighter e:arcadeFighters)if(e.active&&((!tieMode&&e.xwing)||(tieMode&&e.xwing!=playerXWing))){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<.001f)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}}
+      ArcadeFighter best=null;float bestDot=.9962f,bestDist=999;
+      for(ArcadeFighter e:arcadeFighters)if(e.active&&((!tieMode&&e.xwing)||(tieMode&&e.xwing!=playerXWing))){float ex=e.x-arcadeX,ey=e.y-(tieMode?arcadeY:2.5f),ez=e.z-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);if(d<.001f)continue;float dot=(ex*ax+ey*ay+ez*az)/d;if(dot>bestDot&&d<76){best=e;bestDot=dot;bestDist=d;}else if(d<8.5f&&dot>.965f&&dot>bestDot-.035f){best=e;bestDot=dot;bestDist=d;}}
       boolean remoteTarget=false;
       if(net!=null&&net.inRoom&&net.remoteArcadeActive&&net.remoteArcadeFaction!=arcadeFaction()){
         float ex=net.remoteArcadeX-arcadeX,ey=net.remoteArcadeY-arcadeY,ez=net.remoteArcadeZ-arcadeZ,d=(float)Math.sqrt(ex*ex+ey*ey+ez*ez);
@@ -6166,11 +6167,11 @@ public class MainActivity extends Activity {
         if(hostile&&!e.dying){
           float pulse=1.035f+.012f*(float)Math.sin(System.currentTimeMillis()*.006+e.phase);
           float[] O=M.clone();
-          if(e.xwing){float sc=2.18f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
+          if(e.xwing){float sc=(tieMode?2.55f:2.32f)*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
           else{float sc=.46f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightTie,pv,O,0,new float[]{1f,.12f,.025f,.30f});}
         }
         if(e.xwing){
-          float sc=e.dying?2.18f*Math.max(.60f,1f-e.deathT*.18f):2.18f;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float baseSc=tieMode?2.48f:2.28f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
@@ -6180,7 +6181,7 @@ public class MainActivity extends Activity {
             float es=.28f+q*1.18f;android.opengl.Matrix.scaleM(E,0,es,es,es);
             drawMesh(sphere,pv,E,0,new float[]{1f,.55f,.12f,.72f*decay});
           }
-        }else{android.opengl.Matrix.scaleM(M,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{1,1,1,1});}
+        }else{float ts=tieMode?.54f:.50f;android.opengl.Matrix.scaleM(M,0,ts,ts,ts);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{.82f,.86f,.90f,fade});}
       }
       // Hostile bolts are bright red/orange tracers aimed at the player's position
       // at fire time. Their visible travel window is also the player's dodge window.
