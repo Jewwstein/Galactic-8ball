@@ -6195,10 +6195,7 @@ public class MainActivity extends Activity {
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
-        // Enemy identification now comes from the larger, high-contrast fighter silhouette; no duplicate outline mesh.\n        if(e.xwing){float sc=(tieMode?2.55f:2.32f)*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
-          else{float sc=.46f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightTie,pv,O,0,new float[]{1f,.12f,.025f,.30f});}
-        }
-        if(e.xwing){
+        // Enemy identification uses the fighter itself; no duplicate outline geometry.\n        if(e.xwing){
           float baseSc=tieMode?2.48f:2.28f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
