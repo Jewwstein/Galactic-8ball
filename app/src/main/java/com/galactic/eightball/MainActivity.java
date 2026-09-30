@@ -4128,10 +4128,12 @@ public class MainActivity extends Activity {
         thumbBladeMesh=makeThumbBladeMesh();
         // Use the actual Unity AssetBundle fighter meshes from the TTS project.
         // Procedural silhouettes remain only as a defensive fallback if an asset is corrupt.
-        try{dogfightXWing=loadObj("fighters/xwing/model.obj");}catch(Exception e){dogfightXWing=makeXWingMesh();}
-        try{dogfightTie=loadObj("fighters/tie/model.obj");}catch(Exception e){dogfightTie=makeTieMesh();}
+        try{dogfightXWing=loadObj("fighters/xwing/model.obj");if(dogfightXWing==null)dogfightXWing=makeXWingMesh();}catch(Exception e){dogfightXWing=makeXWingMesh();}
+        try{dogfightTie=loadObj("fighters/tie/model.obj");if(dogfightTie==null)dogfightTie=makeTieMesh();}catch(Exception e){dogfightTie=makeTieMesh();}
         try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
         try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
+        // A missing texture should never reduce an enemy to an anonymous white marker;
+        // the mesh still renders with faction-specific material tint below.
         dogfightBolt=makeCylinderMesh(24);arcadeStarfield=makeArcadeStarfield();
         for(int i=0;i<6;i++){
           try{realHiltMeshes[i]=loadMeshBin("real_hilts/hilt_"+i+".meshbin");}catch(Exception e){realHiltMeshes[i]=null;}
