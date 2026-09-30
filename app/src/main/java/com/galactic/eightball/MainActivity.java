@@ -6176,7 +6176,7 @@ public class MainActivity extends Activity {
     void drawArcadeFighters(float[] pv){
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
-        android.opengl.Matrix.rotateM(PM,0,arcadeYaw+90f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,0,0,1);
+        android.opengl.Matrix.rotateM(PM,0,arcadeYaw+180f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
         if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
@@ -6207,7 +6207,7 @@ public class MainActivity extends Activity {
             float es=.28f+q*1.18f;android.opengl.Matrix.scaleM(E,0,es,es,es);
             drawMesh(sphere,pv,E,0,new float[]{1f,.55f,.12f,.72f*decay});
           }
-        }else{float ts=tieMode?.54f:.50f;android.opengl.Matrix.scaleM(M,0,ts,ts,ts);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{.82f,.86f,.90f,fade});}
+        }else{float ts=tieMode?1.08f:.88f;android.opengl.Matrix.scaleM(M,0,ts,ts,ts);drawMesh(dogfightTie,pv,M,dogfightTieTex,new float[]{.82f,.86f,.90f,fade});}
       }
       // Hostile bolts are bright red/orange tracers aimed at the player's position
       // at fire time. Their visible travel window is also the player's dodge window.
