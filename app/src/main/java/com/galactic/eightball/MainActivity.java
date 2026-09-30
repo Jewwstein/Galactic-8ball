@@ -1904,7 +1904,7 @@ public class MainActivity extends Activity {
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
     Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
-    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
+    RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieViewRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
     boolean touchingEnglish=false,menuOpen=false,sideMenuOpen=false,camGesture=false,pullingHilt=false,pullingThumbHilt=false,aimingHilt=false,microHolding=false,aimStickActive=false,cameraStickActive=false;
@@ -2285,7 +2285,7 @@ public class MainActivity extends Activity {
 
       // The authored cockpit is the background HUD layer. Draw it before the
       // touch controls so the full-screen PNG can never hide FLIGHT/AIM input.
-      if(r.tieMode){
+      if(r.tieMode&&!r.tieThirdPerson){
         if(r.playerXWing){
           if(xwingHud!=null&&!xwingHud.isRecycled()){p.setAlpha(255);p.setColor(Color.WHITE);p.setFilterBitmap(true);c.drawBitmap(xwingHud,null,new RectF(0,0,w,h),p);p.setAlpha(255);}
         }else{
@@ -2303,6 +2303,9 @@ public class MainActivity extends Activity {
 
       p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
       if(r.tieMode){
+        // Third person deliberately removes the authored cockpit overlay.
+        // First person retains the existing HUD unchanged.
+        if(!r.tieThirdPerson){
         // Fail visibly if the packaged HUD ever becomes undecodable again.
         if((r.playerXWing&&(xwingHud==null||xwingHud.isRecycled()))||(!r.playerXWing&&((h>w&&tieHudPortrait==null)||(h<=w&&(tieHud==null||tieHud.isRecycled()))))){
           p.setColor(0xFFFF4040);p.setTextSize(15f*ui);
@@ -2313,6 +2316,12 @@ public class MainActivity extends Activity {
         p.setTextSize(13f*ui);p.setColor(r.arcadeLocked?0xFFFF6262:0xFF9BFFAA);
         c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO-FIRE":(r.playerXWing?"ACQUIRE TIE FIGHTER":"ACQUIRE X-WING"),w*.5f,57f*ui,p);
         if(r.playerXWing){float rr=Math.min(w,h)*.055f;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF5757:0xCC8CD7FF);c.drawCircle(w*.5f,h*.39f,rr,stroke);c.drawLine(w*.5f-rr*1.4f,h*.39f,w*.5f-rr*.55f,h*.39f,stroke);c.drawLine(w*.5f+rr*.55f,h*.39f,w*.5f+rr*1.4f,h*.39f,stroke);}
+
+        } else {
+          p.setTextSize(19f*ui);p.setColor(0xFFE8F2FF);c.drawText(r.playerXWing?"X-WING • THIRD PERSON":"TIE FIGHTER • THIRD PERSON",w*.5f,38f*ui,p);
+          p.setTextSize(12f*ui);p.setColor(r.arcadeLocked?0xFFFF6868:0xFFB9C6D6);c.drawText(r.arcadeLocked?"TARGET LOCK • AUTO-FIRE":"CHASE CAMERA • ACQUIRE TARGET",w*.5f,60f*ui,p);
+          float rr=24f*ui;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(2f*ui);stroke.setColor(r.arcadeLocked?0xFFFF5757:0xCCFFFFFF);c.drawCircle(w*.5f,h*.5f,rr,stroke);c.drawLine(w*.5f-rr*1.35f,h*.5f,w*.5f-rr*.55f,h*.5f,stroke);c.drawLine(w*.5f+rr*.55f,h*.5f,w*.5f+rr*1.35f,h*.5f,stroke);
+        }
 
         tieFireRect.setEmpty(); // firing is integrated into the right AIM stick
         if(net!=null&&net.inRoom&&net.remoteArcadeActive){
@@ -2447,7 +2456,13 @@ public class MainActivity extends Activity {
       p.setColor(0xCC111923);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,p);stroke.setColor(r.tieMode?0xFF78FF8D:0xFF5BD6FF);stroke.setStrokeWidth(2f*ui);c.drawRoundRect(tieModeRect,12f*ui,12f*ui,stroke);
       p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);c.drawText(r.tieMode?"DEATH STAR":"TIE MODE",tieModeRect.centerX(),tieModeRect.centerY()+4f*ui,p);
 
-      arcadeBotsRect.set(tieModeRect.right+12f*ui,bezelInset,tieModeRect.right+122f*ui,bezelInset+40f*ui);
+      if(r.tieMode){
+        tieViewRect.set(tieModeRect.right+12f*ui,bezelInset,tieModeRect.right+132f*ui,bezelInset+40f*ui);
+        p.setColor(0xCC111923);c.drawRoundRect(tieViewRect,12f*ui,12f*ui,p);stroke.setColor(r.tieThirdPerson?0xFFFFC857:0xFF73FF8C);c.drawRoundRect(tieViewRect,12f*ui,12f*ui,stroke);
+        p.setTextSize(10.5f*ui);p.setColor(Color.WHITE);c.drawText(r.tieThirdPerson?"FIRST PERSON":"THIRD PERSON",tieViewRect.centerX(),tieViewRect.centerY()+4f*ui,p);
+      }else tieViewRect.setEmpty();
+
+      arcadeBotsRect.set((r.tieMode?tieViewRect.right:tieModeRect.right)+12f*ui,bezelInset,(r.tieMode?tieViewRect.right:tieModeRect.right)+122f*ui,bezelInset+40f*ui);
       p.setColor(0xCC111923);c.drawRoundRect(arcadeBotsRect,12f*ui,12f*ui,p);stroke.setColor(r.arcadeBotsEnabled?0xFFFFC857:0xFF8292A6);c.drawRoundRect(arcadeBotsRect,12f*ui,12f*ui,stroke);
       p.setTextSize(11.5f*ui);p.setColor(Color.WHITE);c.drawText(r.arcadeBotsEnabled?"BOTS ON":"BOTS OFF",arcadeBotsRect.centerX(),arcadeBotsRect.centerY()+4f*ui,p);
 
@@ -2459,7 +2474,7 @@ public class MainActivity extends Activity {
     void clearArcadeUiState(){
       arcadeUiActive=false;arcadeMovePointer=arcadeAimPointer=-1;
       arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;
-      arcadeMoveRect.setEmpty();arcadeAimRect.setEmpty();arcadeExitRect.setEmpty();tieModeRect.setEmpty();tieFireRect.setEmpty();tieUpRect.setEmpty();tieDownRect.setEmpty();arcadeBotsRect.setEmpty();tieFirePointer=-1;
+      arcadeMoveRect.setEmpty();arcadeAimRect.setEmpty();arcadeExitRect.setEmpty();tieModeRect.setEmpty();tieViewRect.setEmpty();tieFireRect.setEmpty();tieUpRect.setEmpty();tieDownRect.setEmpty();arcadeBotsRect.setEmpty();tieFirePointer=-1;
       invalidate();
     }
 
@@ -3307,6 +3322,7 @@ public class MainActivity extends Activity {
           if(arcadeSummaryOpen){if(arcadeSummaryExitRect.contains(px,py)){arcadeSummaryOpen=false;clearArcadeUiState();game.queueEvent(()->r.exitArcade());}return true;}
           if(arcadeExitRect.contains(px,py)){arcadeSummaryOpen=true;arcadeMovePointer=arcadeAimPointer=-1;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;game.queueEvent(()->{r.setArcadeMove(0,0);r.setArcadeAim(0,0);r.beginArcadeExit();});invalidate();return true;}
           if(tieModeRect.contains(px,py)){game.queueEvent(()->r.setTieMode(!r.tieMode));invalidate();return true;}
+          if(r.tieMode&&tieViewRect.contains(px,py)){game.queueEvent(()->r.setTieThirdPerson(!r.tieThirdPerson));invalidate();return true;}
           if(arcadeBotsRect.contains(px,py)){game.queueEvent(()->{r.arcadeBotsEnabled=!r.arcadeBotsEnabled;if(!r.arcadeBotsEnabled)r.arcadeFighters.clear();r.arcadeNotice(r.arcadeBotsEnabled?"BOTS ENABLED":"BOTS DISABLED • HUMAN DOGFIGHT",2200L);});invalidate();return true;}
           if(r.tieMode&&tieUpRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(.75f));return true;}
           if(r.tieMode&&tieDownRect.contains(px,py)){game.queueEvent(()->r.nudgeTieY(-.75f));return true;}
