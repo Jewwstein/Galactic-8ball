@@ -4151,8 +4151,8 @@ public class MainActivity extends Activity {
         thumbBladeMesh=makeThumbBladeMesh();
         // Use the actual Unity AssetBundle fighter meshes from the TTS project.
         // Procedural silhouettes remain only as a defensive fallback if an asset is corrupt.
-        try{dogfightXWing=loadObj("fighters/xwing/model.obj");if(dogfightXWing==null)dogfightXWing=makeXWingMesh();}catch(Exception e){dogfightXWing=makeXWingMesh();}
-        try{dogfightTie=loadObj("fighters/tie/model.obj");if(dogfightTie==null)dogfightTie=makeTieMesh();}catch(Exception e){dogfightTie=makeTieMesh();}
+        dogfightXWing=makeXWingMesh();
+        dogfightTie=makeTieMesh();
         try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
         try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
         // A missing texture should never reduce an enemy to an anonymous white marker;
@@ -6054,10 +6054,10 @@ public class MainActivity extends Activity {
       // Strong precision zone: retain full aim speed in open space, then
       // progressively brake rotation as the reticle closes on an X-Wing.
       // This is slowdown only -- no magnetic snap or auto-aim.
-      float proximity=Math.max(0f,Math.min(1f,(nearDot-.965f)/.035f));
-      float assist=tieMode?(1f-.55f*proximity*proximity):1f;
-      // Softer fighter steering: lower rates plus slower stick filtering prevent twitchy over-correction.
-      float yawRate=tieMode?66f:112f,pitchRate=tieMode?54f:82f;
+      float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
+      // Fast free-look, then a strong progressive brake as the reticle approaches a target.
+      float assist=tieMode?Math.max(.16f,1f-.84f*proximity*proximity):1f;
+      float yawRate=tieMode?118f:112f,pitchRate=tieMode?92f:82f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
       arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch+arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
@@ -6072,6 +6072,8 @@ public class MainActivity extends Activity {
         float fmx=(float)Math.sin(yr)*(float)Math.cos(prMove),fmy=(float)Math.sin(prMove),fmz=-(float)Math.cos(yr)*(float)Math.cos(prMove);
         arcadeX+=(rx*mx+fmx*(-my))*speed*dt;
         arcadeY+=fmy*(-my)*speed*dt;
+        // Keep the fighter above the table/rail volume so the player cannot become trapped underneath it.
+        arcadeY=Math.max(3.15f,Math.min(30f,arcadeY));
         arcadeZ+=(rz*mx+fmz*(-my))*speed*dt;
       }else{
         float speed=18.5f*(.18f+.82f*inputMag);
@@ -6174,7 +6176,7 @@ public class MainActivity extends Activity {
     void drawArcadeFighters(float[] pv){
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
-        android.opengl.Matrix.rotateM(PM,0,arcadeYaw,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
+        android.opengl.Matrix.rotateM(PM,0,arcadeYaw,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);android.opengl.Matrix.rotateM(PM,0,180f,0,1,0);
         if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
@@ -6188,18 +6190,12 @@ public class MainActivity extends Activity {
       }
       for(ArcadeFighter e:arcadeFighters)if(e.active&&arcadeBotsEnabled){
         float yaw=(float)Math.toDegrees(Math.atan2(e.vx,e.vz));
-        float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw,0,1,0);
-        android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*18f,0,0,1);
+        float[] M=identity();android.opengl.Matrix.translateM(M,0,e.x,e.y,e.z);android.opengl.Matrix.rotateM(M,0,yaw+180f,0,1,0);
+        android.opengl.Matrix.rotateM(M,0,e.dying?e.deathT*540f:(float)Math.sin(e.phase*3f)*10f,0,0,1);
         if(e.dying)android.opengl.Matrix.rotateM(M,0,e.deathT*360f,1,0,0);
         float fade=e.dying?Math.max(0f,1f-Math.max(0f,e.deathT-.38f)/1.05f):1f;
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
-        // Hostile identification is now a restrained model-shaped aura rather
-        // than a flat marker under the craft. Draw a slightly enlarged translucent
-        // copy first so only a thin red/orange rim peeks around the real mesh.
-        if(hostile&&!e.dying){
-          float pulse=1.035f+.012f*(float)Math.sin(System.currentTimeMillis()*.006+e.phase);
-          float[] O=M.clone();
-          if(e.xwing){float sc=(tieMode?2.55f:2.32f)*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
+        // Enemy identification now comes from the larger, high-contrast fighter silhouette; no duplicate outline mesh.\n        if(e.xwing){float sc=(tieMode?2.55f:2.32f)*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightXWing,pv,O,0,new float[]{1f,.20f,.035f,.30f});}
           else{float sc=.46f*pulse;android.opengl.Matrix.scaleM(O,0,sc,sc,sc);drawMesh(dogfightTie,pv,O,0,new float[]{1f,.12f,.025f,.30f});}
         }
         if(e.xwing){
