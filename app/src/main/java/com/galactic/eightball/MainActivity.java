@@ -4151,8 +4151,8 @@ public class MainActivity extends Activity {
         thumbBladeMesh=makeThumbBladeMesh();
         // Use the actual Unity AssetBundle fighter meshes from the TTS project.
         // Procedural silhouettes remain only as a defensive fallback if an asset is corrupt.
-        dogfightXWing=makeXWingMesh();
-        dogfightTie=makeTieMesh();
+        try{dogfightXWing=loadObj("fighters/xwing/model.obj");}catch(Exception e){dogfightXWing=makeXWingMesh();}
+        try{dogfightTie=loadObj("fighters/tie/model.obj");}catch(Exception e){dogfightTie=makeTieMesh();}
         try{dogfightXWingTex=loadTexture("fighters/xwing/diffuse.png");}catch(Exception ignored){dogfightXWingTex=0;}
         try{dogfightTieTex=loadTexture("fighters/tie/diffuse.png");}catch(Exception ignored){dogfightTieTex=0;}
         // A missing texture should never reduce an enemy to an anonymous white marker;
@@ -6054,10 +6054,10 @@ public class MainActivity extends Activity {
       // Strong precision zone: retain full aim speed in open space, then
       // progressively brake rotation as the reticle closes on an X-Wing.
       // This is slowdown only -- no magnetic snap or auto-aim.
-      float proximity=Math.max(0f,Math.min(1f,(nearDot-.94f)/.06f));
+      float proximity=Math.max(0f,Math.min(1f,(nearDot-.90f)/.095f));
       // Fast free-look, then a strong progressive brake as the reticle approaches a target.
-      float assist=tieMode?Math.max(.16f,1f-.84f*proximity*proximity):1f;
-      float yawRate=tieMode?118f:112f,pitchRate=tieMode?92f:82f;
+      float assist=tieMode?Math.max(.10f,1f-.90f*proximity*proximity):1f;
+      float yawRate=tieMode?176f:124f,pitchRate=tieMode?142f:94f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
       arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch+arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
@@ -6073,7 +6073,7 @@ public class MainActivity extends Activity {
         arcadeX+=(rx*mx+fmx*(-my))*speed*dt;
         arcadeY+=fmy*(-my)*speed*dt;
         // Keep the fighter above the table/rail volume so the player cannot become trapped underneath it.
-        arcadeY=Math.max(3.15f,Math.min(30f,arcadeY));
+        arcadeY=Math.max(4.35f,Math.min(30f,arcadeY));
         arcadeZ+=(rz*mx+fmz*(-my))*speed*dt;
       }else{
         float speed=18.5f*(.18f+.82f*inputMag);
@@ -6176,7 +6176,7 @@ public class MainActivity extends Activity {
     void drawArcadeFighters(float[] pv){
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
-        android.opengl.Matrix.rotateM(PM,0,arcadeYaw,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);android.opengl.Matrix.rotateM(PM,0,180f,0,1,0);
+        android.opengl.Matrix.rotateM(PM,0,arcadeYaw+90f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,0,0,1);
         if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
