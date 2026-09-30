@@ -6032,7 +6032,7 @@ public class MainActivity extends Activity {
       float assist=tieMode?(1f-.82f*proximity*proximity):1f;
       float yawRate=tieMode?96f:132f,pitchRate=tieMode?76f:92f;
       arcadeYaw+=arcadeAimSmoothX*yawRate*assist*dt;
-      arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch-arcadeAimSmoothY*pitchRate*assist*dt));
+      arcadePitch=Math.max(tieMode?-48f:-18f,Math.min(tieMode?48f:42f,arcadePitch+arcadeAimSmoothY*pitchRate*assist*dt));
       float yr=(float)Math.toRadians(arcadeYaw),fx=(float)Math.sin(yr),fz=-(float)Math.cos(yr),rx=(float)Math.cos(yr),rz=(float)Math.sin(yr);
       float mx=arcadeMoveSmoothX,my=arcadeMoveSmoothY,mm=(float)Math.sqrt(mx*mx+my*my);if(mm>1f){mx/=mm;my/=mm;}
       float inputMag=Math.min(1f,(float)Math.sqrt(mx*mx+my*my));
