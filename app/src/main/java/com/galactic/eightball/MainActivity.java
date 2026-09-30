@@ -3931,7 +3931,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -3993,10 +3993,17 @@ public class MainActivity extends Activity {
         float yr=(float)Math.toRadians(arcadeYaw),pr=(float)Math.toRadians(arcadePitch);
         float fx=(float)Math.sin(yr)*(float)Math.cos(pr),fy=-(float)Math.sin(pr),fz=-(float)Math.cos(yr)*(float)Math.cos(pr);
         if(tieMode){
-          // True first-person TIE pilot camera: eye at fighter center, looking
-          // directly through the HUD reticle. The player TIE is intentionally hidden.
-          cx=arcadeX;cy=arcadeY;cz=arcadeZ;
-          android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,cx+fx*30f,cy+fy*30f,cz+fz*30f,0,1,0);
+          if(tieThirdPerson){
+            // Chase camera: pull back and slightly above the craft while keeping
+            // the exact same forward aim axis as first person.
+            float chase=12.8f,raise=4.4f;
+            cx=arcadeX-fx*chase;cy=arcadeY+raise-fy*2.2f;cz=arcadeZ-fz*chase;
+            android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,arcadeX+fx*20f,arcadeY+fy*20f,arcadeZ+fz*20f,0,1,0);
+          }else{
+            // True first-person cockpit camera.
+            cx=arcadeX;cy=arcadeY;cz=arcadeZ;
+            android.opengl.Matrix.setLookAtM(V,0,cx,cy,cz,cx+fx*30f,cy+fy*30f,cz+fz*30f,0,1,0);
+          }
         }else{
           float chase=aspect>=1f?10.7f:16.8f;
           float camY=aspect>=1f?7.0f:8.4f;
@@ -5964,7 +5971,8 @@ public class MainActivity extends Activity {
     }
     void setArcadeMove(float x,float y){arcadeMoveX=x;arcadeMoveY=y;}
     void setArcadeAim(float x,float y){arcadeAimX=x;arcadeAimY=y;}
-    void setTieMode(boolean on){tieMode=on;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;if(sfx!=null){sfx.arcadeTransition();if(on)sfx.startTieEngine();else sfx.stopTieEngine();}}
+    void setTieMode(boolean on){tieMode=on;if(!on)tieThirdPerson=false;tieFire=false;arcadeY=4.2f;arcadePitch=0;arcadeMoveX=arcadeMoveY=arcadeAimX=arcadeAimY=0;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;if(sfx!=null){sfx.arcadeTransition();if(on)sfx.startTieEngine();else sfx.stopTieEngine();}}
+    void setTieThirdPerson(boolean on){if(tieMode){tieThirdPerson=on;arcadeTransitionStart=System.currentTimeMillis();arcadeTransitionKind=2;arcadeNotice(on?"THIRD-PERSON CHASE CAMERA":"FIRST-PERSON COCKPIT",1400L);}}
     void setTieFire(boolean on){tieFire=on;}
     void fireTieShot(){if(tieMode)fireArcadeShot();}
     void fireArcadeShot(){if(arcadeActive){tieFire=true;arcadeShotClock=Math.min(arcadeShotClock,0f);}}
@@ -6148,6 +6156,12 @@ public class MainActivity extends Activity {
     }
 
     void drawArcadeFighters(float[] pv){
+      if(tieMode&&tieThirdPerson){
+        float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
+        android.opengl.Matrix.rotateM(PM,0,arcadeYaw,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
+        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
+        else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
+      }
       if(net!=null&&net.inRoom&&net.remoteArcadeActive){
         float[] RM=identity();android.opengl.Matrix.translateM(RM,0,net.remoteArcadeX,net.remoteArcadeY,net.remoteArcadeZ);android.opengl.Matrix.rotateM(RM,0,net.remoteArcadeYaw,0,1,0);android.opengl.Matrix.rotateM(RM,0,-net.remoteArcadePitch,1,0,0);
         if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
