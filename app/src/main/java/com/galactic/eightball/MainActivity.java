@@ -1436,8 +1436,7 @@ New hilt: "+hiltName;
             main.post(activity::showLobbyScreen);
           }else if(msg.startsWith("ARCADE_BOARD")){
             String[] p=msg.split("\\|",-1);StringBuilder b=new StringBuilder();
-            for(int i=1;i<p.length;i++){String[] q=p[i].split(",",2);if(q.length<2)continue;if(b.length()>0)b.append("
-");b.append(i).append(". ").append(unb64(q[0])).append("  ").append(q[1]);}
+            for(int i=1;i<p.length;i++){String[] q=p[i].split(",",2);if(q.length<2)continue;if(b.length()>0)b.append("\\n");b.append(i).append(". ").append(unb64(q[0])).append("  ").append(q[1]);}
             arcadeBoard=b.toString();if(hud!=null)main.post(hud::invalidate);
           }else if(msg.startsWith("ARCADE_PEER|")){
             String[] p=msg.split("\\|",-1);
@@ -1525,8 +1524,7 @@ New hilt: "+hiltName;
         String id=p[0],name=unb64(p[1]),owner=unb64(p[2]);
         int count=0,max=2;
         try{count=Integer.parseInt(p[3]);max=Integer.parseInt(p[4]);}catch(Exception ignored){}
-        labels.add(name+"   ["+count+"/"+max+"]
-Host: "+owner+(count>=max?"   • FULL":""));
+        labels.add(name+"   ["+count+"/"+max+"]\\nHost: "+owner+(count>=max?"   • FULL":""));
         ids.add(id);full.add(count>=max);
       }
       String[] la=labels.toArray(new String[0]),ia=ids.toArray(new String[0]);
@@ -2444,8 +2442,7 @@ Host: "+owner+(count>=max?"   • FULL":""));
         String board=net==null?"":net.arcadeBoard;
         if(board==null||board.trim().isEmpty())board=(net!=null&&net.authenticated)?"Loading scores…":"Log in to view online scores";
         p.setTextSize(13f*ui);p.setColor(Color.WHITE);float yy=t+116f*ui;
-        for(String line:board.split("
-")){c.drawText(line,l+pw*.75f,yy,p);yy+=24f*ui;if(yy>t+ph-90f*ui)break;}
+        for(String line:board.split("\\n")){c.drawText(line,l+pw*.75f,yy,p);yy+=24f*ui;if(yy>t+ph-90f*ui)break;}
         arcadeSummaryExitRect.set(mid-92f*ui,t+ph-58f*ui,mid+92f*ui,t+ph-16f*ui);drawButton(c,arcadeSummaryExitRect,"RETURN TO POOL",12f*ui,0xCC183047);
         return;
       }
