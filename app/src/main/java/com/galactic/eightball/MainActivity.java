@@ -5141,7 +5141,8 @@ public class MainActivity extends Activity {
     }
 
     void recordPocket(int index){
-      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);\n      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();android.util.Log.i("GalacticCinematic","POCKET "+index+" cinematic start");if(ctx instanceof MainActivity){HudView hv=((MainActivity)ctx).hud;if(hv!=null)new Handler(Looper.getMainLooper()).post(()->{hv.setVisibility(View.VISIBLE);hv.bringToFront();hv.invalidate();});}}
+      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();android.util.Log.i("GalacticCinematic","POCKET "+index+" cinematic start");if(ctx instanceof MainActivity){HudView hv=((MainActivity)ctx).hud;if(hv!=null)new Handler(Looper.getMainLooper()).post(()->{hv.setVisibility(View.VISIBLE);hv.bringToFront();hv.invalidate();});}}
       if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
