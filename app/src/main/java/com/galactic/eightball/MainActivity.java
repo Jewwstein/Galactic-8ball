@@ -1903,7 +1903,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud,cinematicDeathStar; Bitmap[] cinematicPlanets=new Bitmap[16]; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieViewRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
@@ -1974,7 +1974,10 @@ public class MainActivity extends Activity {
         bladeChoices[i]=new RectF();
       }
       for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadRewardHilt(c,rewardHiltFiles[i]);
-    }
+    
+      try{String ds=game.r.findAsset("objects/00_DeathStar",".png");if(ds!=null)try(InputStream in=ctx.getAssets().open(ds)){cinematicDeathStar=BitmapFactory.decodeStream(in);}}catch(Exception ignored){}
+      for(int i=1;i<=15;i++){try{String pp=game.r.findAsset("objects/"+game.r.objectFolders[i],".png");if(pp!=null)try(InputStream in=ctx.getAssets().open(pp)){cinematicPlanets[i]=BitmapFactory.decodeStream(in);}}catch(Exception ignored){}}
+}
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
     float hudSafeY(int w,int h,float ui){return (h>w?34f:38f)*ui;}
@@ -2019,6 +2022,21 @@ public class MainActivity extends Activity {
         }
         return b;
       }catch(Exception e){return null;}
+    }
+
+    void drawPlanetDestructionCinematic(Canvas c,float w,float h){
+      int idx=game.r.planetCinematicBall;long start=game.r.planetCinematicStart;if(idx<1||idx>15||start<=0)return;
+      float t=(System.currentTimeMillis()-start)/2800f;if(t>=1f){game.r.planetCinematicBall=-1;return;}
+      p.setStyle(Paint.Style.FILL);p.setColor(0xF20A0D16);c.drawRect(0,0,w,h,p);
+      float dsX=w*.22f,py=h*.48f,plX=w*.78f,rad=Math.min(w,h)*.145f;
+      if(cinematicDeathStar!=null)c.drawBitmap(cinematicDeathStar,null,new RectF(dsX-rad,py-rad,dsX+rad,py+rad),p);else{p.setColor(0xFF8D949C);c.drawCircle(dsX,py,rad,p);}
+      Bitmap planet=cinematicPlanets[idx];float shake=t>.56f?(float)Math.sin(t*180f)*rad*.035f:0;
+      if(t<.72f){if(planet!=null)c.drawBitmap(planet,null,new RectF(plX-rad+shake,py-rad,plX+rad+shake,py+rad),p);else{p.setColor(0xFF4C83C3);c.drawCircle(plX+shake,py,rad,p);}}
+      float charge=Math.max(0f,Math.min(1f,(t-.12f)/.25f));p.setColor((Math.min(255,(int)(220*charge))<<24)|0x004CFF72);c.drawCircle(dsX+rad*.54f,py-rad*.12f,rad*.18f*charge,p);
+      if(t>.36f&&t<.72f){float beam=Math.min(1f,(t-.36f)/.10f);stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(rad*.11f);stroke.setColor(0xEE39FF68);c.drawLine(dsX+rad*.55f,py-rad*.12f,dsX+rad*.55f+(plX-dsX-rad*.55f)*beam,py,stroke);stroke.setStrokeWidth(rad*.035f);stroke.setColor(Color.WHITE);c.drawLine(dsX+rad*.55f,py-rad*.12f,dsX+rad*.55f+(plX-dsX-rad*.55f)*beam,py,stroke);}
+      if(t>=.62f){float ex=Math.min(1f,(t-.62f)/.30f);for(int i=0;i<18;i++){double a=i*2.399963;float rr=rad*(.15f+ex*(.35f+(i%5)*.19f));float x=plX+(float)Math.cos(a)*rr*ex,y=py+(float)Math.sin(a)*rr*ex;p.setColor((Math.max(0,220-(int)(ex*180))<<24)|((i%3==0)?0x00FFB347:0x008C7A68));c.drawCircle(x,y,rad*(.11f-(i%4)*.012f)*(1f-ex*.55f),p);}p.setColor((Math.max(0,210-(int)(ex*170))<<24)|0x00FFF2B0);c.drawCircle(plX,py,rad*(.25f+ex*.65f),p);}
+      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(18f,w*.045f));p.setColor(Color.WHITE);c.drawText(game.r.objectFolders[idx].substring(3).toUpperCase()+" • TARGET DESTROYED",w*.5f,h*.82f,p);
+      postInvalidateOnAnimation();
     }
 
     protected void onDraw(Canvas c){
@@ -2133,7 +2151,7 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-    }
+          if(game.r.planetCinematicBall>0)drawPlanetDestructionCinematic(c,getWidth(),getHeight());\n}
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
@@ -3947,7 +3965,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;\n    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
