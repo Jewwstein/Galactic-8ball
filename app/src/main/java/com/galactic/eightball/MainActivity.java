@@ -1975,8 +1975,8 @@ public class MainActivity extends Activity {
       }
       for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadRewardHilt(c,rewardHiltFiles[i]);
     
-      try{String ds=game.r.findAsset("objects/00_DeathStar",".png");if(ds!=null)try(InputStream in=ctx.getAssets().open(ds)){cinematicDeathStar=BitmapFactory.decodeStream(in);}}catch(Exception ignored){}
-      for(int i=1;i<=15;i++){try{String pp=game.r.findAsset("objects/"+game.r.objectFolders[i],".png");if(pp!=null)try(InputStream in=ctx.getAssets().open(pp)){cinematicPlanets[i]=BitmapFactory.decodeStream(in);}}catch(Exception ignored){}}
+      try{String ds=game.r.findAsset("objects/00_DeathStar",".png");if(ds!=null)cinematicDeathStar=loadCinematicAsset(ds);}catch(Exception ignored){}
+      for(int i=1;i<=15;i++){try{String pp=game.r.findAsset("objects/"+game.r.objectFolders[i],".png");if(pp!=null)cinematicPlanets[i]=loadCinematicAsset(pp);}catch(Exception ignored){}}
 }
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
@@ -2023,6 +2023,8 @@ public class MainActivity extends Activity {
         return b;
       }catch(Exception e){return null;}
     }
+
+    Bitmap loadCinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
 
     void drawCinematicSphere(Canvas c,Bitmap b,float cx,float cy,float r,float spin){
       c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);
