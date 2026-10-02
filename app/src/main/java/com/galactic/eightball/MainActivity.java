@@ -2026,7 +2026,7 @@ public class MainActivity extends Activity {
 
     void drawPlanetDestructionCinematic(Canvas c,float w,float h){
       int idx=game.r.planetCinematicBall;long start=game.r.planetCinematicStart;if(idx<1||idx>15||start<=0)return;
-      float t=(System.currentTimeMillis()-start)/2800f;if(t>=1f){game.r.planetCinematicBall=-1;return;}
+      float t=(System.currentTimeMillis()-start)/4500f;if(t>=1f){game.r.planetCinematicBall=-1;return;}
       p.setStyle(Paint.Style.FILL);p.setColor(0xF20A0D16);c.drawRect(0,0,w,h,p);
       float dsX=w*.22f,py=h*.48f,plX=w*.78f,rad=Math.min(w,h)*.145f;
       if(cinematicDeathStar!=null)c.drawBitmap(cinematicDeathStar,null,new RectF(dsX-rad,py-rad,dsX+rad,py+rad),p);else{p.setColor(0xFF8D949C);c.drawCircle(dsX,py,rad,p);}
@@ -2035,7 +2035,7 @@ public class MainActivity extends Activity {
       float charge=Math.max(0f,Math.min(1f,(t-.12f)/.25f));p.setColor((Math.min(255,(int)(220*charge))<<24)|0x004CFF72);c.drawCircle(dsX+rad*.54f,py-rad*.12f,rad*.18f*charge,p);
       if(t>.36f&&t<.72f){float beam=Math.min(1f,(t-.36f)/.10f);stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(rad*.11f);stroke.setColor(0xEE39FF68);c.drawLine(dsX+rad*.55f,py-rad*.12f,dsX+rad*.55f+(plX-dsX-rad*.55f)*beam,py,stroke);stroke.setStrokeWidth(rad*.035f);stroke.setColor(Color.WHITE);c.drawLine(dsX+rad*.55f,py-rad*.12f,dsX+rad*.55f+(plX-dsX-rad*.55f)*beam,py,stroke);}
       if(t>=.62f){float ex=Math.min(1f,(t-.62f)/.30f);for(int i=0;i<18;i++){double a=i*2.399963;float rr=rad*(.15f+ex*(.35f+(i%5)*.19f));float x=plX+(float)Math.cos(a)*rr*ex,y=py+(float)Math.sin(a)*rr*ex;p.setColor((Math.max(0,220-(int)(ex*180))<<24)|((i%3==0)?0x00FFB347:0x008C7A68));c.drawCircle(x,y,rad*(.11f-(i%4)*.012f)*(1f-ex*.55f),p);}p.setColor((Math.max(0,210-(int)(ex*170))<<24)|0x00FFF2B0);c.drawCircle(plX,py,rad*(.25f+ex*.65f),p);}
-      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(18f,w*.045f));p.setColor(Color.WHITE);c.drawText(game.r.objectFolders[idx].substring(3).toUpperCase()+" • TARGET DESTROYED",w*.5f,h*.82f,p);
+      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(18f,w*.045f));p.setColor(Color.WHITE);c.drawText("DEATH STAR STRIKE • "+game.r.objectFolders[idx].substring(3).toUpperCase(),w*.5f,h*.82f,p);
       postInvalidateOnAnimation();
     }
 
@@ -5141,7 +5141,7 @@ public class MainActivity extends Activity {
     }
 
     void recordPocket(int index){
-      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);\n      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();android.util.Log.i("GalacticCinematic","POCKET "+index+" cinematic start");if(ctx instanceof MainActivity){HudView hv=((MainActivity)ctx).hud;if(hv!=null)new Handler(Looper.getMainLooper()).post(()->{hv.setVisibility(View.VISIBLE);hv.bringToFront();hv.invalidate();});}}
       if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
