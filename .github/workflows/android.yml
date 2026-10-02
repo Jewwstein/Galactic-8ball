@@ -76,7 +76,7 @@ jobs:
               with Image.open(p) as im:
                   im.load()
                   assert im.format=="PNG", p
-                  assert im.size==(1024,2048), (p,im.size)
+                  expected=(2048,4096) if p.name=="galactic_nebula.png" else (1024,2048)\n                  assert im.size==expected, (p,im.size,expected)
                   assert im.mode=="RGBA", (p,im.mode)
                   lo,hi=im.getchannel("A").getextrema()
                   assert lo==0 and hi==255, f"{p} must contain true transparency"
