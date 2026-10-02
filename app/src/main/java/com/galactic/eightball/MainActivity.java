@@ -1903,7 +1903,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud,cinematicDeathStar; Bitmap[] cinematicPlanets=new Bitmap[16]; android.graphics.drawable.Drawable tieHudPortrait;
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait; Bitmap cinematicDeathStar; Bitmap[] cinematicPlanets=new Bitmap[16];
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieViewRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
@@ -1974,10 +1974,7 @@ public class MainActivity extends Activity {
         bladeChoices[i]=new RectF();
       }
       for(int i=0;i<rewardHilts.length;i++)rewardHilts[i]=loadRewardHilt(c,rewardHiltFiles[i]);
-    
-      try{String ds=game.r.findAsset("objects/00_DeathStar",".png");if(ds!=null)cinematicDeathStar=loadCinematicAsset(ds);}catch(Exception ignored){}
-      for(int i=1;i<=15;i++){try{String pp=game.r.findAsset("objects/"+game.r.objectFolders[i],".png");if(pp!=null)cinematicPlanets[i]=loadCinematicAsset(pp);}catch(Exception ignored){}}
-}
+    }
 
     float hudSafeX(int w,int h,float ui){return (h>w?38f:46f)*ui;}
     float hudSafeY(int w,int h,float ui){return (h>w?34f:38f)*ui;}
@@ -2024,33 +2021,123 @@ public class MainActivity extends Activity {
       }catch(Exception e){return null;}
     }
 
-    Bitmap loadCinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
+    Bitmap cinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
+    void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();}
+    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.34f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}if(t>.34f&&t<.70f){float a=Math.min(1f,(t-.34f)/.08f);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);}if(t>=.60f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;game.r.sfx.arcadeExplosion();}float e=Math.min(1f,(t-.60f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
 
-    void drawCinematicSphere(Canvas c,Bitmap b,float cx,float cy,float r,float spin){
-      c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);
-      if(b!=null){float bw=b.getWidth(),bh=b.getHeight();float scale=Math.max((2*r)/bw,(2*r)/bh);float dw=bw*scale,dh=bh*scale;float shift=(spin%1f)*dw*.18f;c.drawBitmap(b,null,new RectF(cx-dw*.5f-shift,cy-dh*.5f,cx+dw*.5f-shift,cy+dh*.5f),p);if(shift>0)c.drawBitmap(b,null,new RectF(cx+dw*.5f-shift,cy-dh*.5f,cx+dw*1.5f-shift,cy+dh*.5f),p);}else{p.setColor(0xFF596777);c.drawCircle(cx,cy,r,p);}
-      p.setShader(new RadialGradient(cx-r*.28f,cy-r*.32f,r*1.25f,new int[]{0x22FFFFFF,0x00101010,0xAA000000},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();
-      stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeWidth(Math.max(2f,r*.025f));stroke.setColor(0x996EDBFF);c.drawCircle(cx,cy,r,stroke);
-    }
+    protected void onDraw(Canvas c){
+      super.onDraw(c);
+      int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
+      boolean portrait=h>w;
+      float baseUi=portrait
+        ? Math.max(.82f,Math.min(1.30f,Math.min(w/430f,h/900f)))
+        : Math.max(.86f,Math.min(1.28f,Math.min(w/900f,h/500f)));
+      // Previous HUD pass was readable but too small. Scale the whole gameplay UI
+      // up as one system while the bezel-safe area keeps it off the saber frame.
+      float ui=Math.min(portrait?1.42f:1.38f,baseUi*1.14f);
 
-    void drawPlanetDestructionCinematic(Canvas c,float w,float h){
-      int idx=game.r.planetCinematicBall;long start=game.r.planetCinematicStart;if(idx<1||idx>15||start<=0)return;
-      float t=(System.currentTimeMillis()-start)/4200f;if(t>=1f){game.r.planetCinematicBall=-1;return;}
-      p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
-      // Full-screen space field.
-      p.setColor(0xFFBFD9FF);for(int i=0;i<42;i++){float sx=(i*97%101)/101f*w,sy=(i*53%97)/97f*h;c.drawCircle(sx,sy,1f+(i%3)*.55f,p);}
-      float dsX=w*.23f,py=h*.46f,plX=w*.77f,rad=Math.min(w,h)*.18f;
-      drawCinematicSphere(c,cinematicDeathStar,dsX,py,rad,t*.12f);
-      // Death Star superlaser dish is drawn on the sphere, not on a square texture.
-      float dishX=dsX+rad*.42f,dishY=py-rad*.20f;p.setShader(new RadialGradient(dishX,dishY,rad*.25f,new int[]{0xFFFFFFFF,0xFF56FF78,0x0030FF60},null,Shader.TileMode.CLAMP));c.drawCircle(dishX,dishY,rad*.25f,p);p.setShader(null);
-      Bitmap planet=cinematicPlanets[idx];float shake=t>.57f?(float)Math.sin(t*210f)*rad*.025f:0;
-      if(t<.70f)drawCinematicSphere(c,planet,plX+shake,py,rad*.88f,-t*.10f);
-      float charge=Math.max(0f,Math.min(1f,(t-.12f)/.20f));p.setColor((Math.min(255,(int)(235*charge))<<24)|0x004CFF72);c.drawCircle(dishX,dishY,rad*(.08f+.12f*charge),p);
-      if(t>.34f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}}
-      if(t>.34f&&t<.70f){float beam=Math.min(1f,(t-.34f)/.08f);float endX=dishX+(plX-dishX)*beam,endY=dishY+(py-dishY)*beam;stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setShadowLayer(rad*.20f,0,0,0xEE25FF62);stroke.setStrokeWidth(rad*.13f);stroke.setColor(0xAA27FF5A);c.drawLine(dishX,dishY,endX,endY,stroke);stroke.setStrokeWidth(rad*.045f);stroke.setColor(0xFFFFFFFF);c.drawLine(dishX,dishY,endX,endY,stroke);stroke.clearShadowLayer();}
-      if(t>=.60f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;if(game.r.sfx!=null)game.r.sfx.arcadeExplosion();}float ex=Math.min(1f,(t-.60f)/.32f);for(int i=0;i<24;i++){double a=i*2.399963;float rr=rad*(.15f+ex*(.35f+(i%6)*.18f));float x=plX+(float)Math.cos(a)*rr,y=py+(float)Math.sin(a)*rr;p.setColor((Math.max(0,235-(int)(ex*190))<<24)|((i%3==0)?0x00FFB347:0x009B8B7C));c.drawCircle(x,y,rad*(.13f-(i%5)*.014f)*(1f-ex*.5f),p);}p.setShader(new RadialGradient(plX,py,rad*(.35f+ex*.85f),new int[]{0xFFFFFFFF,0xFFFFC04D,0xAAFF5B22,0x00FF3300},null,Shader.TileMode.CLAMP));c.drawCircle(plX,py,rad*(.35f+ex*.85f),p);p.setShader(null);}
-      p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(Math.max(18f,w*.045f));p.setColor(Color.WHITE);c.drawText(game.r.objectFolders[idx].substring(3).toUpperCase()+" • TARGET DESTROYED",w*.5f,h*.82f,p);postInvalidateOnAnimation();
-    }
+      // Reserve a true safe area inside the lightsaber bezel. Every interactive
+      // gameplay HUD now lives inside this rectangle instead of touching the screen edge.
+      float safeX=hudSafeX(w,h,ui),safeY=hudSafeY(w,h,ui);
+
+      if(arcadeUiActive){
+        if(arcadeUiActive){drawArcadeHud(c,w,h,ui,r);return;}
+        clearArcadeUiState();
+      }
+
+      float lockSize=(portrait?104:126)*ui;
+      float lockRight=w-safeX-8*ui,lockBottom=h-safeY-10*ui;
+      lockRect.set(lockRight-lockSize,lockBottom-lockSize,lockRight,lockBottom);
+
+      // Portrait and landscape have independent HUD geometry instead of stretching
+      // one layout until controls become oversized or tiny after rotation.
+      float tabW=(portrait?76:86)*ui,tabH=(portrait?92:102)*ui;
+      float tabCY=portrait?h*.34f:h*.43f;
+      sideMenuTabRect.set(safeX,tabCY-tabH*.5f,safeX+tabW,tabCY+tabH*.5f);
+      if(sideMenuOpen){
+        // Central, screen-filling Galactic menu with deliberate tap-out space.
+        float marginX=(portrait?22:54)*ui;
+        float panelW=Math.min(w-marginX*2,portrait?Math.max(340*ui,w*.88f):Math.max(620*ui,w*.76f));
+        int itemCount=aiSubmenu==1?5:(aiSubmenu==2?11:5);
+        float availableH=Math.max(300*ui,h-(portrait?150:110)*ui);
+        float headerH=(portrait?58:62)*ui;
+        float itemGap=(aiSubmenu==0?12:8)*ui;
+        float desiredItemH=(aiSubmenu==2?(portrait?62:60):(portrait?72:70))*ui;
+        float itemH=Math.min(desiredItemH,(availableH-headerH-24*ui-itemGap*(itemCount-1))/itemCount);
+        itemH=Math.max(48*ui,itemH);
+        float panelHeight=headerH+itemH*itemCount+itemGap*(itemCount-1)+24*ui;
+        float panelLeft=w*.5f-panelW*.5f,panelTop=h*.5f-panelHeight*.5f;
+        sideMenuPanelRect.set(panelLeft,panelTop,panelLeft+panelW,panelTop+panelHeight);
+        float bx=panelLeft+22*ui,by=panelTop+headerH,bw=panelW-44*ui;
+
+        saberMenuRect.setEmpty();rackRect.setEmpty();activeShooterRect.setEmpty();
+        teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
+        for(RectF rr:aiSubmenuRects)rr.setEmpty();
+
+        if(aiSubmenu==0){
+          saberMenuRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          rackRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          activeShooterRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          teamSwitchRect.set(bx,by,bx+bw,by+itemH);by+=itemH+itemGap;
+          multiplayerRect.set(bx,by,bx+bw,by+itemH);
+        }else{
+          for(int i=0;i<itemCount;i++){
+            aiSubmenuRects[i].set(bx,by,bx+bw,by+itemH);
+            by+=itemH+itemGap;
+          }
+        }
+      }else{
+        sideMenuPanelRect.setEmpty();saberMenuRect.setEmpty();rackRect.setEmpty();
+        activeShooterRect.setEmpty();teamSwitchRect.setEmpty();multiplayerRect.setEmpty();
+        for(RectF rr:aiSubmenuRects)rr.setEmpty();
+      }
+
+      p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);
+
+      drawMatchHud(c,w,h,ui,r);
+
+      if(net!=null&&net.inRoom){
+        float ew=(portrait?116:132)*ui,eh=(portrait?42:46)*ui;
+        float ex=safeX,ey=sideMenuTabRect.bottom+10*ui;
+        exitRoomRect.set(ex,ey,ex+ew,ey+eh);
+        drawExitRoomButton(c,exitRoomRect,ui);
+      }else exitRoomRect.setEmpty();
+
+      if(r.challengeMode)drawChallengeStatus(c,w,h,ui,r);
+
+      if(r.state==GameRenderer.AIMING && !r.gameOver){
+        drawWorldShotHilt(c,w,h,ui,r);
+        drawCrosshairButton(c,lockRect,ui);
+        if(r.localCanControl()){
+          drawMicroAimControls(c,w,h,ui);
+          drawCameraAnalogStick(c,w,h,ui);
+        }
+        if(!r.localCanControl()){
+          p.setTextSize(19*ui);p.setColor(0xEEFFFFFF);
+          c.drawText(r.aiEnabled?"GALACTIC AI THINKING":"WAITING FOR PLAYER "+r.activeShooter,w*.5f,hudSafeY(w,h,ui)+(portrait?91:105)*ui,p);
+        }
+      } else if(r.gameOver){
+        drawWinnerOverlay(c,w,h,ui,r);
+      } else if(r.state==GameRenderer.SELECTING_ENGLISH){
+        drawEnglish(c,w,h,ui,r);
+      } else if(r.state==GameRenderer.CHARGING){
+        drawWorldShotHilt(c,w,h,ui,r);
+        if(r.localCanControl())drawThumbStrikeHilt(c,w,h,ui,r);
+      } else {
+        p.setTextSize(20*ui);p.setColor(0xEEFFFFFF);
+        c.drawText("BALLS ROLLING",w*.5f,hudSafeY(w,h,ui)+(portrait?91:105)*ui,p);
+      }
+
+      // Navigation must remain usable after a win/loss. Draw it after every
+      // gameplay overlay so NEW RACK / BACK TO HOME is never hidden underneath
+      // the winner card.
+      drawSideMenuTab(c,sideMenuTabRect,ui,sideMenuOpen);
+      if(sideMenuOpen)drawSideMenu(c,ui,r);
+
+      // Saber loadout is the top-most modal when open.
+      if(menuOpen)drawSaberMenu(c,w,h,ui,r);
+      postInvalidateOnAnimation();
+          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n}
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
@@ -3864,8 +3951,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;
-    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;\n    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -5039,8 +5125,7 @@ public class MainActivity extends Activity {
     }
 
     void recordPocket(int index){
-      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
-      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;android.util.Log.i("GalacticCinematic","POCKET "+index+" cinematic start");if(ctx instanceof MainActivity){HudView hv=((MainActivity)ctx).hud;if(hv!=null)new Handler(Looper.getMainLooper()).post(()->{hv.setVisibility(View.VISIBLE);hv.bringToFront();hv.invalidate();});}}
+      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);\n      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
       if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
