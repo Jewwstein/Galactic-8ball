@@ -577,11 +577,9 @@ public class MainActivity extends Activity {
     boolean hasToken=!multiplayer.savedToken().isEmpty();
 
     if(hasToken){
-      homeStatus.setText("GALACTIC NETWORK ONLINE
-Saved account: "+(user.isEmpty()?"Galactic player":user));
+      homeStatus.setText("GALACTIC NETWORK ONLINE\\nSaved account: "+(user.isEmpty()?"Galactic player":user));
     }else{
-      homeStatus.setText("OFFLINE PLAY READY
-Play Galactic AI now, or sign in for online rooms.");
+      homeStatus.setText("OFFLINE PLAY READY\\nPlay Galactic AI now, or sign in for online rooms.");
     }
 
     if(continueButton!=null){
@@ -684,8 +682,7 @@ Play Galactic AI now, or sign in for online rooms.");
   void refreshLobbyScreen(){
     if(multiplayer==null||lobbyStatus==null)return;
     String user=multiplayer.username==null||multiplayer.username.isEmpty()?"Galactic player":multiplayer.username;
-    lobbyStatus.setText("SIGNED IN AS "+user+"
-GALACTIC NETWORK • CONNECTED");
+    lobbyStatus.setText("SIGNED IN AS "+user+"\\nGALACTIC NETWORK • CONNECTED");
   }
 
   void uiTransitionFx(){
@@ -800,8 +797,7 @@ GALACTIC NETWORK • CONNECTED");
     if(multiplayer!=null)multiplayer.sendProfile();
     if(oldBadges!=newBadges||oldUnlocks!=newUnlocks){
       String msg="ACCOLADE UNLOCKED • "+badgeName;
-      if(hiltName!=null&&!hiltName.isEmpty())msg+="
-New hilt: "+hiltName;
+      if(hiltName!=null&&!hiltName.isEmpty())msg+="\\nNew hilt: "+hiltName;
       Toast.makeText(this,msg,Toast.LENGTH_LONG).show();
       if(saberBezel!=null)saberBezel.pulse(0xFFF4C542,1f);
       if(hud!=null)hud.invalidate();
@@ -938,8 +934,7 @@ New hilt: "+hiltName;
     if(multiplayer.inRoom){
       new AlertDialog.Builder(this)
         .setTitle(multiplayer.roomName)
-        .setMessage("Signed in as "+multiplayer.username+"
-"+multiplayer.statusText())
+        .setMessage("Signed in as "+multiplayer.username+"\\n"+multiplayer.statusText())
         .setItems(new String[]{"LEAVE MATCH","CANCEL"},(d,which)->{
           if(which==0)multiplayer.leaveRoom();
         }).show();
