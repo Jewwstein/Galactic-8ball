@@ -6170,7 +6170,7 @@ public class MainActivity extends Activity {
         arcadeLaserT=.26f;arcadeShotClock=.24f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
-      for(int i=arcadeFighters.size()-1;i>=0;i--)if(!arcadeFighters.get(i).active)arcadeFighters.remove(i);
+      // Render thread cleanup: remove through the iterator so the ArrayList cannot be structurally modified while an active traversal is in progress.\n      for(java.util.Iterator<ArcadeFighter> it=arcadeFighters.iterator();it.hasNext();){ArcadeFighter f=it.next();if(!f.active)it.remove();}
     }
 
     void drawArcadeFighters(float[] pv){
