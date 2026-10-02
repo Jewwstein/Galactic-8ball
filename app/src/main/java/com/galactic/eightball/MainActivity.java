@@ -188,8 +188,7 @@ public class MainActivity extends Activity {
   String parseReleaseValue(String body,String key){
     if(body==null)return "";
     String prefix=key+":";
-    for(String line:body.split("\\r?\
-")){
+    for(String line:body.split("\\r?\\n")){
       String t=line.trim();
       if(t.regionMatches(true,0,prefix,0,prefix.length()))return t.substring(prefix.length()).trim();
     }
