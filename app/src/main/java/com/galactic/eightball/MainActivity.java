@@ -2038,8 +2038,8 @@ public class MainActivity extends Activity {
       int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;
       float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/3600f;
       if(t>=1f){game.r.planetCinematicBall=-1;postInvalidateOnAnimation();return;}
-      if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}
-      if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}
+      try{if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}}catch(Exception ignored){}
+      try{if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}}catch(Exception ignored){}
       p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
       float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;
       drawCineSphere(c,cinematicDeathStar,dx,y,r);
