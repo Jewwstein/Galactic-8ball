@@ -1061,61 +1061,6 @@ public class MainActivity extends Activity {
       p.clearShadowLayer();p.setShader(null);p.setLetterSpacing(0f);
     }
 
-    Bitmap cinematicAsset(String path){
-      try{
-        BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;
-        try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}
-      }catch(Exception e){return null;}
-    }
-    void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){
-      c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);
-      if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);
-      else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}
-      p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));
-      c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();
-    }
-    void drawPocketCinematic(Canvas c,float w,float h){
-      int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;
-      float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/3600f;
-      if(t>=1f){game.r.planetCinematicBall=-1;postInvalidateOnAnimation();return;}
-      if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}
-      if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}
-      p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
-      float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;
-      drawCineSphere(c,cinematicDeathStar,dx,y,r);
-      if(t<.72f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);
-      if(t>.08f&&!game.r.planetCinematicStrikePlayed){
-        game.r.planetCinematicStrikePlayed=true;
-        if(game.r.sfx!=null)game.r.sfx.clash();
-        game.r.pendingStrikeSound=false;
-      }
-      float dishX=dx+r*.42f,dishY=y-r*.2f;
-      if(t>.30f&&!game.r.planetCinematicLaserPlayed){
-        game.r.planetCinematicLaserPlayed=true;
-        if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}
-      }
-      if(t>.30f&&t<.72f){
-        float a=Math.min(1f,(t-.30f)/.08f);
-        stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);
-        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
-        stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);
-        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
-      }
-      if(t>=.60f){
-        if(!game.r.planetCinematicExplosionPlayed){
-          game.r.planetCinematicExplosionPlayed=true;
-          if(game.r.sfx!=null)game.r.sfx.pocket();
-        }
-        float e=Math.min(1f,(t-.60f)/.30f);
-        for(int j=0;j<22;j++){
-          double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));
-          p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);
-          c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);
-        }
-      }
-      postInvalidateOnAnimation();
-    }
-
     protected void onDraw(Canvas c){
       super.onDraw(c);
       float w=getWidth(),h=getHeight();
@@ -2074,6 +2019,61 @@ public class MainActivity extends Activity {
         }
         return b;
       }catch(Exception e){return null;}
+    }
+
+    Bitmap cinematicAsset(String path){
+      try{
+        BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;
+        try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}
+      }catch(Exception e){return null;}
+    }
+    void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){
+      c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);
+      if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);
+      else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}
+      p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));
+      c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();
+    }
+    void drawPocketCinematic(Canvas c,float w,float h){
+      int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;
+      float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/3600f;
+      if(t>=1f){game.r.planetCinematicBall=-1;postInvalidateOnAnimation();return;}
+      if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}
+      if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}
+      p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
+      float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;
+      drawCineSphere(c,cinematicDeathStar,dx,y,r);
+      if(t<.72f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);
+      if(t>.08f&&!game.r.planetCinematicStrikePlayed){
+        game.r.planetCinematicStrikePlayed=true;
+        if(game.r.sfx!=null)game.r.sfx.clash();
+        game.r.pendingStrikeSound=false;
+      }
+      float dishX=dx+r*.42f,dishY=y-r*.2f;
+      if(t>.30f&&!game.r.planetCinematicLaserPlayed){
+        game.r.planetCinematicLaserPlayed=true;
+        if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}
+      }
+      if(t>.30f&&t<.72f){
+        float a=Math.min(1f,(t-.30f)/.08f);
+        stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);
+        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
+        stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);
+        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
+      }
+      if(t>=.60f){
+        if(!game.r.planetCinematicExplosionPlayed){
+          game.r.planetCinematicExplosionPlayed=true;
+          if(game.r.sfx!=null)game.r.sfx.pocket();
+        }
+        float e=Math.min(1f,(t-.60f)/.30f);
+        for(int j=0;j<22;j++){
+          double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));
+          p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);
+          c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);
+        }
+      }
+      postInvalidateOnAnimation();
     }
 
     protected void onDraw(Canvas c){
