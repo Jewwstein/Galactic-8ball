@@ -1614,7 +1614,6 @@ public class MainActivity extends Activity {
     void pocket(){oneShot("sfx_pocket",.82f);}
     void scratch(){oneShot("sfx_scratch",.86f);}
     void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
-    void cinematicBlaster(){oneShot("sfx_clash",.88f);}
     void arcadeLaser(){if(arcadeLaserId!=0)try{arcadePool.play(arcadeLaserId,.42f,.42f,1,0,1f);}catch(Exception ignored){}}
     void tieLaser(){if(tieLaserId!=0)try{arcadePool.play(tieLaserId,.62f,.62f,2,0,1f);}catch(Exception ignored){}}
     void deathStarFire(){if(deathStarFireId!=0)try{arcadePool.play(deathStarFireId,.60f,.60f,2,0,1f);}catch(Exception ignored){}}
@@ -2024,7 +2023,7 @@ public class MainActivity extends Activity {
 
     Bitmap cinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
     void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();}
-    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}if(cinematicDeathStar==null){try{String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}catch(Exception ignored){}}if(cinematicPlanets[idx]==null){try{String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}catch(Exception ignored){}}p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.34f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;if(game.r.sfx!=null)game.r.sfx.cinematicBlaster();}if(t>.34f&&t<.70f){float a=Math.min(1f,(t-.34f)/.08f);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);}if(t>=.60f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;if(game.r.sfx!=null)game.r.sfx.arcadeExplosion();}float e=Math.min(1f,(t-.60f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
+    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.22f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;game.r.sfx.deathStarFire();}if(t>.22f&&t<.68f){float a=Math.min(1f,(t-.22f)/.08f);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);}if(t>=.58f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;game.r.sfx.arcadeExplosion();}float e=Math.min(1f,(t-.58f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
 
     protected void onDraw(Canvas c){
       super.onDraw(c);
@@ -2138,8 +2137,7 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());
-    }
+          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n}
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
@@ -3925,7 +3923,7 @@ public class MainActivity extends Activity {
     final float[] falconModel=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
     volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
-    volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
+    volatile int state=AIMING,hiltIndex=0,bladeIndex=5;\n    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int cinematicPredictedBall=-1;
     volatile int currentTeam=1,winnerTeam=0,activeShooter=1;
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
@@ -3953,8 +3951,7 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;
-    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -4260,9 +4257,7 @@ public class MainActivity extends Activity {
 
         float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
-        // Full merged X-Wing is normalized as one complete model. Use the same
-        // overall visual size as the first four-corner Android dogfight test.
-        android.opengl.Matrix.scaleM(X,0,.38f,.38f,.38f);
+        // Full merged X-Wing is normalized as one complete model. Use the same\n        // overall visual size as the first four-corner Android dogfight test.\n        android.opengl.Matrix.scaleM(X,0,27.0f,27.0f,27.0f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
@@ -5131,7 +5126,6 @@ public class MainActivity extends Activity {
 
     void recordPocket(int index){
       if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
-      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
       if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
@@ -5851,6 +5845,20 @@ public class MainActivity extends Activity {
       executeShot();
     }
 
+    int predictedPocketBallForCurrentAim(){
+      if(balls.isEmpty()||!balls.get(0).active)return -1;
+      Ball cue=balls.get(0);float dx=aimX,dz=aimZ,n=(float)Math.sqrt(dx*dx+dz*dz);if(n<.0001f)return -1;dx/=n;dz/=n;
+      PredictorRailHit rail=predictorRailHit(cue.x,cue.z,dx,dz);float limit=rail==null?Float.POSITIVE_INFINITY:rail.t;
+      Ball hit=null;float bt=Float.POSITIVE_INFINITY,rr=PHYS_R*2f;
+      for(int i=1;i<balls.size();i++){Ball b=balls.get(i);if(!b.active||b.sinking)continue;float q=predictorRayCircleT(cue.x,cue.z,dx,dz,b.x,b.z,rr);if(q<bt&&q<limit){bt=q;hit=b;}}
+      if(hit==null)return -1;
+      float cx=cue.x+dx*bt,cz=cue.z+dz*bt,nx=hit.x-cx,nz=hit.z-cz,nd=(float)Math.sqrt(nx*nx+nz*nz);if(nd<.0001f)return -1;nx/=nd;nz/=nd;
+      float sx=hit.x+nx*.025f,sz=hit.z+nz*.025f;float pt=predictorPocketT(sx,sz,nx,nz);PredictorRailHit pr=predictorRailHit(sx,sz,nx,nz);float rt=pr==null?Float.POSITIVE_INFINITY:pr.t;float ot=predictorObjectBallT(sx,sz,nx,nz,hit);
+      return pt<rt&&pt<ot?hit.index:-1;
+    }
+
+    void beginPredictedPocketCinematic(int idx){cinematicPredictedBall=idx;planetCinematicBall=idx;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
+
     void executeShot(){
       firstContactBall=0;
       ballInHand=false;
@@ -6180,20 +6188,19 @@ public class MainActivity extends Activity {
         arcadeLaserT=.26f;arcadeShotClock=.24f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
-      // Render thread cleanup: remove through the iterator so the ArrayList cannot be structurally modified while an active traversal is in progress.
-      for(java.util.Iterator<ArcadeFighter> it=arcadeFighters.iterator();it.hasNext();){ArcadeFighter f=it.next();if(!f.active)it.remove();}
+      // Render thread cleanup: remove through the iterator so the ArrayList cannot be structurally modified while an active traversal is in progress.\n      for(java.util.Iterator<ArcadeFighter> it=arcadeFighters.iterator();it.hasNext();){ArcadeFighter f=it.next();if(!f.active)it.remove();}
     }
 
     void drawArcadeFighters(float[] pv){
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
         android.opengl.Matrix.rotateM(PM,0,arcadeYaw+180f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
-        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,.34f,.34f,.34f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
+        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
       if(net!=null&&net.inRoom&&net.remoteArcadeActive){
         float[] RM=identity();android.opengl.Matrix.translateM(RM,0,net.remoteArcadeX,net.remoteArcadeY,net.remoteArcadeZ);android.opengl.Matrix.rotateM(RM,0,net.remoteArcadeYaw,0,1,0);android.opengl.Matrix.rotateM(RM,0,-net.remoteArcadePitch,1,0,0);
-        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,.34f,.34f,.34f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
+        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
         else{android.opengl.Matrix.scaleM(RM,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,RM,dogfightTieTex,new float[]{1f,.38f,.38f,1f});}
         // Human pilot marker: pulsing faction ring makes the live opponent
         // unmistakable among ambient bot traffic.
@@ -6208,7 +6215,7 @@ public class MainActivity extends Activity {
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
         // Enemy identification uses the fighter itself; no duplicate outline geometry.
         if(e.xwing){
-          float baseSc=tieMode?.34f:.32f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float baseSc=tieMode?2.48f:2.28f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
