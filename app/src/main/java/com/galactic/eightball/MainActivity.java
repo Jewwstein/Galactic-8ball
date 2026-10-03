@@ -4262,7 +4262,7 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
         // Full merged X-Wing is normalized as one complete model. Use the same
         // overall visual size as the first four-corner Android dogfight test.
-        android.opengl.Matrix.scaleM(X,0,.82f,.82f,.82f);
+        android.opengl.Matrix.scaleM(X,0,.38f,.38f,.38f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
@@ -6188,12 +6188,12 @@ public class MainActivity extends Activity {
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
         android.opengl.Matrix.rotateM(PM,0,arcadeYaw+180f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
-        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,.72f,.72f,.72f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
+        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,.34f,.34f,.34f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
       if(net!=null&&net.inRoom&&net.remoteArcadeActive){
         float[] RM=identity();android.opengl.Matrix.translateM(RM,0,net.remoteArcadeX,net.remoteArcadeY,net.remoteArcadeZ);android.opengl.Matrix.rotateM(RM,0,net.remoteArcadeYaw,0,1,0);android.opengl.Matrix.rotateM(RM,0,-net.remoteArcadePitch,1,0,0);
-        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,.72f,.72f,.72f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
+        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,.34f,.34f,.34f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
         else{android.opengl.Matrix.scaleM(RM,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,RM,dogfightTieTex,new float[]{1f,.38f,.38f,1f});}
         // Human pilot marker: pulsing faction ring makes the live opponent
         // unmistakable among ambient bot traffic.
@@ -6208,7 +6208,7 @@ public class MainActivity extends Activity {
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
         // Enemy identification uses the fighter itself; no duplicate outline geometry.
         if(e.xwing){
-          float baseSc=tieMode?.72f:.68f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float baseSc=tieMode?.34f:.32f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
