@@ -6208,7 +6208,7 @@ public class MainActivity extends Activity {
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
         // Enemy identification uses the fighter itself; no duplicate outline geometry.
         if(e.xwing){
-          float baseSc=tieMode?1.18f:1.08f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float baseSc=tieMode?.72f:.68f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
