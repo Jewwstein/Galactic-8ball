@@ -248,7 +248,7 @@ jobs:
             VersionName: ${{ steps.version.outputs.version_name }}
             Package: com.galactic.eightball
             Source baseline: ${{ github.sha }}
-            UpdateNotes: Arcade combat rework: Death Star reticle/laser timing corrected; TIE and Death Star now use regenerating shields, breakable hull, three hull lives, enemy damage, impact feedback, and run-ending third hull loss.
+            UpdateNotes: Death Star pocket cinematic added with planet destruction sequence, synchronized cinematic audio, deep-space starfield backdrop, and superlaser convergence aligned to the Death Star dish.
           files: Galactic-8-Ball-Latest.apk
           make_latest: true
         env:
@@ -256,4 +256,4 @@ jobs:
 
 
 
-# Release trigger: v0.8.63 build 80 arcade concurrent modification crash fix
+# Release trigger: v0.8.64 build 81 Death Star pocket cinematic
