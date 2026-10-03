@@ -1903,7 +1903,7 @@ public class MainActivity extends Activity {
     MultiplayerManager net;
     final Paint p=new Paint(3);
     final Paint stroke=new Paint(3);
-    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait; Bitmap cinematicDeathStar; Bitmap[] cinematicPlanets=new Bitmap[16];
+    Bitmap[] hilts=new Bitmap[BASE_HILT_COUNT], rewardHilts=new Bitmap[10], blades=new Bitmap[6]; Bitmap tieHud,xwingHud; android.graphics.drawable.Drawable tieHudPortrait;
     RectF lockRect=new RectF(),saberMenuRect=new RectF(),rackRect=new RectF(),activeShooterRect=new RectF(),teamSwitchRect=new RectF(),multiplayerRect=new RectF(),exitRoomRect=new RectF(),saberPanelRect=new RectF(),confirmRect=new RectF(),cancelRect=new RectF(),microLeftRect=new RectF(),microRightRect=new RectF(),aimStickRect=new RectF(),cameraStickRect=new RectF(),sideMenuTabRect=new RectF(),sideMenuPanelRect=new RectF(),thumbHiltRect=new RectF(),thumbGrabRect=new RectF(),arcadeMoveRect=new RectF(),arcadeAimRect=new RectF(),arcadeExitRect=new RectF(),arcadeSummaryExitRect=new RectF(),tieModeRect=new RectF(),tieViewRect=new RectF(),tieFireRect=new RectF(),tieUpRect=new RectF(),tieDownRect=new RectF(),arcadeBotsRect=new RectF();
     RectF[] hiltChoices=new RectF[TOTAL_HILT_COUNT],bladeChoices=new RectF[6],aiSubmenuRects=new RectF[11];
     float englishCx,englishCy,englishR;
@@ -2021,10 +2021,6 @@ public class MainActivity extends Activity {
       }catch(Exception e){return null;}
     }
 
-    Bitmap cinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
-    void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();}
-    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}if(cinematicDeathStar==null){try{String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}catch(Exception ignored){}}if(cinematicPlanets[idx]==null){try{String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}catch(Exception ignored){}}p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.22f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;game.r.sfx.deathStarFire();}if(t>.22f&&t<.68f){float a=Math.min(1f,(t-.22f)/.08f);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);}if(t>=.58f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;game.r.sfx.arcadeExplosion();}float e=Math.min(1f,(t-.58f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
-
     protected void onDraw(Canvas c){
       super.onDraw(c);
       int w=getWidth(),h=getHeight(); GameRenderer r=game.r;
@@ -2137,7 +2133,6 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());
     }
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
@@ -3925,7 +3920,6 @@ public class MainActivity extends Activity {
     volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
     volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
     volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
-    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int cinematicPredictedBall=-1;
     volatile int currentTeam=1,winnerTeam=0,activeShooter=1;
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
@@ -5846,20 +5840,6 @@ public class MainActivity extends Activity {
       ruleMessage="GALACTIC AI • "+aiDifficultyName()+" SHOOTS";
       executeShot();
     }
-
-    int predictedPocketBallForCurrentAim(){
-      if(balls.isEmpty()||!balls.get(0).active)return -1;
-      Ball cue=balls.get(0);float dx=aimX,dz=aimZ,n=(float)Math.sqrt(dx*dx+dz*dz);if(n<.0001f)return -1;dx/=n;dz/=n;
-      PredictorRailHit rail=predictorRailHit(cue.x,cue.z,dx,dz);float limit=rail==null?Float.POSITIVE_INFINITY:rail.t;
-      Ball hit=null;float bt=Float.POSITIVE_INFINITY,rr=PHYS_R*2f;
-      for(int i=1;i<balls.size();i++){Ball b=balls.get(i);if(!b.active||b.sinking)continue;float q=predictorRayCircleT(cue.x,cue.z,dx,dz,b.x,b.z,rr);if(q<bt&&q<limit){bt=q;hit=b;}}
-      if(hit==null)return -1;
-      float cx=cue.x+dx*bt,cz=cue.z+dz*bt,nx=hit.x-cx,nz=hit.z-cz,nd=(float)Math.sqrt(nx*nx+nz*nz);if(nd<.0001f)return -1;nx/=nd;nz/=nd;
-      float sx=hit.x+nx*.025f,sz=hit.z+nz*.025f;float pt=predictorPocketT(sx,sz,nx,nz);PredictorRailHit pr=predictorRailHit(sx,sz,nx,nz);float rt=pr==null?Float.POSITIVE_INFINITY:pr.t;float ot=predictorObjectBallT(sx,sz,nx,nz,hit);
-      return pt<rt&&pt<ot?hit.index:-1;
-    }
-
-    void beginPredictedPocketCinematic(int idx){cinematicPredictedBall=idx;planetCinematicBall=idx;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
 
     void executeShot(){
       firstContactBall=0;
