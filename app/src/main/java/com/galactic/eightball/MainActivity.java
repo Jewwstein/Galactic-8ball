@@ -692,7 +692,10 @@ public class MainActivity extends Activity {
 
   void showHomeScreen(){
     showingTable=false;
-    if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
+    // PRELOAD TEST: keep the GLSurfaceView attached and visible behind the opaque
+    // home screen. GONE destroys/defers its surface, which was postponing the
+    // expensive local mesh/texture initialization until the player tapped AI.
+    if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
     if(lobbyScreen!=null)lobbyScreen.setVisibility(View.GONE);
     if(homeScreen!=null)homeScreen.setVisibility(View.VISIBLE);
     refreshHomeScreen();
@@ -702,7 +705,8 @@ public class MainActivity extends Activity {
     uiTransitionFx();
     offlineSinglePlayer=false;
     showingTable=false;
-    if(gameRoot!=null)gameRoot.setVisibility(View.GONE);
+    // Keep the already-preloaded renderer resident behind the lobby as well.
+    if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
     if(lobbyScreen!=null)lobbyScreen.setVisibility(View.VISIBLE);
     if(game!=null)game.queueEvent(()->{game.r.aiEnabled=false;game.r.aiThinking=false;});
@@ -823,6 +827,12 @@ public class MainActivity extends Activity {
   }
 
   void showGameScreen(){
+    // If the player taps immediately after launch, keep the opaque menu up until
+    // preload has actually completed rather than exposing a half-built GL frame.
+    if(game!=null&&game.r!=null&&!game.r.assetsReady){
+      new Handler(Looper.getMainLooper()).postDelayed(this::showGameScreen,16);
+      return;
+    }
     uiTransitionFx();
     showingTable=true;
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
@@ -4086,6 +4096,9 @@ public class MainActivity extends Activity {
     final float[][] bladeRgb={{.92f,.95f,1f},{1f,.72f,.18f},{.68f,.28f,1f},{.18f,1f,.42f},{1f,.12f,.10f},{.20f,.66f,1f}};
     final String[] saberFolders={"white","gold","purple","green","red","blue"};
 
+    volatile boolean assetsReady=false;
+    volatile long preloadStartedMs=0,preloadFinishedMs=0;
+
     GameRenderer(Context c){ctx=c;sfx=new SfxManager(c.getApplicationContext());}
 
     public void onSurfaceCreated(GL10 gl,EGLConfig cfg){
@@ -4099,7 +4112,14 @@ public class MainActivity extends Activity {
       aPos=GLES20.glGetAttribLocation(program,"aPos");aUv=GLES20.glGetAttribLocation(program,"aUv");aNormal=GLES20.glGetAttribLocation(program,"aNormal");
       uMvp=GLES20.glGetUniformLocation(program,"uMvp");uModel=GLES20.glGetUniformLocation(program,"uModel");uUseTex=GLES20.glGetUniformLocation(program,"uUseTex");
       uColor=GLES20.glGetUniformLocation(program,"uColor");uTex=GLES20.glGetUniformLocation(program,"uTex");uLit=GLES20.glGetUniformLocation(program,"uLit");
-      buildFalconTransform();loadAssets();resetRack();last=System.nanoTime();
+      buildFalconTransform();
+      preloadStartedMs=android.os.SystemClock.elapsedRealtime();
+      loadAssets();
+      resetRack();
+      preloadFinishedMs=android.os.SystemClock.elapsedRealtime();
+      assetsReady=true;
+      android.util.Log.i("GalacticPreload","table assets ready in "+(preloadFinishedMs-preloadStartedMs)+" ms");
+      last=System.nanoTime();
     }
 
     int shader(int type,String src){int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);return s;}
