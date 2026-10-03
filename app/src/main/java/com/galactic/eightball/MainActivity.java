@@ -2040,7 +2040,29 @@ public class MainActivity extends Activity {
       if(t>=1f){game.r.planetCinematicBall=-1;postInvalidateOnAnimation();return;}
       try{if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}}catch(Exception ignored){}
       try{if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}}catch(Exception ignored){}
-      p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
+      p.setStyle(Paint.Style.FILL);p.setColor(0xFF02040D);c.drawRect(0,0,w,h,p);
+      // Premium procedural deep-space backdrop: stable star positions so the
+      // background does not shimmer between frames, plus restrained nebula haze.
+      p.setShader(new RadialGradient(w*.28f,h*.34f,Math.max(w,h)*.58f,
+        new int[]{0x382E3D78,0x16172B56,0x00000000},null,Shader.TileMode.CLAMP));
+      c.drawRect(0,0,w,h,p);p.setShader(null);
+      p.setShader(new RadialGradient(w*.76f,h*.68f,Math.max(w,h)*.48f,
+        new int[]{0x26234D58,0x10112632,0x00000000},null,Shader.TileMode.CLAMP));
+      c.drawRect(0,0,w,h,p);p.setShader(null);
+      long seed=0x6A09E667F3BCC909L;
+      for(int s=0;s<150;s++){
+        seed=seed*6364136223846793005L+1442695040888963407L;
+        float sx=((seed>>>16)&0xFFFF)/65535f*w;
+        seed=seed*6364136223846793005L+1442695040888963407L;
+        float sy=((seed>>>16)&0xFFFF)/65535f*h;
+        int tier=(int)((seed>>>8)&3);
+        float sr=tier==0?1.0f:(tier==1?1.5f:(tier==2?2.1f:2.8f));
+        int alpha=tier==0?125:(tier==1?170:(tier==2?210:245));
+        p.setColor((alpha<<24)|0x00EAF2FF);c.drawCircle(sx,sy,sr,p);
+        if(tier==3){
+          p.setColor(0x55FFFFFF);c.drawCircle(sx,sy,sr*2.4f,p);
+        }
+      }
       boolean portrait=h>w;
       // Keep the cinematic composition centered in the actual phone viewport.
       // Portrait is the primary layout: the pair sits around screen center instead
@@ -2056,7 +2078,7 @@ public class MainActivity extends Activity {
         if(game.r.sfx!=null)game.r.sfx.clash();
         game.r.pendingStrikeSound=false;
       }
-      float dishX=dx+r*.42f,dishY=y-r*.20f;
+      float dishX=dx+r*.31f,dishY=y-r*.27f;
       if(t>.30f&&!game.r.planetCinematicLaserPlayed){
         game.r.planetCinematicLaserPlayed=true;
         if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}
@@ -2065,9 +2087,9 @@ public class MainActivity extends Activity {
         // Superlaser: several dish emitters converge into a hot focus point,
         // then a layered high-energy beam travels from that focus to the planet.
         float travel=Math.min(1f,(t-.30f)/.10f);
-        float focusX=dishX+r*.34f,focusY=dishY+r*.02f;
-        float[] ey={-.34f,-.23f,-.11f,.02f,.15f,.28f};
-        float[] ex={-.13f,-.02f,.08f,.11f,.02f,-.11f};
+        float focusX=dishX+r*.16f,focusY=dishY+r*.015f;
+        float[] ey={-.18f,-.11f,-.04f,.04f,.11f,.18f};
+        float[] ex={-.09f,-.035f,.005f,.005f,-.035f,-.09f};
         stroke.setStrokeCap(Paint.Cap.ROUND);
         for(int k=0;k<ey.length;k++){
           float sx=dishX+ex[k]*r,sy=dishY+ey[k]*r;
