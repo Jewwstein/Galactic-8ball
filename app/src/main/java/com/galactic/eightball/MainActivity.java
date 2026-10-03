@@ -692,7 +692,7 @@ public class MainActivity extends Activity {
 
   void showHomeScreen(){
     showingTable=false;
-    // PRELOAD TEST: keep the GLSurfaceView attached and visible behind the opaque
+    // PRELOAD TEST V1: keep the GLSurfaceView attached and visible behind the opaque
     // home screen. GONE destroys/defers its surface, which was postponing the
     // expensive local mesh/texture initialization until the player tapped AI.
     if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
