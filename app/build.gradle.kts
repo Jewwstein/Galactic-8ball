@@ -17,7 +17,7 @@ android {
    minSdk = 26
    targetSdk = 35
         versionCode = 81
-        versionName = "0.8.64-cinematic-test5"
+        versionName = "0.8.64"
  }
 
  buildTypes {
