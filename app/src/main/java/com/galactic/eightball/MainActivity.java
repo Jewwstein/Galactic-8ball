@@ -2137,7 +2137,8 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n}
+          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());
+    }
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
@@ -3923,7 +3924,8 @@ public class MainActivity extends Activity {
     final float[] falconModel=new float[16];
     volatile float camYaw=180f,camPitch=46f,camDist=150f,camTargetX=0f,camTargetZ=0f;
     volatile float camGoalYaw=180f,camGoalPitch=43f,camGoalDist=132f,camGoalTargetX=0f,camGoalTargetZ=0f;
-    volatile int state=AIMING,hiltIndex=0,bladeIndex=5;\n    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int cinematicPredictedBall=-1;
+    volatile int state=AIMING,hiltIndex=0,bladeIndex=5;
+    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int cinematicPredictedBall=-1;
     volatile int currentTeam=1,winnerTeam=0,activeShooter=1;
     final int[] teamSuit={0,0}; // 0=open, 1=solids, 2=stripes
     final ArrayList<Integer> ballsSunkThisShot=new ArrayList<>();
