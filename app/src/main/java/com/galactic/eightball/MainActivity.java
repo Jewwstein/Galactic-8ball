@@ -2078,7 +2078,10 @@ public class MainActivity extends Activity {
         if(game.r.sfx!=null)game.r.sfx.clash();
         game.r.pendingStrikeSound=false;
       }
-      float dishX=dx+r*.31f,dishY=y-r*.27f;
+      // Calibrated against the rendered Death Star sphere: the superlaser dish
+      // sits in the upper-right quadrant. Treat the dish center as the actual
+      // convergence point; the main beam begins there instead of beyond it.
+      float dishX=dx+r*.255f,dishY=y-r*.245f;
       if(t>.30f&&!game.r.planetCinematicLaserPlayed){
         game.r.planetCinematicLaserPlayed=true;
         if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}
@@ -2087,9 +2090,11 @@ public class MainActivity extends Activity {
         // Superlaser: several dish emitters converge into a hot focus point,
         // then a layered high-energy beam travels from that focus to the planet.
         float travel=Math.min(1f,(t-.30f)/.10f);
-        float focusX=dishX+r*.16f,focusY=dishY+r*.015f;
-        float[] ey={-.18f,-.11f,-.04f,.04f,.11f,.18f};
-        float[] ex={-.09f,-.035f,.005f,.005f,-.035f,-.09f};
+        float focusX=dishX,focusY=dishY;
+        // Ring the emitters around the dish so every spoke terminates at its
+        // visible center. This removes the previous right-shifted convergence.
+        float[] ey={-.17f,-.085f,.085f,.17f,.085f,-.085f};
+        float[] ex={0.0f,.105f,.105f,0.0f,-.105f,-.105f};
         stroke.setStrokeCap(Paint.Cap.ROUND);
         for(int k=0;k<ey.length;k++){
           float sx=dishX+ex[k]*r,sy=dishY+ey[k]*r;
