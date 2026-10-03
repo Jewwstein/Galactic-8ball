@@ -2137,7 +2137,7 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n}
+          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n    }
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
