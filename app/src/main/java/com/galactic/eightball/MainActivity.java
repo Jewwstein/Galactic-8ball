@@ -2041,7 +2041,14 @@ public class MainActivity extends Activity {
       try{if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}}catch(Exception ignored){}
       try{if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}}catch(Exception ignored){}
       p.setStyle(Paint.Style.FILL);p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);
-      float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;
+      boolean portrait=h>w;
+      // Keep the cinematic composition centered in the actual phone viewport.
+      // Portrait is the primary layout: the pair sits around screen center instead
+      // of inheriting the upper gameplay/table composition.
+      float y=h*.52f;
+      float r=portrait?Math.min(w*.205f,h*.145f):Math.min(w,h)*.18f;
+      float pairGap=portrait?w*.285f:w*.27f;
+      float dx=w*.5f-pairGap,px=w*.5f+pairGap;
       drawCineSphere(c,cinematicDeathStar,dx,y,r);
       if(t<.72f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);
       if(t>.08f&&!game.r.planetCinematicStrikePlayed){
@@ -2049,17 +2056,42 @@ public class MainActivity extends Activity {
         if(game.r.sfx!=null)game.r.sfx.clash();
         game.r.pendingStrikeSound=false;
       }
-      float dishX=dx+r*.42f,dishY=y-r*.2f;
+      float dishX=dx+r*.42f,dishY=y-r*.20f;
       if(t>.30f&&!game.r.planetCinematicLaserPlayed){
         game.r.planetCinematicLaserPlayed=true;
         if(game.r.sfx!=null){game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}
       }
       if(t>.30f&&t<.72f){
-        float a=Math.min(1f,(t-.30f)/.08f);
-        stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);
-        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
-        stroke.setStrokeWidth(r*.035f);stroke.setColor(Color.WHITE);
-        c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);
+        // Superlaser: several dish emitters converge into a hot focus point,
+        // then a layered high-energy beam travels from that focus to the planet.
+        float travel=Math.min(1f,(t-.30f)/.10f);
+        float focusX=dishX+r*.34f,focusY=dishY+r*.02f;
+        float[] ey={-.34f,-.23f,-.11f,.02f,.15f,.28f};
+        float[] ex={-.13f,-.02f,.08f,.11f,.02f,-.11f};
+        stroke.setStrokeCap(Paint.Cap.ROUND);
+        for(int k=0;k<ey.length;k++){
+          float sx=dishX+ex[k]*r,sy=dishY+ey[k]*r;
+          stroke.setStrokeWidth(r*.055f);stroke.setColor(0x5526FF55);
+          c.drawLine(sx,sy,focusX,focusY,stroke);
+          stroke.setStrokeWidth(r*.018f);stroke.setColor(0xDD76FF91);
+          c.drawLine(sx,sy,focusX,focusY,stroke);
+          stroke.setStrokeWidth(r*.006f);stroke.setColor(0xFFFFFFFF);
+          c.drawLine(sx,sy,focusX,focusY,stroke);
+        }
+        p.setShader(new RadialGradient(focusX,focusY,r*.20f,
+          new int[]{0xFFFFFFFF,0xEE63FF82,0x5521FF50,0x0021FF50},null,Shader.TileMode.CLAMP));
+        c.drawCircle(focusX,focusY,r*.20f,p);p.setShader(null);
+        float tx=focusX+(px-focusX)*travel,ty=focusY+(y-focusY)*travel;
+        stroke.setStrokeWidth(r*.16f);stroke.setColor(0x3322FF55);c.drawLine(focusX,focusY,tx,ty,stroke);
+        stroke.setStrokeWidth(r*.095f);stroke.setColor(0x8833FF66);c.drawLine(focusX,focusY,tx,ty,stroke);
+        stroke.setStrokeWidth(r*.052f);stroke.setColor(0xEE68FF86);c.drawLine(focusX,focusY,tx,ty,stroke);
+        stroke.setStrokeWidth(r*.020f);stroke.setColor(0xFFFFFFFF);c.drawLine(focusX,focusY,tx,ty,stroke);
+        // Fine energy filaments make the beam read as layered rather than a flat line.
+        for(int k=-2;k<=2;k++){
+          float off=k*r*.014f;
+          stroke.setStrokeWidth(r*.006f);stroke.setColor(0xAA9DFFAE);
+          c.drawLine(focusX,focusY+off,tx,ty+off,stroke);
+        }
       }
       if(t>=.60f){
         if(!game.r.planetCinematicExplosionPlayed){
