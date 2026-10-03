@@ -1,7 +1,7 @@
 name: Build Galactic 8-Ball APK
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test-death-star-cinematic-v5" ]
   workflow_dispatch:
 jobs:
   build:
