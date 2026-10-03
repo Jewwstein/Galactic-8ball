@@ -830,9 +830,18 @@ public class MainActivity extends Activity {
     // If the player taps immediately after launch, keep the opaque menu up until
     // preload has actually completed rather than exposing a half-built GL frame.
     if(game!=null&&game.r!=null&&!game.r.assetsReady){
+      // Immediate acknowledgement: replace the apparently-dead home menu with a
+      // simple opaque transition card while the already-running GL preload finishes.
+      if(homeScreen!=null){
+        homeScreen.setVisibility(View.VISIBLE);
+        homeScreen.setAlpha(.28f);
+      }
+      if(lobbyScreen!=null)lobbyScreen.setVisibility(View.GONE);
+      if(gameRoot!=null)gameRoot.setVisibility(View.VISIBLE);
       new Handler(Looper.getMainLooper()).postDelayed(this::showGameScreen,16);
       return;
     }
+    if(homeScreen!=null)homeScreen.setAlpha(1f);
     uiTransitionFx();
     showingTable=true;
     if(homeScreen!=null)homeScreen.setVisibility(View.GONE);
@@ -5977,6 +5986,10 @@ public class MainActivity extends Activity {
     }
 
     void executeShot(){
+      // Every pool shot starts with its strike held. If an object ball commits
+      // to a pocket, the Death Star cinematic owns the one-and-only strike SFX.
+      // If no cinematic pocket occurs, the normal strike is released at shot end.
+      pendingStrikeSound=true;
       firstContactBall=0;
       ballInHand=false;
       if(aiEnabled&&currentTeam==1){
