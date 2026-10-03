@@ -2023,7 +2023,7 @@ public class MainActivity extends Activity {
 
     Bitmap cinematicAsset(String path){try{BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=4;try(InputStream in=ctx.getAssets().open(path)){return BitmapFactory.decodeStream(in,null,o);}}catch(Exception e){return null;}}
     void drawCineSphere(Canvas c,Bitmap b,float cx,float cy,float r){c.save();Path clip=new Path();clip.addCircle(cx,cy,r,Path.Direction.CW);c.clipPath(clip);if(b!=null)c.drawBitmap(b,null,new RectF(cx-r,cy-r,cx+r,cy+r),p);else{p.setColor(0xFF66727F);c.drawCircle(cx,cy,r,p);}p.setShader(new RadialGradient(cx-r*.3f,cy-r*.35f,r*1.25f,new int[]{0x11FFFFFF,0x00101010,0xB0000000},null,Shader.TileMode.CLAMP));c.drawCircle(cx,cy,r,p);p.setShader(null);c.restore();}
-    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}try{if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}}catch(Exception ignored){}p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.34f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}if(t>.34f&&t<.70f){float a=Math.min(1f,(t-.34f)/.08f);stroke.setStrokeCap(Paint.Cap.ROUND);stroke.setStrokeWidth(r*.12f);stroke.setColor(0xDD2DFF60);c.drawLine(dishX,dishY,dishX+(px-dishX)*a,dishY+(y-dishY)*a,stroke);}if(t>=.60f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;game.r.sfx.arcadeExplosion();}float e=Math.min(1f,(t-.60f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
+    void drawPocketCinematic(Canvas c,float w,float h){int idx=game.r.planetCinematicBall;if(idx<1||idx>15)return;float t=(System.currentTimeMillis()-game.r.planetCinematicStart)/4200f;if(t>=1){game.r.planetCinematicBall=-1;return;}try{if(cinematicDeathStar==null){String s=game.r.findAsset("objects/00_DeathStar",".png");if(s!=null)cinematicDeathStar=cinematicAsset(s);}if(cinematicPlanets[idx]==null){String s=game.r.findAsset("objects/"+game.r.objectFolders[idx],".png");if(s!=null)cinematicPlanets[idx]=cinematicAsset(s);}}catch(Exception ignored){}p.setColor(0xFA030712);c.drawRect(0,0,w,h,p);float y=h*.46f,r=Math.min(w,h)*.18f,dx=w*.23f,px=w*.77f;drawCineSphere(c,cinematicDeathStar,dx,y,r);if(t<.70f)drawCineSphere(c,cinematicPlanets[idx],px,y,r*.88f);float dishX=dx+r*.42f,dishY=y-r*.2f;if(t>.34f&&!game.r.planetCinematicLaserPlayed){game.r.planetCinematicLaserPlayed=true;game.r.sfx.deathStarCharge();game.r.sfx.deathStarFire();}if(t>.22f&&t<.70f){float a=Math.min(1f,Math.max(0f,(t-.34f)/.09f));float ex=dishX+(px-dishX)*a,ey=dishY+(y-dishY)*a;stroke.setStrokeCap(Paint.Cap.ROUND);for(int k=0;k<5;k++){double ang=k*Math.PI*2/5.0+(t*8);float sx=dishX+(float)Math.cos(ang)*r*.22f*(1f-a),sy=dishY+(float)Math.sin(ang)*r*.22f*(1f-a);stroke.setStrokeWidth(r*.018f);stroke.setColor(0x9938FF69);c.drawLine(sx,sy,dishX,dishY,stroke);}if(a>0){stroke.setShadowLayer(r*.22f,0,0,0xFF25FF5A);stroke.setStrokeWidth(r*.18f);stroke.setColor(0x4430FF62);c.drawLine(dishX,dishY,ex,ey,stroke);stroke.setStrokeWidth(r*.10f);stroke.setColor(0xCC27FF58);c.drawLine(dishX,dishY,ex,ey,stroke);stroke.setStrokeWidth(r*.034f);stroke.setColor(0xFFFFFFFF);c.drawLine(dishX,dishY,ex,ey,stroke);stroke.clearShadowLayer();p.setShader(new RadialGradient(ex,ey,r*.24f,new int[]{0xFFFFFFFF,0xDD5CFF7C,0x0030FF60},null,Shader.TileMode.CLAMP));c.drawCircle(ex,ey,r*.24f,p);p.setShader(null);}}if(t>=.60f){if(!game.r.planetCinematicExplosionPlayed){game.r.planetCinematicExplosionPlayed=true;game.r.sfx.pocket();}float e=Math.min(1f,(t-.60f)/.30f);for(int j=0;j<22;j++){double a=j*2.4;float rr=r*(.15f+e*(.35f+(j%5)*.18f));p.setColor((Math.max(0,230-(int)(e*190))<<24)|0x00FF9A42);c.drawCircle(px+(float)Math.cos(a)*rr,y+(float)Math.sin(a)*rr,r*.08f*(1-e*.5f),p);}}postInvalidateOnAnimation();}
 
     protected void onDraw(Canvas c){
       super.onDraw(c);
@@ -4261,7 +4261,7 @@ public class MainActivity extends Activity {
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
         // Full merged X-Wing is normalized as one complete model. Use the same
         // overall visual size as the first four-corner Android dogfight test.
-        android.opengl.Matrix.scaleM(X,0,27.0f,27.0f,27.0f);
+        android.opengl.Matrix.scaleM(X,0,1.62f,1.62f,1.62f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
@@ -6187,12 +6187,12 @@ public class MainActivity extends Activity {
       if(tieMode&&tieThirdPerson){
         float[] PM=identity();android.opengl.Matrix.translateM(PM,0,arcadeX,arcadeY,arcadeZ);
         android.opengl.Matrix.rotateM(PM,0,arcadeYaw+180f,0,1,0);android.opengl.Matrix.rotateM(PM,0,-arcadePitch,1,0,0);
-        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
+        if(playerXWing){android.opengl.Matrix.scaleM(PM,0,.62f,.62f,.62f);drawMesh(dogfightXWing,pv,PM,dogfightXWingTex,new float[]{.72f,.88f,1f,1f});}
         else{android.opengl.Matrix.scaleM(PM,0,.54f,.54f,.54f);drawMesh(dogfightTie,pv,PM,dogfightTieTex,new float[]{.86f,.90f,.94f,1f});}
       }
       if(net!=null&&net.inRoom&&net.remoteArcadeActive){
         float[] RM=identity();android.opengl.Matrix.translateM(RM,0,net.remoteArcadeX,net.remoteArcadeY,net.remoteArcadeZ);android.opengl.Matrix.rotateM(RM,0,net.remoteArcadeYaw,0,1,0);android.opengl.Matrix.rotateM(RM,0,-net.remoteArcadePitch,1,0,0);
-        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,2.18f,2.18f,2.18f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
+        if(net.remoteArcadeFaction==0){android.opengl.Matrix.scaleM(RM,0,.62f,.62f,.62f);drawMesh(dogfightXWing,pv,RM,dogfightXWingTex,new float[]{.55f,.78f,1f,1f});}
         else{android.opengl.Matrix.scaleM(RM,0,.46f,.46f,.46f);drawMesh(dogfightTie,pv,RM,dogfightTieTex,new float[]{1f,.38f,.38f,1f});}
         // Human pilot marker: pulsing faction ring makes the live opponent
         // unmistakable among ambient bot traffic.
@@ -6207,7 +6207,7 @@ public class MainActivity extends Activity {
         boolean hostile=!tieMode?e.xwing:(e.xwing!=playerXWing);
         // Enemy identification uses the fighter itself; no duplicate outline geometry.
         if(e.xwing){
-          float baseSc=tieMode?2.48f:2.28f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
+          float baseSc=tieMode?1.18f:1.08f;float sc=e.dying?baseSc*Math.max(.60f,1f-e.deathT*.18f):baseSc;android.opengl.Matrix.scaleM(M,0,sc,sc,sc);
           drawMesh(dogfightXWing,pv,M,dogfightXWingTex,new float[]{1f,.72f,.38f,fade});
           if(e.dying&&sphere!=null&&e.deathT<.72f){
             // Short, warm blast only. Avoid the old overlapping red/green sphere
