@@ -1613,7 +1613,8 @@ public class MainActivity extends Activity {
     void deactivate(){stopHum();main.postDelayed(()->oneShot("sfx_deactivate",.78f),250);}
     void pocket(){oneShot("sfx_pocket",.82f);}
     void scratch(){oneShot("sfx_scratch",.86f);}
-    void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}\n    void cinematicBlaster(){oneShot("sfx_clash",.88f);}
+    void uiTransition(){oneShot("sfx_ui_trigger8",.42f);}
+    void cinematicBlaster(){oneShot("sfx_clash",.88f);}
     void arcadeLaser(){if(arcadeLaserId!=0)try{arcadePool.play(arcadeLaserId,.42f,.42f,1,0,1f);}catch(Exception ignored){}}
     void tieLaser(){if(tieLaserId!=0)try{arcadePool.play(tieLaserId,.62f,.62f,2,0,1f);}catch(Exception ignored){}}
     void deathStarFire(){if(deathStarFireId!=0)try{arcadePool.play(deathStarFireId,.60f,.60f,2,0,1f);}catch(Exception ignored){}}
@@ -2137,7 +2138,8 @@ public class MainActivity extends Activity {
       // Saber loadout is the top-most modal when open.
       if(menuOpen)drawSaberMenu(c,w,h,ui,r);
       postInvalidateOnAnimation();
-          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());\n    }
+          if(game.r.planetCinematicBall>0)drawPocketCinematic(c,getWidth(),getHeight());
+    }
 
     void drawExitRoomButton(Canvas c,RectF rr,float ui){
       p.setStyle(Paint.Style.FILL);p.setColor(0xD94B1119);p.setShadowLayer(9*ui,0,3*ui,0xAA000000);
@@ -3951,7 +3953,8 @@ public class MainActivity extends Activity {
     boolean dogfightActive=false;
     static class ArcadeFighter{float x,y,z,vx,vy,vz,phase,age,life,baseY,deathT,fireClock,enemyBoltT,enemyBoltX,enemyBoltY,enemyBoltZ;int hp=1;boolean xwing=true,active=true,dying=false;}
     final ArrayList<ArcadeFighter> arcadeFighters=new ArrayList<>();
-    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;\n    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
+    volatile boolean arcadeActive=false,arcadeLocked=false,arcadeWasLocked=false,tieMode=false,tieThirdPerson=false,tieFire=false,playerXWing=false,arcadeBotsEnabled=true,arcadeRunOver=false;
+    volatile int planetCinematicBall=-1; volatile long planetCinematicStart=0; volatile boolean planetCinematicLaserPlayed=false,planetCinematicExplosionPlayed=false; volatile int arcadePlayerHp=3,arcadeHullLives=3; volatile float arcadeShield=100f,arcadeHull=100f,arcadeDamageFlash=0f; float arcadeDamageCooldown=0f,arcadeShieldDelay=0f; long arcadeNetPosAt=0;
     volatile int arcadeScore=0,arcadeWave=1,arcadeCombo=0;
     float arcadeX=0,arcadeZ=0,arcadeY=4.2f,arcadeYaw=0,arcadePitch=5,arcadeMoveX=0,arcadeMoveY=0,arcadeAimX=0,arcadeAimY=0,arcadeMoveSmoothX=0,arcadeMoveSmoothY=0,arcadeAimSmoothX=0,arcadeAimSmoothY=0,arcadeSpawnClock=0,arcadeShotClock=0,arcadeTargetX=0,arcadeTargetY=0,arcadeTargetZ=0,arcadeLaserT=0;
     volatile long arcadeTransitionStart=0; volatile int arcadeTransitionKind=0; // 1 enter, 2 mode swap, 3 exit
@@ -4257,7 +4260,9 @@ public class MainActivity extends Activity {
 
         float[] X=identity();android.opengl.Matrix.translateM(X,0,xw,y,zw);
         android.opengl.Matrix.rotateM(X,0,xYaw,0,1,0);
-        // Full merged X-Wing is normalized as one complete model. Use the same\n        // overall visual size as the first four-corner Android dogfight test.\n        android.opengl.Matrix.scaleM(X,0,27.0f,27.0f,27.0f);
+        // Full merged X-Wing is normalized as one complete model. Use the same
+        // overall visual size as the first four-corner Android dogfight test.
+        android.opengl.Matrix.scaleM(X,0,27.0f,27.0f,27.0f);
         drawMesh(dogfightXWing,pv,X,dogfightXWingTex,new float[]{1f,1f,1f,1f});
 
         float[] T=identity();android.opengl.Matrix.translateM(T,0,tx,y+.15f,tz);
@@ -5125,7 +5130,8 @@ public class MainActivity extends Activity {
     }
 
     void recordPocket(int index){
-      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);\n      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
+      if(!ballsSunkThisShot.contains(index))ballsSunkThisShot.add(index);
+      if(index>=1&&index<=15){planetCinematicBall=index;planetCinematicStart=System.currentTimeMillis();planetCinematicLaserPlayed=false;planetCinematicExplosionPlayed=false;}
       if(aiEnabled&&currentTeam==1&&index!=0&&index!=8)runTablePocketed.add(index);
       if(aiEnabled&&currentTeam==1){
         if(index==0){
@@ -6174,7 +6180,8 @@ public class MainActivity extends Activity {
         arcadeLaserT=.26f;arcadeShotClock=.24f;tieFire=false;if(sfx!=null)sfx.deathStarFire();
         if(best!=null){best.hp--;if(best.hp<=0){best.dying=true;best.deathT=0;arcadeImpactFlash=1f;arcadeCombo++;arcadeLastPoints=100*Math.max(1,Math.min(arcadeCombo,10));arcadeScore+=arcadeLastPoints;arcadeScoreFlashAt=System.currentTimeMillis();arcadePointsX=best.x;arcadePointsY=best.y;arcadePointsZ=best.z;if(sfx!=null)sfx.arcadeExplosion();}}
       }else if(best==null&&arcadeShotClock<=0)arcadeCombo=Math.max(0,arcadeCombo-1);
-      // Render thread cleanup: remove through the iterator so the ArrayList cannot be structurally modified while an active traversal is in progress.\n      for(java.util.Iterator<ArcadeFighter> it=arcadeFighters.iterator();it.hasNext();){ArcadeFighter f=it.next();if(!f.active)it.remove();}
+      // Render thread cleanup: remove through the iterator so the ArrayList cannot be structurally modified while an active traversal is in progress.
+      for(java.util.Iterator<ArcadeFighter> it=arcadeFighters.iterator();it.hasNext();){ArcadeFighter f=it.next();if(!f.active)it.remove();}
     }
 
     void drawArcadeFighters(float[] pv){
