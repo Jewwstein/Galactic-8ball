@@ -1,24 +1,18 @@
-# After the Storm — Hurricane Relief Crew
+# After the Storm: Heavy Rescue 3D v0.4 — CAT 545D Skidder integration
 
-A self-contained, offline Android prototype. Procedurally generated storm intensity and damage, four response tools, touchscreen joystick, hold-to-clear interactions, map, reward loop, a fresh mission button, procedural 2D art, and synthesized sound. No Unity dependency and no network permissions.
+Android portrait prototype, built with offline Three.js and Java WebView.
 
-## Controls
+- Added actual user-supplied CAT 545D Skidder model (mobile-optimized glTF/GLB, embedded JPEG textures), loaded through a local Android asset bridge.
+- New *SKIDDER* machinery selection button, dedicated HUD with grapple open/close, log grab/release, boom lift/lower, boom extension/retraction, blade up/down, engine and parking brake.
+- Grip up to three nearby fallen trees/logs behind the skidder, then haul them to the yellow depot and release to earn cleanup rewards.
+- The actual imported model is unrigged. A separate animated grapple/claw assembly and gameplay-grade simplified collisions control the interactions; no full-suspension, hydraulic or deformable-physics simulation yet.
+- All other v0.3 machinery remains available.
+- Gameplay works offline; textures and models are bundled within APK.
 
-- Left joystick: walk or drive.
-- Bottom tools: chainsaw (trees), skid steer (rubble), tow truck (abandoned vehicles), excavator (collapsed structures).
-- Get close to a debris site and hold **CLEAR** until completed.
-- Clear all sites to win; start a new random hurricane.
+## Model rights
 
-## Install
+The supplied model archive has no explicit redistribution license. This branch is a test-only integration; verify asset license before publicly redistributing the APK or model, and do not merge to a public release repository until rights are confirmed.
 
-Build the APK with Gradle 8.9 and JDK 17: `gradle assembleDebug` from the project directory. The unsigned-for-release but Android-debug-signed installable APK will be `app/build/outputs/apk/debug/app-debug.apk`.
+## Build
 
-An included GitHub Actions workflow builds and uploads an APK artifact on pushes to the `hurricane-relief-prototype` branch in the hosting repository. The action assumes this project lives in the `after-the-storm` directory.
-
-## Browser preview
-
-Open `app/src/main/assets/index.html` in a modern browser. Mobile portrait screens and desktop arrow/WASD controls are both supported.
-
-## Notes
-
-This is an arcade-style simulation, not an operational emergency-response or safety training tool. No real-world response instructions are represented.
+The GitHub Actions workflow unzips `after-the-storm/app/src/main/assets/skidder.zip` into `skidder.glb` before compiling. That base64 source is an asset for private testing, not a game script.
