@@ -27,7 +27,8 @@ jobs:
       - name: Prepare Android Platform
         run: |
           echo "SDK: ${ANDROID_HOME}"
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
