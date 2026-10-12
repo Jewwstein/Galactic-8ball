@@ -3,7 +3,7 @@ android {
     namespace 'com.afterthestorm.relief'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.afterthestorm.heavyrescue3d'
+        applicationId 'com.afterthestorm.cat545d'
         minSdk 26
         targetSdk 28
         versionCode 4
