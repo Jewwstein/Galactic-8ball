@@ -1,0 +1,16 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.afterthestorm.relief'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.afterthestorm.relief'
+        minSdk 26
+        targetSdk 28
+        versionCode 1
+        versionName '0.1.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+        debug { debuggable true }
+    }
+}
