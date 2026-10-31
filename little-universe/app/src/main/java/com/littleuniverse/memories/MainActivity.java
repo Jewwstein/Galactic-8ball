@@ -43,6 +43,8 @@ public final class MainActivity extends Activity {
     private static final int REQUEST_MIC=104;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private SQLiteDatabase db;
+    private KeepsakeHub studio;
+    private static final int EXPORT_PDF=120, EXPORT_FAMILY=121;
     private LinearLayout page;
     private String activeTab="Home", pendingMediaId;
     private android.content.SharedPreferences prefs;
@@ -54,8 +56,16 @@ public final class MainActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(0);
         prefs=getSharedPreferences("little_universe_profile",MODE_PRIVATE);
         db=new Store(this).getWritableDatabase();
+        FeatureStore.init(db);
+        studio=new KeepsakeHub(this,db,new KeepsakeHub.Actions(){
+            public void create(String kind,String title){editor(null,kind,false,title);}
+            public void edit(String id){Memory m=load(id);if(m!=null)editor(m,m.kind,false);}
+            public void refresh(){render();}
+            public void exportPdf(){startPdfExport();}
+        });
         new File(getFilesDir(),"media").mkdirs();
         render();
+        for(FeatureStore.Item reminder:FeatureStore.items(db,"Reminder"))ReminderReceiver.schedule(this,reminder);
     }
     private static final class Store extends SQLiteOpenHelper {
         Store(Context c){super(c,"little_universe_v1.db",null,1);}
@@ -102,6 +112,7 @@ public final class MainActivity extends Activity {
         v.put("id",m.id);v.put("day",m.day);v.put("title",m.title);v.put("kind",m.kind);
         v.put("body",m.body);v.put("media",new JSONArray(m.media).toString());
         db.insertWithOnConflict("memories",null,v,SQLiteDatabase.CONFLICT_REPLACE);
+        FeatureStore.claim(this,db,m.id);
     }
     private String today(){return new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());}
     private int dp(float v){return (int)(getResources().getDisplayMetrics().density*v+.5f);}
@@ -259,6 +270,11 @@ public final class MainActivity extends Activity {
         summary(stats,String.valueOf(media),"KEEPSAKES");
         summary(stats,"∞","LOVE");
         put(page,stats,15,10);
+        LinearLayout studioCard=card();
+        put(studioCard,eyebrow("MEMORY STUDIO",MINT),0,8);
+        put(studioCard,headline("A lifetime of chapters",24),0,8);
+        put(studioCard,text("Search memories, revisit photo stories, track growth, create time capsules and more.",14,MUTED,false),0,12);
+        put(studioCard,button("Explore your Memory Studio  →",true,()->studio.open()),0,0);
         section("Recently treasured");
         if(recent.isEmpty()){
             LinearLayout empty=card();put(empty,text("✧",28,GOLD,false),0,9);
@@ -281,6 +297,7 @@ public final class MainActivity extends Activity {
         hint(filter==null?"Photos, videos, voice notes and little moments, all in one beautiful timeline.":"Words you'll want your child to hear years from now.");
         put(page,button(filter==null?"＋  Capture another moment":"＋  Write a new letter",true,
             ()->editor(null,filter==null?"Memory":"Letter",false)),5,17);
+        put(page,button("⌕   Search, filter & favorites",false,()->studio.search()),0,14);
         int shown=0;
         for(Memory m:memories())if(filter==null||m.kind.equals(filter)){drawEntry(m);shown++;}
         if(shown==0){
@@ -331,7 +348,9 @@ public final class MainActivity extends Activity {
         TextView kind=eyebrow("✧  "+m.kind.toUpperCase(Locale.US),m.kind.equals("Letter")?ROSE:MINT);
         top.addView(kind,new LinearLayout.LayoutParams(0,-2,1));
         top.addView(text(m.day,12,MUTED,false));put(c,top,0,12);
-        put(c,headline(m.title,24),0,9);
+        put(c,headline(m.title,24),0,5);
+        JSONObject by=FeatureStore.detail(db,m.id);
+        put(c,text("Preserved by "+by.optString("author","Family")+(by.optString("album","").isEmpty()?"":"  ·  "+by.optString("album")),12,MINT,false),0,9);
         if(!m.body.isEmpty()){
             String excerpt=m.body.length()>430?m.body.substring(0,430)+"…":m.body;
             TextView desc=text(excerpt,14,0xffD7DFEC,false);desc.setLineSpacing(dp(4),1);
@@ -367,6 +386,10 @@ public final class MainActivity extends Activity {
         LinearLayout controls=horizontal();
         quickButton(controls,"＋ Media",false,()->chooseMedia(m.id));
         quickButton(controls,"✎ Edit",false,()->editor(m,m.kind,false));put(c,controls,6,6);
+        LinearLayout extras=horizontal();
+        quickButton(extras,FeatureStore.starred(db,m.id)?"♥ Favorite":"♡ Favorite",false,()->{FeatureStore.star(db,m.id);render();});
+        quickButton(extras,"Details & comments",false,()->memoryDetails(m.id));
+        put(c,extras,0,7);
         TextView record=text("●  Add a voice message",13,ROSE,true);record.setGravity(Gravity.CENTER);
         record.setPadding(0,dp(8),0,dp(7));put(c,record,0,0);
         record.setOnClickListener(v->startVoice(m.id));
@@ -433,7 +456,7 @@ public final class MainActivity extends Activity {
               date.get(Calendar.YEAR),date.get(Calendar.MONTH),date.get(Calendar.DAY_OF_MONTH)).show();
         });
         put(form,eyebrow("CHAPTER TYPE",MINT),11,6);
-        String[] kinds={"Memory","Journal","Milestone","Letter"};
+        String[] kinds={"Memory","Journal","Milestone","Letter","Interview","Quote","Gratitude","Tradition","Voice"};
         Spinner type=new Spinner(this);
         ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,kinds);type.setAdapter(adapter);
         String initial=original==null?kind:original.kind;
@@ -445,7 +468,24 @@ public final class MainActivity extends Activity {
         body.setPadding(dp(15),dp(15),dp(15),dp(15));body.setMinLines(7);
         put(form,body,0,11);
         put(form,button("◉   Dictate my story • on-device",true,()->dictateInto(body)),0,8);
-        put(form,text("No need to type. Android's offline dictation can fill this in, or you can save your actual voice as an audio memory.",12,MUTED,false),0,18);
+        put(form,text("No need to type. Android's offline dictation can fill this in, or you can save your actual voice as an audio memory.",12,MUTED,false),0,14);
+        JSONObject oldMeta=original==null?new JSONObject():FeatureStore.detail(db,original.id);
+        put(form,eyebrow("PRESERVED BY",MINT),0,7);
+        put(form,text(oldMeta.optString("author",FeatureStore.author(this)),15,TEXT,true),0,12);
+        put(form,eyebrow("TAGS (SEPARATE WITH COMMAS)",MINT),0,7);
+        JSONArray oldTags=oldMeta.optJSONArray("tags");
+        StringBuilder textTags=new StringBuilder();
+        if(oldTags!=null)for(int i=0;i<oldTags.length();i++){if(i>0)textTags.append(", ");textTags.append(oldTags.optString(i));}
+        EditText tags=input(textTags.toString(),"e.g. Family, Firsts, Holiday",false);
+        put(form,tags,0,12);
+        put(form,eyebrow("ALBUM / COLLECTION",MINT),0,7);
+        EditText album=input(oldMeta.optString("album",""),"e.g. Pregnancy, Year One",false);
+        put(form,album,0,11);
+        CheckBox share=new CheckBox(this);
+        share.setText("Include in family-sharing ZIPs");
+        share.setTextColor(TEXT);
+        share.setChecked(!oldMeta.optString("visibility","family").equals("private"));
+        put(form,share,0,15);
         LinearLayout footer=vertical(16);footer.setBackground(CosmicUI.glass(this,18,0xff27255D,0xff161940,0xff6559CF));
         Button save=button("♡   Save this cherished moment",true,()->{
             String heading=title.getText().toString().trim(),when=day.getText().toString().trim();
@@ -455,6 +495,16 @@ public final class MainActivity extends Activity {
             Memory m=original==null?new Memory():original;
             m.title=heading;m.day=when;m.kind=type.getSelectedItem().toString();
             m.body=body.getText().toString().trim();save(m);
+            JSONObject meta=FeatureStore.detail(db,m.id);
+            try{
+                JSONArray labelList=new JSONArray();
+                for(String tag:tags.getText().toString().split(",")){
+                    String t=tag.trim();if(!t.isEmpty()&&t.length()<=80)labelList.put(t);
+                }
+                meta.put("tags",labelList);meta.put("album",album.getText().toString().trim());
+                meta.put("visibility",share.isChecked()?"family":"private");
+                FeatureStore.putDetail(db,m.id,meta);
+            }catch(Exception ignored){}
             dialog.dismiss();activeTab="Memories";render();
             if(original==null){
                 new AlertDialog.Builder(this).setTitle("♡ Another moment saved")
@@ -516,7 +566,9 @@ public final class MainActivity extends Activity {
                     else message(names.size()+" original file(s) saved locally ♡");
                 });
             });
-        }else if(request==EXPORT)exportTo(data.getData());
+        }else if(request==EXPORT)exportTo(data.getData(),false);
+        else if(request==EXPORT_FAMILY)exportTo(data.getData(),true);
+        else if(request==EXPORT_PDF)pdfTo(data.getData());
         else if(request==IMPORT)importFrom(data.getData());
     }
     private void confirmDelete(Memory m){
@@ -537,6 +589,11 @@ public final class MainActivity extends Activity {
         put(letter,headline("Someday they'll read these.",24),0,9);
         put(letter,text("Letters filled with love, advice and stories — written before they were old enough to understand.",14,MUTED,false),0,13);
         put(letter,button("Open the letters  →",true,()->{activeTab="Letters";render();}),0,0);
+        section("Discover every chapter");
+        LinearLayout features=card();
+        put(features,headline("The Memory Studio",23),0,8);
+        put(features,text("Contributor credits, growth charts, pregnancy memories, letters, interviews, calendars, photo shows and more.",14,MUTED,false),0,14);
+        put(features,button("Open all family features",true,()->studio.open()),0,0);
         section("Make it yours");
         LinearLayout profile=card();
         put(profile,text("Your little one's name",13,GOLD,true),0,5);
@@ -565,12 +622,18 @@ public final class MainActivity extends Activity {
         LinearLayout vault=card();
         put(vault,eyebrow("✧  YOUR PRIVATE ARCHIVE",MINT),0,10);
         put(vault,headline("Every memory. Safely yours.",24),0,8);
-        put(vault,text("Export your complete memory collection as a ZIP. Send it privately to family members; they can import it, add their own memories, and send you their updated ZIP.",14,MUTED,false),0,14);
-        put(vault,button("↓   Export / share full family ZIP",true,()->{
+        put(vault,text("Export your complete memory collection as a ZIP. Use the full ZIP for private backup. For relatives, use the separate family-only ZIP below; it excludes memories marked private.",14,MUTED,false),0,14);
+        put(vault,button("↓   Full backup ZIP (includes private)",true,()->{
             Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
             i.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Backup_"+today()+".zip");
             startActivityForResult(i,EXPORT);
+        }),0,9);
+        put(vault,button("↓   Export family ZIP (private excluded)",false,()->{
+            Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/zip");
+            intent.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Family_"+today()+".zip");
+            startActivityForResult(intent,EXPORT_FAMILY);
         }),0,9);
         put(vault,button("↑   Merge a family ZIP (no duplicates)",false,()->{
             Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -580,7 +643,7 @@ public final class MainActivity extends Activity {
         put(page,text("Your family stays private. No cloud account, no ads and no upload of recordings or media.",12,MUTED,false),5,8);
     }
     
-        private void exportTo(Uri location){
+        private void exportTo(Uri location,boolean shareOnly){
         if(location==null)return;
         message("Creating full backup…");
         io.execute(()->{
@@ -592,13 +655,19 @@ public final class MainActivity extends Activity {
                 settings.put("parents",prefs.getString("parents",""));settings.put("dueDate",prefs.getString("dueDate",""));
                 root.put("settings",settings);
                 JSONArray data=new JSONArray();
-                for(Memory m:memories())data.put(m.json());
+                Set<String> selectedFiles=new LinkedHashSet<>();
+                Set<String> selectedIds=new LinkedHashSet<>();
+                for(Memory m:memories()){
+                    if(shareOnly&&"private".equals(FeatureStore.detail(db,m.id).optString("visibility","family")))continue;
+                    data.put(m.json());selectedIds.add(m.id);selectedFiles.addAll(m.media);
+                }
                 root.put("memories",data);
+                root.put("features",FeatureStore.exportAll(db,shareOnly?selectedIds:null));
                 byte[] payload=root.toString().getBytes("UTF-8");
                 zip.putNextEntry(new ZipEntry("archive.json"));zip.write(payload);zip.closeEntry();
                 File dir=new File(getFilesDir(),"media");
                 File[] files=dir.listFiles();
-                if(files!=null)for(File f:files)if(f.isFile()){
+                if(files!=null)for(File f:files)if(f.isFile()&&selectedFiles.contains(f.getName())){
                     zip.putNextEntry(new ZipEntry("media/"+f.getName()));
                     try(InputStream in=new BufferedInputStream(new FileInputStream(f))){
                         byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)zip.write(b,0,n);
@@ -649,6 +718,81 @@ public final class MainActivity extends Activity {
             });
         });
     }
+    private void memoryDetails(String id){
+        Memory memory=load(id);
+        if(memory==null)return;
+        JSONObject meta=FeatureStore.detail(db,id);
+        LinearLayout panel=vertical(18);
+        ScrollView scroll=new ScrollView(this);scroll.addView(panel);
+        put(panel,headline("A story with many voices",24),0,10);
+        put(panel,text(memory.title,17,TEXT,true),0,12);
+        EditText by=input(meta.optString("author",""),"Contributor (Dad, Mariah, Grandma…)",false);
+        put(panel,eyebrow("WHO PRESERVED THIS?",MINT),0,7);put(panel,by,0,15);
+        EditText caption=input(meta.optString("caption",""),"Additional caption / context",true);
+        put(panel,eyebrow("ADDITIONAL CAPTION",MINT),0,7);put(panel,caption,0,13);
+        EditText location=input(meta.optString("location",""),"Optional place name (manual, no GPS)",false);
+        put(panel,eyebrow("WHERE DID IT HAPPEN?",MINT),0,7);put(panel,location,0,13);
+        JSONArray existing=meta.optJSONArray("comments");
+        put(panel,eyebrow("FAMILY COMMENTS & REACTIONS",MINT),0,8);
+        if(existing!=null)for(int i=0;i<existing.length();i++){
+            JSONObject item=existing.optJSONObject(i);if(item==null)continue;
+            put(panel,text(item.optString("by","Family")+": "+item.optString("text"),14,TEXT,false),0,7);
+        }
+        EditText comment=input("","Say something loving, or react with an emoji…",true);
+        put(panel,comment,8,7);
+        LinearLayout reaction=horizontal();
+        quickButton(reaction,"♥ Love",false,()->{comment.append(" ❤️");});
+        quickButton(reaction,"✧ Magic",false,()->{comment.append(" ✨");});
+        quickButton(reaction,"☺ Joy",false,()->{comment.append(" 😊");});
+        put(panel,reaction,0,7);
+        CheckBox visibility=new CheckBox(this);visibility.setText("Include in shared family ZIPs");
+        visibility.setTextColor(TEXT);
+        visibility.setChecked(!"private".equals(meta.optString("visibility","family")));
+        put(panel,visibility,0,6);
+        AlertDialog dialog=new AlertDialog.Builder(this)
+            .setTitle("Memory details & contributors").setView(scroll)
+            .setNegativeButton("Cancel",null).setPositiveButton("Save details",null).create();
+        dialog.setOnShowListener(v->dialog.getButton(-1).setOnClickListener(v2->{
+            try{
+                String author=by.getText().toString().trim();
+                if(!author.isEmpty())meta.put("author",author);
+                meta.put("caption",caption.getText().toString());
+                meta.put("location",location.getText().toString().trim());
+                meta.put("visibility",visibility.isChecked()?"family":"private");
+                String note=comment.getText().toString().trim();
+                if(!note.isEmpty()){
+                    JSONArray all=meta.optJSONArray("comments");if(all==null)all=new JSONArray();
+                    JSONObject next=new JSONObject();
+                    next.put("id",UUID.randomUUID().toString());
+                    next.put("by",FeatureStore.author(this));next.put("text",note);
+                    next.put("day",today());all.put(next);meta.put("comments",all);
+                }
+                FeatureStore.putDetail(db,id,meta);dialog.dismiss();render();
+            }catch(Exception err){message("Could not save: "+err.getMessage());}
+        }));
+        dialog.show();
+    }
+    private void startPdfExport(){
+        Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/pdf");
+        intent.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Baby_Book_"+today()+".pdf");
+        startActivityForResult(intent,EXPORT_PDF);
+    }
+    private void pdfTo(Uri destination){
+        if(destination==null)return;
+        message("Creating your keepsake book…");
+        io.execute(()->{
+            String result;
+            try{
+                int count=KeepsakeBook.make(getApplicationContext(),db,destination);
+                result=count+" memories exported to your printable baby-book PDF.";
+            }catch(Exception error){result="PDF export failed: "+error.getMessage();}
+            final String notice=result;runOnUiThread(()->new AlertDialog.Builder(this)
+                .setTitle("Little Universe book").setMessage(notice)
+                .setPositiveButton("OK",null).show());
+        });
+    }
+
     private void withMic(Runnable action){
         if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
             afterMicPermission=action;

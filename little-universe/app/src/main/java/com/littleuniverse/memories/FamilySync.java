@@ -258,6 +258,8 @@ public final class FamilySync {
                             }
                         }
                     }
+                    FeatureStore.init(db);
+                    FeatureStore.merge(db,head.optJSONObject("features"));
                     db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
                 committed=true;
