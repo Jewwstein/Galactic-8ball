@@ -142,6 +142,7 @@ public final class KeepsakeHub {
         menu("⌕  Search & filter","Find a date, a word, a person or a memory type",this::search);
         menu("♡  Favorite moments","Your most-loved moments in one place",()->searchFiltered("favorites"));
         menu("▣  Photo & video gallery","Browse media captured in your memories",this::gallery);
+        menu("✦  Keepsake Maker","Turn 1–4 photos into a polished announcement or collectible card",this::keepsakeMaker);
         menu("▶  Growing-up slideshow","Play photos from your timeline in date order",this::slideshow);
         menu("◷  On this day","Rediscover memories from the same day in past years",this::onThisDay);
         menu("▤  Monthly & yearly recaps","Revisit the chapters you recorded",this::recaps);
@@ -224,6 +225,13 @@ public final class KeepsakeHub {
         }
         if(found==0)caption("No matching memories yet. Try a different word or filter.");
     }
+    private void keepsakeMaker(){
+        if(screen!=null)screen.dismiss();
+        new KeepsakeMaker(a,db,()->{
+            actions.refresh();
+            open();
+        }).open();
+    }
     private List<String[]> photos(){
         List<String[]> photos=new ArrayList<>();
         try(Cursor c=db.rawQuery("SELECT id,day,title,media FROM memories ORDER BY day ASC,rowid ASC",null)){
@@ -269,6 +277,7 @@ public final class KeepsakeHub {
         }catch(Exception ignored){}
         if(count==0)caption("No photos or videos yet. Add one to a memory to see it here.");
         action(tile(),"Play photo slideshow",this::slideshow);
+        action(tile(),"Create a photo keepsake",this::keepsakeMaker);
     }
     private void slideshow(){
         List<String[]> frames=photos();

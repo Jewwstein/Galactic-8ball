@@ -229,4 +229,72 @@ public final class FamilySyncInstrumentedTest {
             assertTrue(result.bytes>0);
         }finally{if(broken!=null)broken.delete();if(good!=null)good.delete();}
     }
+    @Test public void keepsakeRendererUsesActualPhotosWithoutModifyingOriginals() throws Exception{
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        File dir=ctx.getCacheDir();
+        File[] files=new File[4];
+        ArrayList<KeepsakeCards.Photo> pictures=new ArrayList<>();
+        try{
+            for(int i=0;i<4;i++){
+                files[i]=new File(dir,"keepsake_test_"+UUID.randomUUID()+".png");
+                android.graphics.Bitmap bitmap=android.graphics.Bitmap.createBitmap(25,25,android.graphics.Bitmap.Config.ARGB_8888);
+                bitmap.eraseColor(android.graphics.Color.rgb(20+i*50,40+i*30,100+i*20));
+                try(OutputStream out=new FileOutputStream(files[i])){
+                    assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));
+                }
+                bitmap.recycle();
+                pictures.add(new KeepsakeCards.Photo("id"+i,"2026-10-31","Our first photo",files[i].getAbsolutePath()));
+            }
+            byte[] original=java.nio.file.Files.readAllBytes(files[0].toPath());
+            android.graphics.Bitmap card=KeepsakeCards.render(
+                pictures.subList(0,1),"The day we found out","A note from Mom and Dad",KeepsakeCards.BLUE,KeepsakeCards.PORTRAIT,540);
+            assertEquals(540,card.getWidth());assertEquals(675,card.getHeight());
+            assertEquals(android.graphics.Color.alpha(card.getPixel(12,12)),255);
+            card.recycle();
+            android.graphics.Bitmap collage=KeepsakeCards.render(
+                pictures,"Four little moments","Our whole world",KeepsakeCards.VIOLET,KeepsakeCards.SQUARE,540);
+            assertEquals(540,collage.getHeight());
+            collage.recycle();
+            android.graphics.Bitmap story=KeepsakeCards.render(
+                pictures.subList(0,2),"A love that grows","For someday",KeepsakeCards.MIDNIGHT,KeepsakeCards.STORY,540);
+            assertEquals(960,story.getHeight());
+            story.recycle();
+            assertArrayEquals(original,java.nio.file.Files.readAllBytes(files[0].toPath()));
+        }finally{
+            for(File file:files)if(file!=null)file.delete();
+        }
+    }
+    @Test public void keepsakeExportSavesFullPngToPhoneWithoutAlteringSources() throws Exception{
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        File source=new File(ctx.getCacheDir(),"keepsake_source_"+UUID.randomUUID()+".png");
+        android.graphics.Bitmap bmp=android.graphics.Bitmap.createBitmap(40,40,android.graphics.Bitmap.Config.ARGB_8888);
+        bmp.eraseColor(0xff7722CC);
+        try(OutputStream out=new FileOutputStream(source)){
+            assertTrue(bmp.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out));
+        }
+        bmp.recycle();
+        File generated=null;android.net.Uri publicUri=null;
+        try{
+            byte[] original=java.nio.file.Files.readAllBytes(source.toPath());
+            KeepsakeCards.Photo item=new KeepsakeCards.Photo("abc","2026-10-31","Positive test",source.getAbsolutePath());
+            android.graphics.Bitmap rendered=KeepsakeCards.render(
+                java.util.Collections.singletonList(item),"Our beginning","One little yes",KeepsakeCards.BLUE,KeepsakeCards.PORTRAIT,1080);
+            generated=KeepsakeCards.savePNG(ctx,rendered,"keepsake");
+            rendered.recycle();
+            assertTrue(generated.isFile());
+            publicUri=MediaSaver.save(ctx,generated,MediaSaver.displayName(generated,"The day everything changed"));
+            byte[] saved;
+            try(InputStream in=ctx.getContentResolver().openInputStream(publicUri)){
+                ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+                byte[] buf=new byte[65536];int n;
+                while((n=in.read(buf))!=-1)bytes.write(buf,0,n);
+                saved=bytes.toByteArray();
+            }
+            assertArrayEquals(saved,java.nio.file.Files.readAllBytes(generated.toPath()));
+            assertArrayEquals(original,java.nio.file.Files.readAllBytes(source.toPath()));
+        }finally{
+            if(publicUri!=null)ctx.getContentResolver().delete(publicUri,null,null);
+            if(generated!=null)generated.delete();source.delete();
+        }
+    }
 }

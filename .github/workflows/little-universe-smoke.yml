@@ -34,9 +34,9 @@ jobs:
           script: |
             gradle -p little-universe :app:assembleDebug --no-daemon
             adb install little-universe/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -W -n com.littleuniverse.memories.cosmic.studio.our.safety/com.littleuniverse.memories.MainActivity
+            adb shell am start -W -n com.littleuniverse.memories.cosmic.studio.our.cards/com.littleuniverse.memories.MainActivity
             sleep 5
-            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.cosmic.studio.our.safety'
+            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.cosmic.studio.our.cards'
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
             adb shell input tap 190 600
@@ -46,12 +46,12 @@ jobs:
             test ! -s screenshots/crashes.txt
             gradle -p little-universe :app:assembleDebugAndroidTest --no-daemon
             adb install little-universe/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w com.littleuniverse.memories.cosmic.studio.our.safety.test/androidx.test.runner.AndroidJUnitRunner | tee screenshots/merge-tests.txt
-            grep -q "OK (6 tests)" screenshots/merge-tests.txt
+            adb shell am instrument -w com.littleuniverse.memories.cosmic.studio.our.cards.test/androidx.test.runner.AndroidJUnitRunner | tee screenshots/merge-tests.txt
+            grep -q "OK (8 tests)" screenshots/merge-tests.txt
       - name: Share emulator screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-v0.5.3-Emulator-Preview
+          name: Little-Universe-v0.6.0-Emulator-Preview
           path: screenshots
           retention-days: 7

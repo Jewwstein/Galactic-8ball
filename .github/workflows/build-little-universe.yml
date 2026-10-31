@@ -37,17 +37,17 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-Android-v0.5.3
+          name: Little-Universe-Android-v0.6.0
           path: little-universe/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish permanent APK download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="little-universe-v0.5.3"
+          TAG="little-universe-v0.6.0"
           APK="little-universe/app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#Little-Universe-v0.5.3.apk" --clobber
+            gh release upload "$TAG" "$APK#Little-Universe-v0.6.0.apk" --clobber
           else
-            gh release create "$TAG" "$APK#Little-Universe-v0.5.3.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.5.3 • Android" --notes "Our Little Universe v0.5.3 adds original-quality Save to Phone and Choose Folder in photo, video and voice-recording viewers. On modern Android copies directly into Pictures, Movies or Music under Our Little Universe. Existing design, memory features, private ZIP and family ZIP merge preserved, with separate app ID to protect prior prototype data."
+            gh release create "$TAG" "$APK#Little-Universe-v0.6.0.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.6.0 • Android" --notes "Our Little Universe v0.6.0 introduces a working offline Keepsake Maker: select 1–4 existing photos, three blue/purple styles, portrait/square/story formats, real-time preview, save a full-quality PNG to Gallery, share the image or add it as a new timeline memory. Approved v3 blue-purple home and family backups are unchanged. No cloud or paid services. Separate package for safe migration."
           fi
