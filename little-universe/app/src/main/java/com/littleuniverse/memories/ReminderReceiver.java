@@ -43,7 +43,7 @@ public final class ReminderReceiver extends BroadcastReceiver {
         NotificationManager manager=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
         if(manager==null)return;
         if(Build.VERSION.SDK_INT>=26){
-            NotificationChannel channel=new NotificationChannel(CHANNEL,"Little Universe memories",
+            NotificationChannel channel=new NotificationChannel(CHANNEL,"Our Little Universe memories",
                 NotificationManager.IMPORTANCE_DEFAULT);
             channel.setDescription("Reminders to treasure little moments");
             manager.createNotificationChannel(channel);
@@ -54,7 +54,7 @@ public final class ReminderReceiver extends BroadcastReceiver {
         Notification.Builder b=Build.VERSION.SDK_INT>=26?
             new Notification.Builder(context,CHANNEL):new Notification.Builder(context);
         b.setSmallIcon(android.R.drawable.ic_menu_my_calendar)
-         .setContentTitle("Little Universe ♡")
+         .setContentTitle("Our Little Universe ♡")
          .setContentText(intent.getStringExtra("title"))
          .setAutoCancel(true).setContentIntent(open);
         manager.notify(intent.getStringExtra("id")==null?1:intent.getStringExtra("id").hashCode(),b.build());

@@ -32,7 +32,7 @@ public final class KeepsakeBook {
                 paint.setColor(0xffF7F6FE);canvas.drawColor(0xffF7F6FE);
                 paint.setColor(NAVY);paint.setTypeface(Typeface.create("sans-serif",Typeface.BOLD));
                 paint.setTextSize(19);
-                canvas.drawText(pageNumber==1?"LITTLE UNIVERSE · OUR FAMILY STORY":"LITTLE UNIVERSE · MEMORIES",37,48,paint);
+                canvas.drawText(pageNumber==1?"OUR LITTLE UNIVERSE · OUR FAMILY STORY":"OUR LITTLE UNIVERSE · MEMORIES",37,48,paint);
                 paint.setColor(VIOLET);paint.setStrokeWidth(2);canvas.drawLine(37,61,WIDTH-37,61,paint);
                 float y=90;
                 if(entries.isEmpty()){
@@ -78,7 +78,7 @@ public final class KeepsakeBook {
                     y+=24;
                 }
                 paint.setColor(0xff7B7FA3);paint.setTextSize(9);
-                canvas.drawText("Made with love · Little Universe",37,HEIGHT-31,paint);
+                canvas.drawText("Made with love · Our Little Universe",37,HEIGHT-31,paint);
                 canvas.drawText("Page "+pageNumber,WIDTH-95,HEIGHT-31,paint);
                 document.finishPage(page);
                 if(index>=entries.size())break;

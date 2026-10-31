@@ -199,7 +199,7 @@ public final class MainActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackground(gradient(0xff090F25==0?0:0,0xff090F25,0xff15123C,0xff080D20));setContentView(root);
         LinearLayout head=vertical(0);head.setPadding(dp(22),dp(19),dp(22),dp(14));
         LinearLayout header=horizontal();
-        LinearLayout brand=vertical(0);put(brand,headline("✦ Little Universe",21),0,5);
+        LinearLayout brand=vertical(0);put(brand,headline("✦ Our Little Universe",21),0,5);
         String baby=prefs.getString("childName","").trim();put(brand,text((baby.isEmpty()?"Our little one":baby)+"'s story",13,MUTED,false),0,0);
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         TextView star=text("✧",27,GOLD,false);star.setGravity(Gravity.CENTER);
@@ -626,13 +626,13 @@ public final class MainActivity extends Activity {
         put(vault,button("↓   Full backup ZIP (includes private)",true,()->{
             Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
-            i.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Backup_"+today()+".zip");
+            i.putExtra(Intent.EXTRA_TITLE,"Our_Little_Universe_Backup_"+today()+".zip");
             startActivityForResult(i,EXPORT);
         }),0,9);
         put(vault,button("↓   Export family ZIP (private excluded)",false,()->{
             Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/zip");
-            intent.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Family_"+today()+".zip");
+            intent.putExtra(Intent.EXTRA_TITLE,"Our_Little_Universe_Family_"+today()+".zip");
             startActivityForResult(intent,EXPORT_FAMILY);
         }),0,9);
         put(vault,button("↑   Merge a family ZIP (no duplicates)",false,()->{
@@ -682,7 +682,7 @@ public final class MainActivity extends Activity {
         if(location==null)return;
         new AlertDialog.Builder(this)
             .setTitle("Merge memories from your family?")
-            .setMessage("Import new moments from another family member's Little Universe ZIP. "+
+            .setMessage("Import new moments from another family member's Our Little Universe ZIP. "+
                 "Memories already on your phone won't be duplicated or overwritten. "+
                 "New attachments to existing memories will be added, too.")
             .setNegativeButton("Cancel",null)
@@ -775,7 +775,7 @@ public final class MainActivity extends Activity {
     private void startPdfExport(){
         Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/pdf");
-        intent.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Baby_Book_"+today()+".pdf");
+        intent.putExtra(Intent.EXTRA_TITLE,"Our_Little_Universe_Baby_Book_"+today()+".pdf");
         startActivityForResult(intent,EXPORT_PDF);
     }
     private void pdfTo(Uri destination){
@@ -788,7 +788,7 @@ public final class MainActivity extends Activity {
                 result=count+" memories exported to your printable baby-book PDF.";
             }catch(Exception error){result="PDF export failed: "+error.getMessage();}
             final String notice=result;runOnUiThread(()->new AlertDialog.Builder(this)
-                .setTitle("Little Universe book").setMessage(notice)
+                .setTitle("Our Little Universe book").setMessage(notice)
                 .setPositiveButton("OK",null).show());
         });
     }

@@ -6,7 +6,7 @@
   <queries>
     <intent><action android:name="android.speech.RecognitionService" /></intent>
   </queries>
-  <application android:label="Little Universe"
+  <application android:label="Our Little Universe"
       android:theme="@style/LittleUniverseTheme"
       android:icon="@drawable/ic_launcher"
       android:allowBackup="false"

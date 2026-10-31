@@ -3,12 +3,12 @@ android {
     namespace 'com.littleuniverse.memories'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.littleuniverse.memories.cosmic.studio'
+        applicationId 'com.littleuniverse.memories.cosmic.studio.our'
         minSdk 26
         targetSdk 35
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
-        versionCode 50
-        versionName '0.5.0'
+        versionCode 51
+        versionName '0.5.1'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

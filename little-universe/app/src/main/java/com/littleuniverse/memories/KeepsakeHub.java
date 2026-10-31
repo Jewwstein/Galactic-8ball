@@ -119,7 +119,7 @@ public final class KeepsakeHub {
         TextView back=label("‹",40,PURPLE,true);back.setGravity(Gravity.CENTER);
         header.addView(back,new LinearLayout.LayoutParams(px(45),px(48)));
         back.setOnClickListener(v->open());
-        LinearLayout names=column(0);add(names,label("LITTLE UNIVERSE  ·  MEMORY STUDIO",10,BLUE,true),0,5);
+        LinearLayout names=column(0);add(names,label("OUR LITTLE UNIVERSE  ·  MEMORY STUDIO",10,BLUE,true),0,5);
         add(names,label(heading,21,WHITE,true),0,0);header.addView(names);
         root.addView(header);
         ScrollView scroll=new ScrollView(a);content=column(19);

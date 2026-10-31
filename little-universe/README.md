@@ -1,6 +1,6 @@
-# Little Universe · Memory Studio v0.5.0
+# Our Little Universe · Memory Studio v0.5.1
 
-This is the largest offline family keepsake release so far. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
+This update only changes the displayed app name to **Our Little Universe**. All memory features and visuals stay the same. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
 
 ## Features included
 - Original native Android journal, original-quality local photos/videos and voice-note recorder, offline speech recognition when device supports it, letters, firsts, and private SQLite storage
@@ -20,7 +20,7 @@ This is the largest offline family keepsake release so far. **The existing v3 ho
 - All content stays on-device until intentionally exported
 
 ## Installation and migration
-This version deliberately uses `com.littleuniverse.memories.cosmic.studio` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.0, check entries and media, then export a fresh full backup from v0.5.0. Keep the previous app until everything has been verified.
+This version deliberately uses `com.littleuniverse.memories.cosmic.studio.our` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.1, check entries and media, then export a fresh full backup from v0.5.1. Keep the previous app until everything has been verified.
 
 ## Limits
 - This is manual ZIP exchange; not live sharing and not an iOS app.
