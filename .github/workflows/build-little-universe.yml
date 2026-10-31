@@ -37,17 +37,17 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-Android-v0.5.1
+          name: Little-Universe-Android-v0.5.2
           path: little-universe/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish permanent APK download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="little-universe-v0.5.1"
+          TAG="little-universe-v0.5.2"
           APK="little-universe/app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#Little-Universe-v0.5.1.apk" --clobber
+            gh release upload "$TAG" "$APK#Little-Universe-v0.5.2.apk" --clobber
           else
-            gh release create "$TAG" "$APK#Little-Universe-v0.5.1.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.5.1 • Android" --notes "Our Little Universe Memory Studio full offline feature expansion: contributor credits, prompt library, archive search, favorites, albums, tags, comments, reactions, private/family exports, book PDF, photo slideshow, calendar, recaps, time capsules, growth charts, pregnancy log, birthday interviews, family records and reminders. Original approved v3 design and safer family ZIP merge retained; no cloud. Separate app ID to preserve old installs."
+            gh release create "$TAG" "$APK#Little-Universe-v0.5.2.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.5.2 • Android" --notes "Our Little Universe v0.5.2 adds original-quality Save to Phone and Choose Folder in photo, video and voice-recording viewers. On modern Android copies directly into Pictures, Movies or Music under Our Little Universe. Existing design, memory features, private ZIP and family ZIP merge preserved, with separate app ID to protect prior prototype data."
           fi

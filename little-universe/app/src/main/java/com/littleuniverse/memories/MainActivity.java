@@ -44,7 +44,8 @@ public final class MainActivity extends Activity {
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private SQLiteDatabase db;
     private KeepsakeHub studio;
-    private static final int EXPORT_PDF=120, EXPORT_FAMILY=121;
+    private static final int EXPORT_PDF=120, EXPORT_FAMILY=121, SAVE_MEDIA_AS=122;
+    private String pendingExportPath;
     private LinearLayout page;
     private String activeTab="Home", pendingMediaId;
     private android.content.SharedPreferences prefs;
@@ -398,15 +399,104 @@ public final class MainActivity extends Activity {
     
         private void openMedia(File f,boolean video) {
         if(video){
-            VideoView vv=new VideoView(this);vv.setVideoPath(f.getAbsolutePath());
-            LinearLayout wrap=vertical(8);wrap.addView(vv,new LinearLayout.LayoutParams(-1,dp(330)));
-            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("A memory to treasure").setView(wrap).setPositiveButton("Close",(d,w)->{}).create();
-            dialog.setOnShowListener(d->{vv.setMediaController(new MediaController(this));vv.start();});dialog.setOnDismissListener(d->vv.stopPlayback());dialog.show();
+            VideoView vv=new VideoView(this);
+            vv.setVideoPath(f.getAbsolutePath());
+            LinearLayout wrap=vertical(8);
+            wrap.addView(vv,new LinearLayout.LayoutParams(-1,dp(330)));
+            AlertDialog dialog=new AlertDialog.Builder(this)
+                .setTitle("A memory to treasure")
+                .setView(wrap)
+                .setPositiveButton("Save to Phone",(d,w)->saveOriginalMedia(f))
+                .setNeutralButton("Choose Folder",(d,w)->chooseMediaExportFolder(f))
+                .setNegativeButton("Close",null)
+                .create();
+            dialog.setOnShowListener(d->{
+                vv.setMediaController(new MediaController(this));
+                vv.start();
+            });
+            dialog.setOnDismissListener(d->vv.stopPlayback());
+            dialog.show();
         }else{
-            ImageView img=new ImageView(this);img.setImageURI(Uri.fromFile(f));img.setAdjustViewBounds(true);
-            LinearLayout wrap=vertical(8);wrap.addView(img);
-            new AlertDialog.Builder(this).setView(wrap).setPositiveButton("Close",(d,w)->{}).show();
+            ImageView img=new ImageView(this);
+            img.setImageURI(Uri.fromFile(f));
+            img.setAdjustViewBounds(true);
+            LinearLayout wrap=vertical(8);
+            wrap.addView(img);
+            new AlertDialog.Builder(this)
+                .setTitle("A memory to treasure")
+                .setView(wrap)
+                .setPositiveButton("Save to Phone",(d,w)->saveOriginalMedia(f))
+                .setNeutralButton("Choose Folder",(d,w)->chooseMediaExportFolder(f))
+                .setNegativeButton("Close",null)
+                .show();
         }
+    }
+    private String memoryTitleFor(File f){
+        try(Cursor cursor=db.rawQuery(
+            "SELECT title FROM memories WHERE media LIKE ? ORDER BY day DESC LIMIT 1",
+            new String[]{"%"+f.getName()+"%"})){
+            if(cursor.moveToFirst())return cursor.getString(0);
+        }catch(Exception ignored){}
+        return "Memory";
+    }
+    private void saveOriginalMedia(File f){
+        if(!f.isFile()){
+            message("The original attachment is missing.");
+            return;
+        }
+        if(Build.VERSION.SDK_INT<29){
+            chooseMediaExportFolder(f);
+            return;
+        }
+        final String filename=MediaSaver.displayName(f,memoryTitleFor(f));
+        message("Saving original-quality file to your phone…");
+        io.execute(()->{
+            String error=null;
+            try{MediaSaver.save(getApplicationContext(),f,filename);}
+            catch(Exception e){error=e.getMessage()==null?e.toString():e.getMessage();}
+            final String problem=error;
+            runOnUiThread(()->{
+                if(problem==null){
+                    new AlertDialog.Builder(this).setTitle("Saved to your phone")
+                        .setMessage("Your original-quality file was saved in:\n"+MediaSaver.folder(f)+
+                            "\n\nYou can find photos and videos in your phone's Gallery or Photos app.")
+                        .setPositiveButton("Done",null).show();
+                }else new AlertDialog.Builder(this).setTitle("Could not save attachment")
+                    .setMessage(problem+"\n\nYou can also use Choose Folder to save a copy manually.")
+                    .setPositiveButton("OK",null).show();
+            });
+        });
+    }
+    private void chooseMediaExportFolder(File file){
+        if(!file.isFile()){message("Original attachment not found.");return;}
+        try{
+            Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.setType(MediaSaver.mime(file));
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.putExtra(Intent.EXTRA_TITLE,MediaSaver.displayName(file,memoryTitleFor(file)));
+            pendingExportPath=file.getAbsolutePath();
+            startActivityForResult(intent,SAVE_MEDIA_AS);
+        }catch(Exception error){
+            message("Couldn't open phone storage: "+error.getMessage());
+        }
+    }
+    private void saveSelectedMedia(Uri destination){
+        final String selected=pendingExportPath;
+        pendingExportPath=null;
+        if(destination==null||selected==null){message("No media selected to save.");return;}
+        final File source=new File(selected);
+        message("Saving original file to selected folder…");
+        io.execute(()->{
+            String problem=null;
+            try{MediaSaver.saveAs(getApplicationContext(),source,destination);}
+            catch(Exception e){problem=e.getMessage()==null?e.toString():e.getMessage();}
+            final String error=problem;
+            runOnUiThread(()->{
+                if(error==null)message("Original-quality media saved to your chosen folder.");
+                else new AlertDialog.Builder(this).setTitle("Save failed")
+                     .setMessage(error).setPositiveButton("OK",null).show();
+            });
+        });
     }
     private EditText input(String value,String hint,boolean multi){
         EditText e=new EditText(this);e.setSingleLine(!multi);e.setText(value);e.setTextColor(TEXT);e.setHintTextColor(MUTED);
@@ -569,6 +659,7 @@ public final class MainActivity extends Activity {
         }else if(request==EXPORT)exportTo(data.getData(),false);
         else if(request==EXPORT_FAMILY)exportTo(data.getData(),true);
         else if(request==EXPORT_PDF)pdfTo(data.getData());
+        else if(request==SAVE_MEDIA_AS)saveSelectedMedia(data.getData());
         else if(request==IMPORT)importFrom(data.getData());
     }
     private void confirmDelete(Memory m){
@@ -921,7 +1012,9 @@ public final class MainActivity extends Activity {
             player.setDataSource(file.getAbsolutePath());player.prepare();player.start();
             AlertDialog dialog=new AlertDialog.Builder(this).setTitle("♡ A voice to remember")
                .setMessage("Playing this cherished recording…")
-               .setPositiveButton("Close",(d,w)->{}).create();
+               .setPositiveButton("Save to Phone",(d,w)->saveOriginalMedia(file))
+               .setNeutralButton("Choose Folder",(d,w)->chooseMediaExportFolder(file))
+               .setNegativeButton("Close",null).create();
             player.setOnCompletionListener(mp->{if(dialog.isShowing())dialog.dismiss();});
             dialog.setOnDismissListener(d->{if(player!=null){player.release();player=null;}});
             dialog.show();

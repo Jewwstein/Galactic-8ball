@@ -137,4 +137,33 @@ public final class FamilySyncInstrumentedTest {
             db.close();existing.delete();if(archive!=null)archive.delete();
         }
     }
+    @Test public void savingOriginalPhotoToGalleryKeepsExactBytes() throws Exception{
+        Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        android.graphics.Bitmap bmp=android.graphics.Bitmap.createBitmap(4,4,android.graphics.Bitmap.Config.ARGB_8888);
+        bmp.eraseColor(android.graphics.Color.rgb(91,56,160));
+        ByteArrayOutputStream original=new ByteArrayOutputStream();
+        assertTrue(bmp.compress(android.graphics.Bitmap.CompressFormat.PNG,100,original));
+        bmp.recycle();
+        byte[] expected=original.toByteArray();
+        File source=new File(context.getCacheDir(),"original_photo_"+UUID.randomUUID()+".png");
+        Uri exported=null;
+        try{
+            write(source,expected);
+            assertEquals("image/png",MediaSaver.mime(source));
+            assertEquals("Pictures/Our Little Universe",MediaSaver.folder(source));
+            exported=MediaSaver.save(context,source,MediaSaver.displayName(source,"Positive pregnancy test"));
+            assertNotNull(exported);
+            ByteArrayOutputStream copied=new ByteArrayOutputStream();
+            try(InputStream in=context.getContentResolver().openInputStream(exported)){
+                assertNotNull(in);
+                byte[] buffer=new byte[4096];int count;
+                while((count=in.read(buffer))!=-1)copied.write(buffer,0,count);
+            }
+            assertArrayEquals(expected,copied.toByteArray());
+            assertArrayEquals(expected,java.nio.file.Files.readAllBytes(source.toPath()));
+        }finally{
+            if(exported!=null)context.getContentResolver().delete(exported,null,null);
+            source.delete();
+        }
+    }
 }

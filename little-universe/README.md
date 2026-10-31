@@ -1,6 +1,6 @@
-# Our Little Universe · Memory Studio v0.5.1
+# Our Little Universe · Memory Studio v0.5.2
 
-This update only changes the displayed app name to **Our Little Universe**. All memory features and visuals stay the same. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
+This is a focused update: photo, video and audio memory viewers now have **Save to Phone** and **Choose Folder**. Android 10+ saves original-quality images to Pictures/Our Little Universe, videos to Movies/Our Little Universe, audio to Music/Our Little Universe, with no recompression. Choose Folder uses Android's document picker on all supported versions; Android 8/9 also use this picker for Save to Phone. Nothing in the approved blue/purple design or family archive logic is changed. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
 
 ## Features included
 - Original native Android journal, original-quality local photos/videos and voice-note recorder, offline speech recognition when device supports it, letters, firsts, and private SQLite storage
@@ -19,8 +19,11 @@ This update only changes the displayed app name to **Our Little Universe**. All 
 - Printable, locally rendered PDF baby book
 - All content stays on-device until intentionally exported
 
+## Retrieving one of your memories
+Open a saved photo or video in a memory, tap **Save to Phone**, and check Photos/Gallery or Files → Pictures/Our Little Universe (video: Movies/Our Little Universe). Voice recordings have the same option in the playback dialog. Or tap **Choose Folder** to write the original directly to a selected Downloads/other folder. The app keeps its private original. None of these actions requires a server or subscription.
+
 ## Installation and migration
-This version deliberately uses `com.littleuniverse.memories.cosmic.studio.our` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.1, check entries and media, then export a fresh full backup from v0.5.1. Keep the previous app until everything has been verified.
+This version deliberately uses `com.littleuniverse.memories.cosmic.studio.our.media` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.2, check entries and media, then export a fresh full backup from v0.5.2. Keep the previous app until everything has been verified.
 
 ## Limits
 - This is manual ZIP exchange; not live sharing and not an iOS app.
