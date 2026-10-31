@@ -1,40 +1,26 @@
-# Our Little Universe · Memory Studio v0.5.2
+# Our Little Universe — Memory Safety Edition v0.5.3
 
-This is a focused update: photo, video and audio memory viewers now have **Save to Phone** and **Choose Folder**. Android 10+ saves original-quality images to Pictures/Our Little Universe, videos to Movies/Our Little Universe, audio to Music/Our Little Universe, with no recompression. Choose Folder uses Android's document picker on all supported versions; Android 8/9 also use this picker for Save to Phone. Nothing in the approved blue/purple design or family archive logic is changed. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
+This patch focuses on keeping priceless family memories safe. It keeps the approved blue-and-purple original-v3 design and **all v0.5.2 features** unchanged.
 
-## Features included
-- Original native Android journal, original-quality local photos/videos and voice-note recorder, offline speech recognition when device supports it, letters, firsts, and private SQLite storage
-- Family contributor names and credits on memories; settings let Dad, Mariah, Grandma, Papa, etc. take turns on one device
-- Family ZIP imports merged by stable memory IDs without duplicates, photos/voice attachment union
-- Family ZIP exports include author and supplemental records; distinct **full backup** and **family-only archive**: memories marked private are not included in family-only ZIPs
-- Comments and reactions with contributor credit, favorites, album names and searchable tags, manual locations and captions
-- Native memory search and filters (favorites, letters, voice), photo/video gallery and real local photo slideshow
-- Calendar date browsing, On This Day, month/year recap navigation
-- 35 milestone suggestions from ultrasound to graduation
-- Pregnancy countdown estimated from due date, pregnancy diary and bump-photo entry shortcuts; due date estimates are not medical guidance
-- Height/weight history and custom native chart (no medical percentile comparisons)
-- Birthday interview questions, prompts, quotes, gratitude and family traditions, recipes, family stories, name ideas, wishlists and packing lists
-- Time capsule letters with future opening dates (REMINDER LABELS ONLY; no encryption or lock)
-- Local reminders with Android notifications when permission granted (Android controls timing and battery behavior)
-- Printable, locally rendered PDF baby book
-- All content stays on-device until intentionally exported
+## Included in this release
+- **Recently Deleted / Recycle Bin:** long-press a memory, move it to Recently Deleted; restore its date, title, journal text, notes, photo/video/audio attachments and contributor details anytime.
+- **Permanent deletion requires explicit confirmation:** attached originals are deleted only if no other live or deleted memory references them.
+- **Full external ZIP backups now preserve the recycle bin** and its attached media. Family-only ZIPs intentionally do *not* share deleted memories.
+- **ZIP exports include per-file SHA-256 checksums**, allowing more dependable verification of original media.
+- **Verify an exported backup ZIP** from Vault. Reads each file, checks ZIP CRC and SHA-256 hashes if present, verifies all referenced media are included; works on older ZIPs without hashes (CRC/file checks only). Verification is read-only and does not import or overwrite any memories.
+- **Check my memories and media** from Vault. Reads every original saved photo, video, and audio and reports missing/unreadable attachments.
+- **A local deletion is not automatically undone by re-importing an older family ZIP.** Restore it explicitly from Recently Deleted if you want it back.
+- The approved original-v3 UI, memory studio, gallery, local voice messages, save-to-phone, PDF export, family contributor credits, and manual family ZIP merge are preserved.
 
-## Retrieving one of your memories
-Open a saved photo or video in a memory, tap **Save to Phone**, and check Photos/Gallery or Files → Pictures/Our Little Universe (video: Movies/Our Little Universe). Voice recordings have the same option in the playback dialog. Or tap **Choose Folder** to write the original directly to a selected Downloads/other folder. The app keeps its private original. None of these actions requires a server or subscription.
+## Use
+Vault → Recently Deleted, Check my memories and media, or Verify an exported backup ZIP. To delete a memory, long-press its timeline card (as before); it now moves into the recovery area instead of erasing immediately.
 
-## Installation and migration
-This version deliberately uses `com.littleuniverse.memories.cosmic.studio.our.media` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.2, check entries and media, then export a fresh full backup from v0.5.2. Keep the previous app until everything has been verified.
+## Privacy and important limitations
+- Full ZIP backups are **not encrypted**: store them privately. SHA-256 detects modifications/corruption but provides no password protection or authentication.
+- The local library check measures file presence/readability; it cannot prove that an original already corrupted before the first backup was created is correct.
+- This app is offline and no cloud/server permissions are used. Export a full ZIP and verify it on a *different* device or storage location to protect against phone loss.
+- Family sharing deliberately excludes the recycle bin. Deletions still do not propagate to other family members, which is intentional.
+- Prototype APKs are temporarily signed by GitHub CI. This v0.5.3 package installs alongside older versions rather than replacing them; use Full backup ZIP from the older app, import into v0.5.3, verify your files, then keep a separate external backup. Do not uninstall the older app before confirming migration.
 
-## Limits
-- This is manual ZIP exchange; not live sharing and not an iOS app.
-- Same-entry edits on different devices preserve local wording; deletions do not propagate.
-- ZIPs and exported PDF books are not encrypted; sharing them through a messaging service is outside the app and may create copies.
-- The PDF export is a compact printable journal, not an automated professional bound photo-book order.
-- The growing-up slideshow plays existing photos inside the app; it does not generate a new encoded MP4.
-- Offline speech-to-text needs a compatible Android on-device recognition service/model.
-- Reminders are not guaranteed at exact times: Android battery restrictions and notification permissions apply.
-- Unlimited free cloud storage, AI-generated photos/videos, iPhone native installs, face transformations, photo-face timelapse alignment, and automatic real-time sync are **not** included because they would violate platform, offline, cost, or feasibility constraints.
-- No Play Store, external account, paid subscription, external server, or INTERNET permission.
-
-## Development
-Android Java 17, API 35, Gradle 8.10.2. The project remains isolated from the main Galactic-8ball branch. No personal family media should ever be committed to GitHub.
+## Testing
+Android instrumentation includes 6 tests: duplicate-free ZIP merge, attachment integrity, collision prevention, gallery export original bytes, recycle restore, no resurrection on family import, ZIP verifier check. CI workflow builds a native APK and runs tests in an Android emulator.

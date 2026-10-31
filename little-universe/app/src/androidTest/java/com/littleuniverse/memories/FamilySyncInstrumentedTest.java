@@ -166,4 +166,67 @@ public final class FamilySyncInstrumentedTest {
             source.delete();
         }
     }
+    @Test public void recentlyDeletedMemoriesRestoreWithOriginalMedia() throws Exception{
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SQLiteDatabase db=SQLiteDatabase.create(null);
+        db.execSQL("CREATE TABLE memories (id TEXT PRIMARY KEY,day TEXT NOT NULL,title TEXT NOT NULL,kind TEXT NOT NULL,body TEXT NOT NULL,media TEXT NOT NULL)");
+        FeatureStore.init(db);ArchiveSafety.init(db);
+        String id=UUID.randomUUID().toString(),file=UUID.randomUUID()+".png";
+        File dir=new File(ctx.getFilesDir(),"media");dir.mkdirs();
+        File photo=new File(dir,file);write(photo,bytes("keepsake-original"));
+        try{
+            insert(db,memory(id,"A precious announcement",new String[]{file}));
+            assertTrue(ArchiveSafety.moveToTrash(db,id));
+            assertEquals(0,count(db));
+            assertTrue(ArchiveSafety.trashed(db,id));
+            assertTrue(photo.isFile());
+            assertEquals(1,ArchiveSafety.deleted(db).size());
+            assertTrue(ArchiveSafety.restore(db,id));
+            assertEquals(1,count(db));
+            assertFalse(ArchiveSafety.trashed(db,id));
+            assertArrayEquals(bytes("keepsake-original"),java.nio.file.Files.readAllBytes(photo.toPath()));
+        }finally{db.close();photo.delete();}
+    }
+    @Test public void familyArchiveImportDoesNotResurrectLocalDeletion() throws Exception{
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        SQLiteDatabase db=SQLiteDatabase.create(null);
+        db.execSQL("CREATE TABLE memories (id TEXT PRIMARY KEY,day TEXT NOT NULL,title TEXT NOT NULL,kind TEXT NOT NULL,body TEXT NOT NULL,media TEXT NOT NULL)");
+        FeatureStore.init(db);ArchiveSafety.init(db);
+        String id=UUID.randomUUID().toString();
+        File zipfile=null;
+        try{
+            insert(db,memory(id,"Deleted but preserved",new String[]{}));
+            assertTrue(ArchiveSafety.moveToTrash(db,id));
+            JSONArray records=new JSONArray();records.put(memory(id,"Old family copy",new String[]{}));
+            zipfile=zip(ctx,records,Collections.emptyMap());
+            FamilySync.Result merged=FamilySync.merge(ctx,db,Uri.fromFile(zipfile));
+            assertEquals(0,merged.added);
+            assertEquals(0,count(db));
+            assertTrue(ArchiveSafety.trashed(db,id));
+            assertTrue(ArchiveSafety.restore(db,id));
+            assertEquals(1,count(db));
+        }finally{db.close();if(zipfile!=null)zipfile.delete();}
+    }
+    @Test public void backupVerifierDetectsMissingMediaAndAcceptsValidZip() throws Exception{
+        Context ctx=InstrumentationRegistry.getInstrumentation().getTargetContext();
+        String media=UUID.randomUUID()+".png",id=UUID.randomUUID().toString();
+        JSONArray records=new JSONArray();records.put(memory(id,"A photo that matters",new String[]{media}));
+        File broken=null,good=null;
+        try{
+            broken=zip(ctx,records,Collections.emptyMap());
+            try{
+                ArchiveSafety.verifyArchive(ctx,Uri.fromFile(broken));
+                fail("An archive missing its original media must be rejected.");
+            }catch(IOException expected){
+                assertTrue(expected.getMessage().contains("missing"));
+            }
+            Map<String,byte[]> files=new LinkedHashMap<>();
+            files.put(media,bytes("photo bytes"));
+            good=zip(ctx,records,files);
+            ArchiveSafety.Verification result=ArchiveSafety.verifyArchive(ctx,Uri.fromFile(good));
+            assertEquals(1,result.memories);
+            assertEquals(1,result.media);
+            assertTrue(result.bytes>0);
+        }finally{if(broken!=null)broken.delete();if(good!=null)good.delete();}
+    }
 }

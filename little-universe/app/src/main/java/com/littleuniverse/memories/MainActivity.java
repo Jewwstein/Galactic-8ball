@@ -44,7 +44,7 @@ public final class MainActivity extends Activity {
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private SQLiteDatabase db;
     private KeepsakeHub studio;
-    private static final int EXPORT_PDF=120, EXPORT_FAMILY=121, SAVE_MEDIA_AS=122;
+    private static final int EXPORT_PDF=120, EXPORT_FAMILY=121, SAVE_MEDIA_AS=122, VERIFY_BACKUP=123;
     private String pendingExportPath;
     private LinearLayout page;
     private String activeTab="Home", pendingMediaId;
@@ -58,6 +58,7 @@ public final class MainActivity extends Activity {
         prefs=getSharedPreferences("little_universe_profile",MODE_PRIVATE);
         db=new Store(this).getWritableDatabase();
         FeatureStore.init(db);
+        ArchiveSafety.init(db);
         studio=new KeepsakeHub(this,db,new KeepsakeHub.Actions(){
             public void create(String kind,String title){editor(null,kind,false,title);}
             public void edit(String id){Memory m=load(id);if(m!=null)editor(m,m.kind,false);}
@@ -215,6 +216,7 @@ public final class MainActivity extends Activity {
             case "Milestones":showMilestones();break;
             case "Letters":showMemories("Letter");break;
             case "Settings":showSettings();break;
+            case "RecentlyDeleted":showRecycleBin();break;
             default:showHome();
         }
         LinearLayout nav=horizontal();nav.setPadding(dp(7),dp(6),dp(7),dp(4));nav.setBackground(CosmicUI.glass(this,22,0xff222456,0xff0D1331,0xff6758D6));nav.setElevation(dp(18));
@@ -660,16 +662,96 @@ public final class MainActivity extends Activity {
         else if(request==EXPORT_FAMILY)exportTo(data.getData(),true);
         else if(request==EXPORT_PDF)pdfTo(data.getData());
         else if(request==SAVE_MEDIA_AS)saveSelectedMedia(data.getData());
+        else if(request==VERIFY_BACKUP)checkExternalBackup(data.getData());
         else if(request==IMPORT)importFrom(data.getData());
     }
     private void confirmDelete(Memory m){
-        new AlertDialog.Builder(this).setTitle("Delete this memory?")
-            .setMessage("This also deletes its attached photos/videos from this app. This cannot be undone.")
-            .setNegativeButton("Keep",null).setPositiveButton("Delete",(d,w)->{
-                db.delete("memories","id=?",new String[]{m.id});
-                for(String name:m.media)new File(new File(getFilesDir(),"media"),name).delete();
-                render();
+        new AlertDialog.Builder(this).setTitle("Move this memory to Recently Deleted?")
+            .setMessage("This safely removes it from the timeline without deleting the original photos, videos or voice recordings. You can restore it from the Vault.")
+            .setNegativeButton("Keep memory",null)
+            .setPositiveButton("Move to Recently Deleted",(dialog,which)->{
+                try{
+                    if(ArchiveSafety.moveToTrash(db,m.id)){
+                        render();
+                        message("Memory moved to Recently Deleted. It can be restored anytime.");
+                    }else message("The memory was not found.");
+                }catch(Exception error){message("Could not protect this memory: "+error.getMessage());}
             }).show();
+    }
+    private void showRecycleBin(){
+        put(page,eyebrow("SAFELY RECOVERABLE",MINT),8,9);
+        put(page,headline("Recently Deleted",32),0,8);
+        hint("Deleted memories stay here, including their original photos, videos and voice recordings, until you permanently delete them. They're also included in full backups.");
+        List<ArchiveSafety.Deleted> list=ArchiveSafety.deleted(db);
+        if(list.isEmpty()){
+            LinearLayout empty=card();
+            put(empty,headline("Nothing has been deleted",22),0,8);
+            put(empty,text("Your recovered and current memories remain safe in the timeline.",14,MUTED,false),0,0);
+            return;
+        }
+        for(ArchiveSafety.Deleted item:list){
+            LinearLayout tile=card();
+            put(tile,eyebrow(item.kind.toUpperCase(Locale.US)+"  ·  "+item.day,MINT),0,9);
+            put(tile,headline(item.title,22),0,8);
+            put(tile,text(item.attachments+" saved original attachment(s)",13,MUTED,false),0,12);
+            put(tile,button("Restore this memory",true,()->{
+                try{
+                    if(ArchiveSafety.restore(db,item.id)){
+                        showRecycleBinRefresh();
+                        message("Memory, voice and photos restored to your timeline ♡");
+                    }else message("This memory could not be restored.");
+                }catch(Exception error){message("Restore failed: "+error.getMessage());}
+            }),0,8);
+            put(tile,button("Permanently delete",false,()->{
+                new AlertDialog.Builder(this).setTitle("Permanently erase this memory?")
+                    .setMessage("This removes the memory from the recycle bin and deletes original attachments that no other memory uses. This cannot be undone unless you have an external backup.")
+                    .setNegativeButton("Cancel",null)
+                    .setPositiveButton("Erase forever",(d,w)->{
+                        try{ArchiveSafety.deleteForever(this,db,item.id);showRecycleBinRefresh();}
+                        catch(Exception e){message("Could not delete safely: "+e.getMessage());}
+                    }).show();
+            }),0,0);
+        }
+    }
+    private void showRecycleBinRefresh(){
+        activeTab="RecentlyDeleted";render();
+    }
+    private void checkMyArchive(){
+        message("Checking every saved photo, video and recording…");
+        io.execute(()->{
+            ArchiveSafety.Health health=ArchiveSafety.scan(getApplicationContext(),db);
+            runOnUiThread(()->new AlertDialog.Builder(this)
+                .setTitle("Your memory archive · health check")
+                .setMessage(health.summary())
+                .setPositiveButton("Done",null).show());
+        });
+    }
+    private void pickBackupToVerify(){
+        Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/zip");
+        startActivityForResult(intent,VERIFY_BACKUP);
+    }
+    private void checkExternalBackup(Uri location){
+        if(location==null)return;
+        message("Verifying archive and original file checksums…");
+        io.execute(()->{
+            String result;boolean okay;
+            try{
+                ArchiveSafety.Verification verification=ArchiveSafety.verifyArchive(getApplicationContext(),location);
+                result=verification.summary();okay=true;
+            }catch(Exception problem){
+                result="This backup did not pass verification:\n"+
+                    (problem.getMessage()==null?problem.toString():problem.getMessage())+
+                    "\n\nDo not delete your current memories. Create a new full backup and verify it.";
+                okay=false;
+            }
+            final boolean success=okay;
+            final String summary=result;
+            runOnUiThread(()->new AlertDialog.Builder(this)
+                .setTitle(success?"Backup verified ♡":"Backup needs attention")
+                .setMessage(summary).setPositiveButton("OK",null).show());
+        });
     }
     private void showSettings(){
         put(page,eyebrow("MADE FOR ONE EXTRAORDINARY LIFE",MINT),6,10);
@@ -726,6 +808,9 @@ public final class MainActivity extends Activity {
             intent.putExtra(Intent.EXTRA_TITLE,"Our_Little_Universe_Family_"+today()+".zip");
             startActivityForResult(intent,EXPORT_FAMILY);
         }),0,9);
+        put(vault,button("♡   Recently Deleted ("+ArchiveSafety.deleted(db).size()+")",false,()->showRecycleBinRefresh()),0,9);
+        put(vault,button("✓   Check my memories and media",false,()->checkMyArchive()),0,9);
+        put(vault,button("✓   Verify an exported backup ZIP",false,()->pickBackupToVerify()),0,9);
         put(vault,button("↑   Merge a family ZIP (no duplicates)",false,()->{
             Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
@@ -754,6 +839,17 @@ public final class MainActivity extends Activity {
                 }
                 root.put("memories",data);
                 root.put("features",FeatureStore.exportAll(db,shareOnly?selectedIds:null));
+                if(!shareOnly)root.put("recycleBin",ArchiveSafety.exportTrash(db));
+                selectedFiles.addAll(ArchiveSafety.requiredFiles(root));
+                // Record the SHA-256 of every original in the full/family backup manifest.
+                JSONObject checksums=new JSONObject();
+                File originals=new File(getFilesDir(),"media");
+                for(String name:selectedFiles){
+                    File source=new File(originals,name);
+                    if(!source.isFile())throw new IOException("Backup cancelled: missing original "+name);
+                    checksums.put(name,ArchiveSafety.sha256(source));
+                }
+                root.put("mediaSha256",checksums);
                 byte[] payload=root.toString().getBytes("UTF-8");
                 zip.putNextEntry(new ZipEntry("archive.json"));zip.write(payload);zip.closeEntry();
                 File dir=new File(getFilesDir(),"media");

@@ -158,7 +158,9 @@ public final class FamilySync {
             if(raw==null)throw new IOException("Cannot open the selected family ZIP.");
             try(ZipInputStream zip=new ZipInputStream(new BufferedInputStream(raw))){
                 JSONObject head=readHeader(zip);
+                ArchiveSafety.init(db);
                 JSONArray records=head.getJSONArray("memories");
+                JSONArray importedRecycle=head.optJSONArray("recycleBin");
                 if(records.length()>MAX_MEMORIES)
                     throw new IOException("Archive contains too many memories.");
                 ArrayList<Entry> incoming=new ArrayList<>();
@@ -170,6 +172,10 @@ public final class FamilySync {
                     if(!ids.add(e.id))throw new IOException("Repeated memory ID in ZIP.");
                     incoming.add(e);
                     Local mine=local(db,e.id);
+                    if(mine==null && ArchiveSafety.trashed(db,e.id)){
+                        duplicates++;
+                        continue; // Local deletion remains recoverable, not resurrected by an old family ZIP.
+                    }
                     if(mine==null){
                         willAdd++;
                         desiredFiles.addAll(e.media);
@@ -181,6 +187,18 @@ public final class FamilySync {
                             if(!mine.media.contains(name)||
                                 !new File(mediaFolder,name).isFile())desiredFiles.add(name);
                         }
+                    }
+                }
+                // Full backups also preserve the originals in the local recycle bin.
+                if(importedRecycle!=null){
+                    if(importedRecycle.length()>MAX_MEMORIES)throw new IOException("Too many deleted memories in ZIP.");
+                    for(int i=0;i<importedRecycle.length();i++){
+                        JSONObject item=importedRecycle.optJSONObject(i);
+                        JSONObject deleted=item==null?null:item.optJSONObject("memory");
+                        if(deleted==null)continue;
+                        Entry e=new Entry(deleted);
+                        if(local(db,e.id)==null&&!ArchiveSafety.trashed(db,e.id))
+                            desiredFiles.addAll(e.media);
                     }
                 }
                 // All media names must be verified before changing the database.
@@ -240,6 +258,7 @@ public final class FamilySync {
                 db.beginTransaction();
                 try{
                     for(Entry e:incoming){
+                        if(ArchiveSafety.trashed(db,e.id)){seen++;continue;}
                         Local mine=local(db,e.id);
                         if(mine==null){
                             addRecord(db,e);added++;
@@ -260,6 +279,7 @@ public final class FamilySync {
                     }
                     FeatureStore.init(db);
                     FeatureStore.merge(db,head.optJSONObject("features"));
+                    ArchiveSafety.mergeTrash(db,importedRecycle);
                     db.setTransactionSuccessful();
                 }finally{db.endTransaction();}
                 committed=true;
