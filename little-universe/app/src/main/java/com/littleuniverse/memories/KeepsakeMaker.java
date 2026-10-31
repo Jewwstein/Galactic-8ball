@@ -1,6 +1,7 @@
 package com.littleuniverse.memories;
 
 import android.app.*;
+import android.content.Intent;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
