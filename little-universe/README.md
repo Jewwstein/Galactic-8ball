@@ -1,4 +1,4 @@
-# Little Universe · Memory Studio v0.4.0
+# Little Universe · Memory Studio v0.5.0
 
 This is the largest offline family keepsake release so far. **The existing v3 home interface is not redesigned**: the v3.1 UI (v3 with only the unwanted two card arcs removed) remains, with a new Memory Studio entry and richer memory metadata.
 
@@ -20,7 +20,7 @@ This is the largest offline family keepsake release so far. **The existing v3 ho
 - All content stays on-device until intentionally exported
 
 ## Installation and migration
-This version deliberately uses `com.littleuniverse.memories.cosmic.studio` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.4.0, check entries and media, then export a fresh full backup from v0.4.0. Keep the previous app until everything has been verified.
+This version deliberately uses `com.littleuniverse.memories.cosmic.studio` to avoid replacing v0.3.2 and losing data due to ephemeral CI signing keys. To migrate: export a FULL ZIP in the old app, import in v0.5.0, check entries and media, then export a fresh full backup from v0.5.0. Keep the previous app until everything has been verified.
 
 ## Limits
 - This is manual ZIP exchange; not live sharing and not an iOS app.
