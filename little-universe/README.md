@@ -1,23 +1,26 @@
-# Little Universe — offline Android baby memory journal
-This is **a completely separate Android project** on the `little-universe-v1` branch of Galactic-8ball. It does not modify Galactic 8-Ball on `main`.
+# Little Universe · Keepsake Edition v0.2.0
 
-## Version 0.1.0
-- Native Android APK, no web wrapper, no network permission
-- Pregnancy announcement shortcut dated October 31, 2026
-- Chronological memory timeline, journal, milestones, and letters
-- Original photos and videos copied into private on-device files
-- Native SQLite database
-- Baby's name, parents, and due date customization
-- Complete backup and restore to a user-chosen ZIP document
-- No Play Store, no cloud, no subscriptions, no tracking
+A personal, completely local Android keepsake app dedicated to your child's lifetime story.
 
-## Building
-The GitHub Actions workflow builds `little-universe/app/build/outputs/apk/debug/app-debug.apk` and publishes it as a GitHub Actions artifact and release. Run locally with Android SDK API 35 and Gradle 8.10.2:
-`gradle -p little-universe :app:assembleDebug`
+**This lives on the isolated `little-universe-v1` branch** of the original Galactic-8ball GitHub repo. Galactic 8-Ball `main` is not modified.
 
-## Important
-The first prototype is signed with a CI-generated debug certificate. A later update may be signed differently, so it may **require exporting a backup, uninstalling v0.1.0, installing the new APK, then restoring your ZIP**. Do not uninstall until you have a verified backup. We should configure a stable private app signing key before regular updates.
+## What's new
+- Cinematic night-sky / moon / starlight home screen and warm keepsake-style visual identity
+- Redesigned story feed with photo cards, video playback and voice-note players
+- One-tap **Record your voice** — saves full original AAC audio files on the phone, no transcription required
+- On-device dictation for titles and stories **only if Android has a local speech recognizer** (no network speech fallback)
+- Full-screen memory editor with date picker; customizable baby's name and due date
+- Milestone progress, letters vault, original-quality photo/video attachments, ZIP backup/restore
+- Local private SQLite database and files. No network permission, accounts, analytics, ads, or cloud.
 
-App data lives in Android private storage and is removed on uninstall. Keep backup ZIPs **outside the phone**, ideally on a computer and an external drive. Photos/videos added to the app are copied, not deleted from the gallery. Family/network sharing is intentionally not implemented yet.
+## Installing
+Install the APK from GitHub Releases. Version 0.2.0 has a **separate Android applicationId** (`com.littleuniverse.memories.keepsake`) so it can install alongside the v0.1.0 prototype. To bring earlier entries across, use the v0.1.0 app's Settings → Export ZIP then v0.2.0's Vault → Restore ZIP. Do not uninstall the older APK until you have confirmed the copy and safe backup.
 
-Do not put private photos, videos, or ZIP backups in this public GitHub repository. These contain personal family information.
+## Speech details
+Android 12+ offers an on-device recognizer when an offline speech service/model exists. Only that service is used; if unavailable, audio recording still works on Android 8+. The app never asks for internet permission. Microphone permission is requested when needed.
+
+## Backups / release notes
+The app uses private app storage that Android removes on uninstall. Export your ZIP regularly and keep copies outside the device. Debug-signing from CI is not stable across builds; plan an enduring private signing key before in-place upgrades. **Do not upload personal family photos or backup ZIPs to this public source repository.**
+
+## Build
+Java 17, Gradle 8.10.2, Android 35. Workflow: `.github/workflows/build-little-universe.yml`.

@@ -1,11 +1,20 @@
 package com.littleuniverse.memories;
 
 import android.app.*;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.media.MediaRecorder;
+import android.media.MediaPlayer;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.os.*;
 import android.content.*;
 import android.database.*;
 import android.database.sqlite.*;
 import android.graphics.*;
+import android.graphics.Shader;
+import android.graphics.RadialGradient;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.provider.OpenableColumns;
@@ -18,9 +27,20 @@ import java.util.concurrent.*;
 import java.util.zip.*;
 
 public final class MainActivity extends Activity {
-    private static final int BACKGROUND=0xff11192c, PANEL=0xff202d45, PANEL2=0xff31405c;
-    private static final int TEXT=0xfff9f4eb, MUTED=0xffb9c7da, GOLD=0xfff4d6a6, MINT=0xffb6e8dd;
+    private static final int BACKGROUND=0xff0D1423, PANEL=0xff1D2A3E, PANEL2=0xff304158;
+    private static final int TEXT=0xffFFF6EC, MUTED=0xffB7C5D9, GOLD=0xffF5D0AA, MINT=0xffA6E3D8, ROSE=0xffF1B4C5;
     private static final int PICK_MEDIA=101, EXPORT=102, IMPORT=103;
+    private MediaRecorder recorder;
+    private MediaPlayer player;
+    private SpeechRecognizer speechRecognizer;
+    private File recordingFile;
+    private String recordingFor;
+    private Runnable afterMicPermission;
+    private AlertDialog recordingDialog;
+    private android.os.Handler recordHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean isRecording=false;
+    private long recordingStart=0L;
+    private static final int REQUEST_MIC=104;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
     private SQLiteDatabase db;
     private LinearLayout page;
@@ -88,6 +108,45 @@ public final class MainActivity extends Activity {
     private GradientDrawable bg(int color,int radius) {
         GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(dp(radius));return g;
     }
+    private GradientDrawable gradient(int radius,int... colors){
+        GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,colors);d.setCornerRadius(dp(radius));return d;
+    }
+    private GradientDrawable outlined(int color,int radius,int edge){
+        GradientDrawable d=bg(color,radius);d.setStroke(dp(1),edge);return d;
+    }
+    private TextView headline(String s,int sp){
+        TextView t=text(s,sp,TEXT,true);t.setTypeface(Typeface.create("serif",Typeface.BOLD));
+        t.setLetterSpacing(-0.025f);return t;
+    }
+    private TextView eyebrow(String s,int color){
+        TextView t=text(s,11,color,true);t.setLetterSpacing(.18f);return t;
+    }
+    private class Sky extends View {
+        private Paint paint=new Paint(3);
+        Sky(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        @Override protected void onDraw(Canvas c){
+            float w=getWidth(),h=getHeight();if(w<1||h<1)return;
+            paint.setShader(new RadialGradient(w*.79f,h*.23f,dp(135),
+                new int[]{0x773F5E83,0x003F5E83},null,Shader.TileMode.CLAMP));
+            c.drawRect(0,0,w,h,paint);paint.setShader(null);
+            java.util.Random rng=new java.util.Random(729);
+            for(int i=0;i<70;i++){
+                paint.setColor(i%6==0?0xAAFFE3C7:0x77FFFFFF);
+                c.drawCircle(w*rng.nextFloat(),h*rng.nextFloat(),dp(i%7==0?1.4f:.6f),paint);
+            }
+            float x=w*.79f,y=h*.25f,rr=dp(37);
+            paint.setColor(0x55F5D1B0);c.drawCircle(x,y,rr*1.35f,paint);
+            paint.setColor(0xffF9DFC5);c.drawCircle(x,y,rr,paint);
+            paint.setColor(0xff373E60);c.drawCircle(x+dp(20),y-dp(17),rr*.9f,paint);
+        }
+    }
+    private LinearLayout horizontal(){
+        LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);r.setGravity(Gravity.CENTER_VERTICAL);return r;
+    }
+    private void quickButton(LinearLayout row,String s,boolean primary,Runnable action){
+        Button b=button(s,primary,action);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(49),1);
+        lp.setMargins(dp(2),0,dp(2),0);row.addView(b,lp);
+    }
     private TextView text(String t,int sp,int color,boolean bold) {
         TextView v=new TextView(this);v.setText(t);v.setTextSize(sp);v.setTextColor(color);
         v.setLineSpacing(dp(2),1f);
@@ -101,9 +160,10 @@ public final class MainActivity extends Activity {
         LinearLayout l=new LinearLayout(this);l.setOrientation(1);l.setPadding(dp(pad),dp(pad),dp(pad),dp(pad));return l;
     }
     private LinearLayout card(){
-        LinearLayout c=vertical(17);c.setBackground(bg(PANEL,19));put(page,c,0,13);return c;
+        LinearLayout c=vertical(18);c.setBackground(outlined(PANEL,22,0xff36435B));put(page,c,0,16);return c;
     }
-    private Button button(String title,boolean primary,Runnable r){
+    
+        private Button button(String title,boolean primary,Runnable r){
         Button b=new Button(this);b.setAllCaps(false);b.setText(title);b.setTextSize(14);
         b.setTextColor(primary?BACKGROUND:TEXT);
         b.setBackground(bg(primary?GOLD:PANEL2,13));b.setMinHeight(dp(49));
@@ -115,102 +175,196 @@ public final class MainActivity extends Activity {
     }
     private void section(String s){put(page,text(s,22,TEXT,true),18,12);}
     private void hint(String s){put(page,text(s,13,MUTED,false),6,15);}
-    private void render() {
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(BACKGROUND);
-        setContentView(root);
-        LinearLayout head=vertical(14);
-        head.setPadding(dp(20),dp(16),dp(20),dp(14));
-        head.addView(text("☾  LITTLE UNIVERSE",17,GOLD,true));
-        head.addView(text(prefs.getString("childName","Our little one")+" • A lifetime of love",12,MUTED,false));
-        root.addView(head);
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);
-        page=vertical(18);page.setPadding(dp(18),dp(6),dp(18),dp(42));sc.addView(page);
-        root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
+    private void render(){
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(BACKGROUND);setContentView(root);
+        LinearLayout head=vertical(0);head.setPadding(dp(22),dp(19),dp(22),dp(14));
+        LinearLayout header=horizontal();
+        LinearLayout brand=vertical(0);put(brand,eyebrow("✦   LITTLE UNIVERSE",GOLD),0,5);
+        String baby=prefs.getString("childName","").trim();put(brand,text((baby.isEmpty()?"Our little one":baby)+"'s story",13,MUTED,false),0,0);
+        header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
+        TextView star=text("✧",27,GOLD,false);star.setGravity(Gravity.CENTER);
+        star.setBackground(outlined(PANEL,16,0xff394962));
+        header.addView(star,new LinearLayout.LayoutParams(dp(46),dp(46)));
+        head.addView(header);root.addView(head);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);
+        page=vertical(0);page.setPadding(dp(20),dp(6),dp(20),dp(38));
+        scroll.addView(page);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         switch(activeTab){
-            case "Memories": showMemories(null);break;
-            case "Milestones": showMilestones();break;
-            case "Letters": showMemories("Letter");break;
-            case "Settings": showSettings();break;
-            default: showHome();
+            case "Memories":showMemories(null);break;
+            case "Milestones":showMilestones();break;
+            case "Letters":showMemories("Letter");break;
+            case "Settings":showSettings();break;
+            default:showHome();
         }
-        LinearLayout nav=new LinearLayout(this);nav.setPadding(dp(3),dp(8),dp(3),dp(7));nav.setBackgroundColor(0xff19243a);
-        String[] tabs={"Home","Memories","＋","Milestones","Settings"};
-        for(String name:tabs){
-            TextView item=text(name,12,name.equals(activeTab)?GOLD:MUTED,name.equals(activeTab));
-            item.setGravity(Gravity.CENTER);item.setMinHeight(dp(45));
-            nav.addView(item,new LinearLayout.LayoutParams(0,dp(49),1));
-            item.setOnClickListener(v->{if(name.equals("＋"))editor(null,"Memory",false);
-                else{activeTab=name;render();}});
+        LinearLayout nav=horizontal();nav.setPadding(dp(7),dp(6),dp(7),dp(4));nav.setBackground(outlined(0xff19263A,18,0xff2E3E54));
+        String[] names={"Home","Moments","＋","Firsts","Vault"};
+        String[] marks={"⌂","▣","＋","✧","◇"};
+        String[] routes={"Home","Memories","Create","Milestones","Settings"};
+        for(int i=0;i<names.length;i++){
+            final String route=routes[i];
+            boolean selected=activeTab.equals(route);
+            LinearLayout item=vertical(0);item.setGravity(Gravity.CENTER);
+            TextView glyph=text(marks[i],i==2?27:23,i==2?BACKGROUND:selected?GOLD:MUTED,true);glyph.setGravity(Gravity.CENTER);
+            if(i==2){
+                glyph.setBackground(gradient(15,GOLD,ROSE));item.addView(glyph,new LinearLayout.LayoutParams(dp(46),dp(42)));
+            }else item.addView(glyph);
+            TextView label=text(names[i],10,selected?TEXT:MUTED,selected);label.setGravity(Gravity.CENTER);
+            put(item,label,2,0);nav.addView(item,new LinearLayout.LayoutParams(0,dp(68),1));
+            item.setOnClickListener(v->{if(route.equals("Create"))editor(null,"Memory",false);else{activeTab=route;render();}});
         }
         root.addView(nav);
     }
-    private void showHome() {
-        put(page,text("The beginning of forever ♡",29,TEXT,true),7,7);
-        hint("Every little moment deserves to be remembered.");
-        LinearLayout hero=vertical(20);hero.setBackground(bg(0xff46405c,21));put(page,hero,4,17);
-        put(hero,text("✧  OCTOBER 31, 2026",12,GOLD,true),0,9);
-        put(hero,text("Today, everything changed.",30,TEXT,true),0,9);
-        put(hero,text("The day you found out your family is growing. Start telling your little one's story.",14,0xfff4eaf3,false),0,17);
-        put(hero,button("♡ Capture today's news",true,()->editor(null,"Journal",true)),0,0);
-        LinearLayout quick=card();line(quick,"Save a little moment","No internet, account, or subscription needed.");
-        put(quick,button("＋ Add photo, video or memory",true,()->editor(null,"Memory",false)),0,8);
-        put(quick,button("✉ Write a letter to your child",false,()->editor(null,"Letter",false)),0,0);
-        section("Your story so far");
-        List<Memory> list=memories();
-        if(list.isEmpty()){LinearLayout empty=card();line(empty,"A beautiful blank page","Your first entry can be about how you felt when you heard the news.");}
-        else for(int i=0;i<Math.min(5,list.size());i++)drawEntry(list.get(i));
+    
+        private void showHome(){
+        FrameLayout hero=new FrameLayout(this);
+        hero.setBackground(gradient(27,0xff483452,0xff253D5B,0xff1A2A42));hero.setClipToOutline(true);
+        hero.addView(new Sky(),new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout overlay=vertical(23);overlay.setGravity(Gravity.BOTTOM);
+        put(overlay,eyebrow("CHAPTER ONE  •  OCTOBER 31, 2026",GOLD),0,8);
+        put(overlay,headline("Before we met you,\nwe loved you.",31),0,11);
+        put(overlay,text("A little universe. A lifetime of memories.",13,0xffEBE2ED,false),0,0);
+        hero.addView(overlay,new FrameLayout.LayoutParams(-1,-1,Gravity.BOTTOM));
+        LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(286));hp.setMargins(0,dp(5),0,dp(22));page.addView(hero,hp);
+        put(page,eyebrow("CAPTURE THE MOMENT",MINT),0,11);
+        LinearLayout actions=horizontal();
+        LinearLayout write=vertical(13);write.setBackground(gradient(19,0xff374465,0xff283B55));
+        put(write,text("✎  Tell their story",15,TEXT,true),0,7);
+        put(write,text("Write or dictate",12,MUTED,false),0,0);
+        LinearLayout voice=vertical(13);voice.setBackground(gradient(19,0xff714B65,0xff4B3A59));
+        put(voice,text("●  Record your voice",15,TEXT,true),0,7);
+        put(voice,text("No typing. Just talk.",12,0xffF3DBE3,false),0,0);
+        LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(103),1);a.setMargins(0,0,dp(6),0);actions.addView(write,a);
+        LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,dp(103),1);b.setMargins(dp(6),0,0,0);actions.addView(voice,b);
+        write.setOnClickListener(v->editor(null,"Journal",true));
+        voice.setOnClickListener(v->startVoice(null));
+        put(page,actions,0,18);
+        LinearLayout chapter=card();
+        put(chapter,eyebrow("✧   TODAY'S CHAPTER",GOLD),0,9);
+        put(chapter,headline("The day everything changed",23),0,9);
+        put(chapter,text("October 31, 2026. The first page of their story. Preserve how you felt when you learned you were becoming parents.",14,MUTED,false),0,15);
+        put(chapter,button("♡  Capture today's announcement",true,()->editor(null,"Journal",true)),0,0);
+        java.util.List<Memory> recent=memories();
+        LinearLayout stats=horizontal();
+        int media=0;for(Memory m:recent)media+=m.media.size();
+        summary(stats,String.valueOf(recent.size()),"MOMENTS");
+        summary(stats,String.valueOf(media),"KEEPSAKES");
+        summary(stats,"∞","LOVE");
+        put(page,stats,15,10);
+        section("Recently treasured");
+        if(recent.isEmpty()){
+            LinearLayout empty=card();put(empty,text("✧",28,GOLD,false),0,9);
+            put(empty,headline("Your story starts today",23),0,9);
+            put(empty,text("One day your child will look back on this day through your own words.",14,MUTED,false),0,0);
+        }else {
+            for(int i=0;i<Math.min(3,recent.size());i++)drawEntry(recent.get(i));
+            put(page,button("Explore the memory garden  →",false,()->{activeTab="Memories";render();}),3,0);
+        }
     }
-    private void showMemories(String filter) {
-        put(page,text(filter==null?"The memory timeline":"Letters to the future",29,TEXT,true),5,6);
-        hint(filter==null?"A private scrapbook of everything that matters.":"Messages your child can read one day.");
-        put(page,button(filter==null?"＋ Create a memory":"＋ Write a letter",true,()->editor(null,filter==null?"Memory":"Letter",false)),0,14);
+    private void summary(LinearLayout row,String count,String label){
+        LinearLayout tile=vertical(7);tile.setGravity(Gravity.CENTER);
+        put(tile,headline(count,22),0,2);put(tile,eyebrow(label,MUTED),0,0);
+        row.addView(tile,new LinearLayout.LayoutParams(0,dp(69),1));
+    }
+    
+        private void showMemories(String filter){
+        put(page,eyebrow("A GROWING COLLECTION OF LOVE",MINT),8,10);
+        put(page,headline(filter==null?"The memory garden":"Letters for later",32),0,7);
+        hint(filter==null?"Photos, videos, voice notes and little moments, all in one beautiful timeline.":"Words you'll want your child to hear years from now.");
+        put(page,button(filter==null?"＋  Capture another moment":"＋  Write a new letter",true,
+            ()->editor(null,filter==null?"Memory":"Letter",false)),5,17);
         int shown=0;
-        for(Memory m:memories()) if(filter==null||m.kind.equals(filter)){drawEntry(m);shown++;}
-        if(shown==0){LinearLayout c=card();line(c,"Nothing here yet","Every great story starts with the first memory.");}
+        for(Memory m:memories())if(filter==null||m.kind.equals(filter)){drawEntry(m);shown++;}
+        if(shown==0){
+            LinearLayout empty=card();put(empty,text("✧",30,GOLD,false),0,10);
+            put(empty,headline("So much is still to come",23),0,8);
+            put(empty,text("Your first memory becomes the opening page of their lifetime story.",13,MUTED,false),0,0);
+        }
     }
-    private static final String[][] FIRSTS={
+    
+        private static final String[][] FIRSTS={
         {"Heartbeat","First heartbeat"},{"Ultrasound","First ultrasound"},{"Announcement","Pregnancy announcement"},
         {"Gender reveal","Gender reveal"},{"First kick","First little kick"},{"Birth","Welcome to the world"},
         {"First smile","First smile"},{"First steps","First steps"},{"First words","First words"}
     };
-    private void showMilestones() {
-        put(page,text("All the little firsts",29,TEXT,true),5,5);
-        hint("Tiny moments. Lifetime memories.");
-        for(String[] template:FIRSTS){
+    private void showMilestones(){
+        put(page,eyebrow("THE BEAUTIFUL FIRSTS",MINT),8,10);
+        put(page,headline("Little firsts.\nBig feelings.",34),0,9);
+        hint("From their first heartbeat to their first steps.");
+        int completed=0;
+        for(String[] t:FIRSTS)for(Memory m:memories())if(m.kind.equals("Milestone")&&m.title.equals(t[1])){completed++;break;}
+        LinearLayout progress=card();
+        put(progress,headline(completed+" of "+FIRSTS.length,31),0,4);
+        put(progress,text("moments you've captured",13,MUTED,false),0,12);
+        LinearLayout rail=horizontal();rail.setBackground(bg(PANEL2,8));
+        View fill=new View(this);fill.setBackground(gradient(8,MINT,GOLD));
+        rail.addView(fill,new LinearLayout.LayoutParams(0,dp(7),Math.max(0.01f,(float)completed/FIRSTS.length)));
+        rail.addView(new View(this),new LinearLayout.LayoutParams(0,dp(7),Math.max(0.01f,1f-(float)completed/FIRSTS.length)));
+        put(progress,rail,0,0);
+        int num=0;
+        for(String[] t:FIRSTS){
             boolean done=false;
-            for(Memory m:memories()) if(m.kind.equals("Milestone")&&m.title.equals(template[1])){done=true;break;}
-            LinearLayout c=card();put(c,text((done?"✓  ":"✧  ")+template[1],18,done?MINT:TEXT,true),0,10);
-            put(c,button(done?"Add another moment":"Record this milestone",false,()->editor(null,"Milestone",false,template[1])),0,0);
+            for(Memory m:memories())if(m.kind.equals("Milestone")&&m.title.equals(t[1])){done=true;break;}
+            LinearLayout c=card();LinearLayout line=horizontal();
+            TextView symbol=text(done?"✓":"✧",25,done?MINT:GOLD,true);
+            symbol.setGravity(Gravity.CENTER);symbol.setBackground(bg(done?0xff285552:0xff3D3955,17));
+            line.addView(symbol,new LinearLayout.LayoutParams(dp(54),dp(54)));
+            LinearLayout info=vertical(0);
+            put(info,eyebrow(String.format(Locale.US,"MILESTONE %02d",++num),MUTED),0,4);
+            put(info,text(t[1],18,TEXT,true),0,0);
+            LinearLayout.LayoutParams il=new LinearLayout.LayoutParams(0,-2,1);il.setMargins(dp(13),0,0,0);line.addView(info,il);
+            put(c,line,0,14);
+            put(c,button(done?"Add another memory  →":"Capture this first  →",false,()->editor(null,"Milestone",false,t[1])),0,0);
         }
     }
-    private void drawEntry(Memory m) {
-        LinearLayout c=card();put(c,text(m.kind.toUpperCase(Locale.US)+"   •   "+m.day,11,MINT,true),0,8);
-        put(c,text(m.title,21,TEXT,true),0,7);
-        if(!m.body.isEmpty())put(c,text(m.body,14,MUTED,false),0,12);
-        for(String name:m.media){
+    
+        private void drawEntry(Memory m){
+        LinearLayout c=card();LinearLayout top=horizontal();
+        TextView kind=eyebrow("✧  "+m.kind.toUpperCase(Locale.US),m.kind.equals("Letter")?ROSE:MINT);
+        top.addView(kind,new LinearLayout.LayoutParams(0,-2,1));
+        top.addView(text(m.day,12,MUTED,false));put(c,top,0,12);
+        put(c,headline(m.title,24),0,9);
+        if(!m.body.isEmpty()){
+            String excerpt=m.body.length()>430?m.body.substring(0,430)+"…":m.body;
+            TextView desc=text(excerpt,14,0xffD7DFEC,false);desc.setLineSpacing(dp(4),1);
+            put(c,desc,0,12);
+        }
+        int photos=0;
+        for(String name:m.media) {
             File f=new File(new File(getFilesDir(),"media"),name);if(!f.isFile())continue;
-            if(name.endsWith(".mp4")||name.endsWith(".mov")||name.endsWith(".webm")||name.endsWith(".mkv")){
-                put(c,button("▶ Play video",false,()->openMedia(f,true)),0,8);
-            }else{
+            if(name.endsWith(".m4a")||name.endsWith(".aac")||name.endsWith(".3gp")){
+                LinearLayout audio=horizontal();audio.setPadding(dp(11),dp(8),dp(11),dp(8));
+                audio.setBackground(gradient(16,0xff614759,0xff35455F));
+                audio.addView(text("◉  A voice to remember",13,TEXT,true),new LinearLayout.LayoutParams(0,-2,1));
+                Button play=button("▶ Play",true,()->playVoice(f));audio.addView(play,new LinearLayout.LayoutParams(dp(92),dp(44)));
+                put(c,audio,2,10);
+            }else if(name.endsWith(".mp4")||name.endsWith(".mov")||name.endsWith(".webm")||name.endsWith(".mkv")){
+                put(c,button("▶  Watch this moment",false,()->openMedia(f,true)),0,10);
+            }else if(photos++<4){
                 try{
-                    BitmapFactory.Options opts=new BitmapFactory.Options();opts.inJustDecodeBounds=true;BitmapFactory.decodeFile(f.getAbsolutePath(),opts);
-                    opts.inJustDecodeBounds=false;opts.inSampleSize=Math.max(1,Math.max(opts.outWidth/800,opts.outHeight/800));
-                    Bitmap bm=BitmapFactory.decodeFile(f.getAbsolutePath(),opts);
-                    if(bm!=null){ImageView image=new ImageView(this);image.setImageBitmap(bm);image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-                        c.addView(image,new LinearLayout.LayoutParams(-1,dp(190)));image.setOnClickListener(v->openMedia(f,false));}
+                    BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;
+                    BitmapFactory.decodeFile(f.getAbsolutePath(),o);o.inJustDecodeBounds=false;
+                    o.inSampleSize=Math.max(1,Math.max(o.outWidth/900,o.outHeight/900));
+                    Bitmap imageData=BitmapFactory.decodeFile(f.getAbsolutePath(),o);
+                    if(imageData!=null){
+                        ImageView image=new ImageView(this);image.setImageBitmap(imageData);
+                        image.setScaleType(ImageView.ScaleType.CENTER_CROP);image.setBackground(bg(PANEL2,15));
+                        image.setClipToOutline(true);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(196));
+                        lp.setMargins(0,dp(2),0,dp(9));c.addView(image,lp);
+                        image.setOnClickListener(v->openMedia(f,false));
+                    }
                 }catch(Exception ignored){}
             }
         }
-        LinearLayout controls=new LinearLayout(this);
-        Button add=button("＋ Photo/video",false,()->chooseMedia(m.id));
-        Button edit=button("Edit",false,()->editor(m,m.kind,false));
-        Button del=button("Delete",false,()->confirmDelete(m));
-        controls.addView(add,new LinearLayout.LayoutParams(0,dp(48),2));
-        controls.addView(edit,new LinearLayout.LayoutParams(0,dp(48),1));
-        controls.addView(del,new LinearLayout.LayoutParams(0,dp(48),1));
-        put(c,controls,11,0);
+        LinearLayout controls=horizontal();
+        quickButton(controls,"＋ Media",false,()->chooseMedia(m.id));
+        quickButton(controls,"✎ Edit",false,()->editor(m,m.kind,false));put(c,controls,6,6);
+        TextView record=text("●  Add a voice message",13,ROSE,true);record.setGravity(Gravity.CENTER);
+        record.setPadding(0,dp(8),0,dp(7));put(c,record,0,0);
+        record.setOnClickListener(v->startVoice(m.id));
+        c.setOnLongClickListener(v->{confirmDelete(m);return true;});
     }
-    private void openMedia(File f,boolean video) {
+    
+        private void openMedia(File f,boolean video) {
         if(video){
             VideoView vv=new VideoView(this);vv.setVideoPath(f.getAbsolutePath());
             LinearLayout wrap=vertical(8);wrap.addView(vv,new LinearLayout.LayoutParams(-1,dp(330)));
@@ -227,41 +381,89 @@ public final class MainActivity extends Activity {
         e.setHint(hint);e.setTextSize(15);if(multi){e.setMinLines(5);e.setGravity(Gravity.TOP);e.setInputType(131073);}
         return e;
     }
-    private void editor(Memory original,String kind,boolean first){editor(original,kind,first,null);}
-    private void editor(Memory original,String kind,boolean first,String suggested) {
-        LinearLayout form=vertical(17);
-        ScrollView scroll=new ScrollView(this);scroll.addView(form);
-        put(form,text("Title",13,GOLD,true),0,3);
-        EditText title=input(original!=null?original.title:(suggested!=null?suggested:first?"The day we found out about you":""),"Name this memory",false);
-        put(form,title,0,12);
-        put(form,text("Date (YYYY-MM-DD)",13,GOLD,true),0,3);
-        EditText day=input(original!=null?original.day:first?"2026-10-31":today(),"YYYY-MM-DD",false);
-        put(form,day,0,12);
-        put(form,text("Category",13,GOLD,true),0,3);
-        String[] kinds={"Memory","Journal","Milestone","Letter"};
-        Spinner type=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,kinds);type.setAdapter(adapter);
-        String start=original!=null?original.kind:kind;
-        for(int i=0;i<kinds.length;i++)if(kinds[i].equals(start))type.setSelection(i);
-        put(form,type,0,12);
-        put(form,text("Your words",13,GOLD,true),0,3);
-        EditText body=input(original!=null?original.body:"","What happened? How did you feel? What do you want them to know?",true);put(form,body,0,9);
-        AlertDialog d=new AlertDialog.Builder(this).setTitle(original==null?"Capture a memory":"Edit memory")
-            .setView(scroll).setNegativeButton("Cancel",null).setPositiveButton("Save",null).create();
-        d.setOnShowListener(v->d.getButton(-1).setOnClickListener(x->{
-            String t=title.getText().toString().trim(),date=day.getText().toString().trim();
-            if(t.isEmpty()||!date.matches("\\d{4}-\\d{2}-\\d{2}")){Toast.makeText(this,"Enter a title and date (YYYY-MM-DD)",Toast.LENGTH_LONG).show();return;}
-            Memory m=original==null?new Memory():original;
-            m.title=t;m.day=date;m.kind=type.getSelectedItem().toString();m.body=body.getText().toString().trim();save(m);
-            d.dismiss();activeTab="Memories";render();
-            if(original==null)new AlertDialog.Builder(this).setTitle("Memory saved ♡")
-                .setMessage("Add photos or videos to this memory now?")
-                .setPositiveButton("Add photos / videos",(dd,which)->chooseMedia(m.id))
-                .setNegativeButton("Not now",null).show();
-            else Toast.makeText(this,"Memory saved on your phone",Toast.LENGTH_SHORT).show();
-        }));
-        d.show();
+    private void editor(Memory original,String kind,boolean first){
+        editor(original,kind,first,null);
     }
-    private void chooseMedia(String id) {
+    private void editor(Memory original,String kind,boolean first,String suggested){
+        Dialog dialog=new Dialog(this,android.R.style.Theme_Material_NoActionBar);
+        LinearLayout screen=vertical(0);screen.setBackgroundColor(BACKGROUND);
+        LinearLayout toolbar=horizontal();toolbar.setPadding(dp(20),dp(20),dp(20),dp(16));
+        TextView back=text("‹",39,GOLD,false);back.setGravity(Gravity.CENTER);
+        toolbar.addView(back,new LinearLayout.LayoutParams(dp(47),dp(47)));
+        back.setOnClickListener(v->dialog.dismiss());
+        LinearLayout toolbarInfo=vertical(0);
+        put(toolbarInfo,eyebrow("A NEW PAGE IN THEIR STORY",GOLD),0,5);
+        put(toolbarInfo,text(original==null?"Capture a memory":"Edit cherished memory",17,TEXT,true),0,0);
+        LinearLayout.LayoutParams tl=new LinearLayout.LayoutParams(0,-2,1);tl.setMargins(dp(9),0,0,0);toolbar.addView(toolbarInfo,tl);
+        put(screen,toolbar,0,0);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
+        LinearLayout form=vertical(20);form.setPadding(dp(23),dp(7),dp(23),dp(35));
+        scroll.addView(form);screen.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        FrameLayout art=new FrameLayout(this);art.setBackground(gradient(25,0xff524258,0xff284458));
+        art.addView(new Sky(),new FrameLayout.LayoutParams(-1,-1));
+        TextView artText=headline("A moment worth\nkeeping forever.",29);
+        artText.setPadding(dp(19),dp(52),dp(12),dp(12));
+        art.addView(artText,new FrameLayout.LayoutParams(-1,-1,Gravity.BOTTOM));
+        put(form,art,0,21);
+        art.getLayoutParams().height=dp(164);
+        put(form,eyebrow("NAME YOUR MEMORY",MINT),0,6);
+        EditText title=input(original!=null?original.title:(suggested!=null?suggested:first?"The day we found out about you":""),"Give this moment a title",false);
+        title.setBackground(outlined(PANEL2,14,0xff435572));title.setPadding(dp(15),dp(12),dp(15),dp(12));
+        put(form,title,0,8);
+        put(form,button("◉   Speak the title",false,()->dictateInto(title)),0,18);
+        put(form,eyebrow("WHEN DID IT HAPPEN?",MINT),0,6);
+        EditText day=input(original!=null?original.day:first?"2026-10-31":today(),"Choose date",false);
+        day.setFocusable(false);day.setClickable(true);
+        day.setBackground(outlined(PANEL2,14,0xff435572));
+        day.setPadding(dp(15),dp(12),dp(15),dp(12));
+        put(form,day,0,10);
+        day.setOnClickListener(v->{
+            Calendar date=Calendar.getInstance();
+            try{String[] p=day.getText().toString().split("-");date.set(Integer.parseInt(p[0]),Integer.parseInt(p[1])-1,Integer.parseInt(p[2]));}catch(Exception ignored){}
+            new DatePickerDialog(this,(picker,y,month,d)->day.setText(String.format(Locale.US,"%04d-%02d-%02d",y,month+1,d)),
+              date.get(Calendar.YEAR),date.get(Calendar.MONTH),date.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        put(form,eyebrow("CHAPTER TYPE",MINT),11,6);
+        String[] kinds={"Memory","Journal","Milestone","Letter"};
+        Spinner type=new Spinner(this);
+        ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,kinds);type.setAdapter(adapter);
+        String initial=original==null?kind:original.kind;
+        for(int i=0;i<kinds.length;i++)if(kinds[i].equals(initial))type.setSelection(i);
+        put(form,type,0,15);
+        put(form,eyebrow("THE STORY IN YOUR OWN WORDS",MINT),0,7);
+        EditText body=input(original!=null?original.body:"","What happened? How did you feel? What would you want your child to know?",true);
+        body.setBackground(outlined(PANEL,17,0xff46516A));
+        body.setPadding(dp(15),dp(15),dp(15),dp(15));body.setMinLines(7);
+        put(form,body,0,11);
+        put(form,button("◉   Dictate my story • on-device",true,()->dictateInto(body)),0,8);
+        put(form,text("No need to type. Android's offline dictation can fill this in, or you can save your actual voice as an audio memory.",12,MUTED,false),0,18);
+        LinearLayout footer=vertical(16);footer.setBackground(outlined(0xff1A273A,18,0xff39445B));
+        Button save=button("♡   Save this cherished moment",true,()->{
+            String heading=title.getText().toString().trim(),when=day.getText().toString().trim();
+            if(heading.isEmpty()||!when.matches("\\d{4}-\\d{2}-\\d{2}")){
+                message("Please give this memory a title and date");return;
+            }
+            Memory m=original==null?new Memory():original;
+            m.title=heading;m.day=when;m.kind=type.getSelectedItem().toString();
+            m.body=body.getText().toString().trim();save(m);
+            dialog.dismiss();activeTab="Memories";render();
+            if(original==null){
+                new AlertDialog.Builder(this).setTitle("♡ Another moment saved")
+                  .setMessage("Would you like to attach the photos, videos or your voice to this memory?")
+                  .setPositiveButton("Add photos or video",(d,w)->chooseMedia(m.id))
+                  .setNeutralButton("Record my voice",(d,w)->startVoice(m.id))
+                  .setNegativeButton("Finished",null).show();
+            }else message("Your story is safely saved on this phone.");
+        });
+        put(footer,save,0,5);
+        TextView note=text("Only on your device • Export backups from the Vault",11,MUTED,false);
+        note.setGravity(Gravity.CENTER);put(footer,note,0,0);
+        put(screen,footer,0,0);
+        dialog.setContentView(screen);dialog.show();
+        dialog.getWindow().setLayout(-1,-1);
+    }
+    
+        private void chooseMedia(String id) {
         pendingMediaId=id;
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("*/*");i.addCategory(Intent.CATEGORY_OPENABLE);
         i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
@@ -318,35 +520,58 @@ public final class MainActivity extends Activity {
             }).show();
     }
     private void showSettings(){
-        put(page,text("Your little universe",29,TEXT,true),4,5);
-        hint("Make the story your family's own. Everything remains on this phone.");
-        LinearLayout c=card();
-        EditText name=input(prefs.getString("childName",""),"Baby's name (when you choose)",false);
-        EditText parents=input(prefs.getString("parents",""),"Parent names",false);
-        EditText due=input(prefs.getString("dueDate",""),"Due date (YYYY-MM-DD)",false);
-        put(c,text("Baby's name",12,GOLD,true),0,4);put(c,name,0,12);
-        put(c,text("Parents",12,GOLD,true),0,4);put(c,parents,0,12);
-        put(c,text("Due date",12,GOLD,true),0,4);put(c,due,0,15);
-        put(c,button("Save family details",true,()->{
+        put(page,eyebrow("MADE FOR ONE EXTRAORDINARY LIFE",MINT),6,10);
+        put(page,headline("The keepsake vault",32),0,8);
+        hint("Make this universe your child's own. Preserve every chapter.");
+        LinearLayout letter=card();
+        put(letter,eyebrow("✉  MESSAGES TO THE FUTURE",ROSE),0,10);
+        put(letter,headline("Someday they'll read these.",24),0,9);
+        put(letter,text("Letters filled with love, advice and stories — written before they were old enough to understand.",14,MUTED,false),0,13);
+        put(letter,button("Open the letters  →",true,()->{activeTab="Letters";render();}),0,0);
+        section("Make it yours");
+        LinearLayout profile=card();
+        put(profile,text("Your little one's name",13,GOLD,true),0,5);
+        EditText name=input(prefs.getString("childName",""),"Add baby's name when you know it",false);
+        put(profile,name,0,13);
+        put(profile,text("Parents",13,GOLD,true),0,5);
+        EditText parents=input(prefs.getString("parents",""),"Names of Mom and Dad",false);
+        put(profile,parents,0,13);
+        put(profile,text("Expected due date",13,GOLD,true),0,5);
+        EditText due=input(prefs.getString("dueDate",""),"YYYY-MM-DD",false);
+        due.setFocusable(false);due.setClickable(true);
+        due.setOnClickListener(v->{
+            Calendar c=Calendar.getInstance();
+            try{String[] x=due.getText().toString().split("-");c.set(Integer.parseInt(x[0]),Integer.parseInt(x[1])-1,Integer.parseInt(x[2]));}catch(Exception ignored){}
+            new DatePickerDialog(this,(view,y,m,d)->due.setText(String.format(Locale.US,"%04d-%02d-%02d",y,m+1,d)),
+              c.get(Calendar.YEAR),c.get(Calendar.MONTH),c.get(Calendar.DAY_OF_MONTH)).show();
+        });
+        put(profile,due,0,15);
+        put(profile,button("♡   Save family details",true,()->{
             prefs.edit().putString("childName",name.getText().toString().trim())
-                .putString("parents",parents.getText().toString().trim())
-                .putString("dueDate",due.getText().toString().trim()).apply();
-            render();message("Family details saved ♡");
+              .putString("parents",parents.getText().toString().trim())
+              .putString("dueDate",due.getText().toString().trim()).apply();
+            render();message("Your family details are saved.");
         }),0,0);
-        section("Protect your memories");
-        LinearLayout backup=card();line(backup,"Full ZIP backup","Exports your entire journal AND original photos/videos. Save the ZIP outside your phone.");
-        put(backup,button("↓ Export complete backup",true,()->{
-            Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("application/zip");i.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Backup_"+today()+".zip");
+        section("Keep it forever");
+        LinearLayout vault=card();
+        put(vault,eyebrow("✧  YOUR PRIVATE ARCHIVE",MINT),0,10);
+        put(vault,headline("Every memory. Safely yours.",24),0,8);
+        put(vault,text("Export a full ZIP containing every journal entry, milestone, letter, photo, video and voice recording. Keep a copy on a computer or external drive.",14,MUTED,false),0,14);
+        put(vault,button("↓   Export everything as ZIP",true,()->{
+            Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
+            i.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Backup_"+today()+".zip");
             startActivityForResult(i,EXPORT);
         }),0,9);
-        put(backup,button("↑ Restore from backup ZIP",false,()->{
-            Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);
-            i.setType("application/zip");startActivityForResult(i,IMPORT);
+        put(vault,button("↑   Restore an existing ZIP",false,()->{
+            Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
+            startActivityForResult(i,IMPORT);
         }),0,0);
-        hint("No internet permission. No accounts. No cloud. Your phone is the only live copy until you export a backup.");
+        put(page,text("Your family stays private. No cloud account, no ads and no upload of recordings or media.",12,MUTED,false),5,8);
     }
-    private void exportTo(Uri location){
+    
+        private void exportTo(Uri location){
         if(location==null)return;
         message("Creating full backup…");
         io.execute(()->{
@@ -434,7 +659,149 @@ public final class MainActivity extends Activity {
             runOnUiThread(()->{render();message(result==null?"Backup restored ♡":"Restore failed: "+result);});
         });
     }
+    private void withMic(Runnable action){
+        if(Build.VERSION.SDK_INT>=23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){
+            afterMicPermission=action;
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQUEST_MIC);
+        }else action.run();
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request!=REQUEST_MIC)return;
+        Runnable next=afterMicPermission;afterMicPermission=null;
+        if(results.length>0&&results[0]==PackageManager.PERMISSION_GRANTED&&next!=null)next.run();
+        else message("Microphone permission is needed to record your voice.");
+    }
+    private void dictateInto(EditText target){
+        withMic(()->{
+            if(Build.VERSION.SDK_INT<31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)){
+                new AlertDialog.Builder(this).setTitle("Offline dictation not available")
+                  .setMessage("This phone doesn't currently have Android's on-device voice transcription available. You can still record a real voice message with the Record button — nothing will be uploaded.")
+                  .setPositiveButton("Got it",null).show();return;
+            }
+            try{
+                if(speechRecognizer!=null){speechRecognizer.cancel();speechRecognizer.destroy();}
+                speechRecognizer=SpeechRecognizer.createOnDeviceSpeechRecognizer(this);
+                speechRecognizer.setRecognitionListener(new RecognitionListener(){
+                    @Override public void onReadyForSpeech(Bundle b){message("Listening. Tell your story…");}
+                    @Override public void onBeginningOfSpeech(){}
+                    @Override public void onRmsChanged(float rms){}
+                    @Override public void onBufferReceived(byte[] b){}
+                    @Override public void onEndOfSpeech(){}
+                    @Override public void onError(int code){
+                        message("Offline speech recognition couldn't capture that. Try again or record a voice note.");
+                    }
+                    @Override public void onResults(Bundle results){
+                        ArrayList<String> words=results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                        if(words!=null&&!words.isEmpty()){
+                            String existing=target.getText().toString();
+                            if(!existing.isEmpty()&&!Character.isWhitespace(existing.charAt(existing.length()-1)))target.append(" ");
+                            target.append(words.get(0));target.setSelection(target.length());
+                        }
+                    }
+                    @Override public void onPartialResults(Bundle partial){}
+                    @Override public void onEvent(int type,Bundle params){}
+                });
+                Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE,true);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,Locale.getDefault().toLanguageTag());
+                speechRecognizer.startListening(intent);
+            }catch(Exception e){message("Offline dictation unavailable: "+e.getMessage());}
+        });
+    }
+    private void startVoice(String id){
+        withMic(()->beginVoice(id));
+    }
+    private void beginVoice(String id){
+        if(isRecording){message("Finish your current voice note first");return;}
+        recordingFor=id;
+        recordingFile=new File(new File(getFilesDir(),"media"),UUID.randomUUID().toString()+".m4a");
+        try{
+            recorder=new MediaRecorder();
+            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+            recorder.setAudioEncodingBitRate(128000);
+            recorder.setAudioSamplingRate(44100);
+            recorder.setOutputFile(recordingFile.getAbsolutePath());
+            recorder.prepare();recorder.start();isRecording=true;
+            recordingStart=android.os.SystemClock.elapsedRealtime();
+        }catch(Exception e){
+            releaseRecorder();if(recordingFile!=null)recordingFile.delete();
+            message("Could not start voice recording: "+e.getMessage());return;
+        }
+        LinearLayout frame=vertical(24);
+        frame.setBackground(gradient(23,0xff533D58,0xff253854));
+        TextView glow=text("◉",62,ROSE,true);glow.setGravity(Gravity.CENTER);
+        put(frame,glow,3,7);
+        TextView title=headline("Your voice is a memory.",25);title.setGravity(Gravity.CENTER);
+        put(frame,title,0,6);
+        TextView sub=text("Talk about today, how you feel, or anything you want your child to hear someday.",14,TEXT,false);
+        sub.setGravity(Gravity.CENTER);put(frame,sub,0,16);
+        TextView counter=headline("00:00",33);counter.setGravity(Gravity.CENTER);put(frame,counter,0,16);
+        Button stop=button("■   Stop & save memory",true,()->finishVoice(true));
+        put(frame,stop,0,10);
+        Button cancel=button("Discard recording",false,()->finishVoice(false));put(frame,cancel,0,0);
+        recordingDialog=new AlertDialog.Builder(this).setView(frame).create();
+        recordingDialog.setOnCancelListener(d->finishVoice(false));
+        recordingDialog.setCanceledOnTouchOutside(false);
+        recordingDialog.show();
+        Runnable ticker=new Runnable(){
+            @Override public void run(){
+                if(!isRecording)return;
+                int sec=(int)((android.os.SystemClock.elapsedRealtime()-recordingStart)/1000L);
+                counter.setText(String.format(Locale.US,"%02d:%02d",sec/60,sec%60));
+                recordHandler.postDelayed(this,400);
+            }
+        };recordHandler.post(ticker);
+    }
+    private void releaseRecorder(){
+        try{if(recorder!=null)recorder.release();}catch(Exception ignored){}
+        recorder=null;
+    }
+    private void finishVoice(boolean saveIt){
+        if(!isRecording)return;
+        isRecording=false;boolean valid=saveIt;
+        try{recorder.stop();}catch(Exception e){valid=false;}
+        releaseRecorder();
+        if(recordingDialog!=null){recordingDialog.setOnCancelListener(null);recordingDialog.dismiss();recordingDialog=null;}
+        if(!valid){
+            if(recordingFile!=null)recordingFile.delete();
+            message(saveIt?"Recording was too short. Please try again.":"Recording discarded");return;
+        }
+        Memory memory=recordingFor==null?new Memory():load(recordingFor);
+        if(memory==null)memory=new Memory();
+        if(recordingFor==null || memory.title.isEmpty()){
+            memory.title="A voice from "+new java.text.SimpleDateFormat("MMMM d, yyyy",Locale.US).format(new Date());
+            memory.kind="Voice";memory.day=today();
+        }
+        memory.media.add(recordingFile.getName());save(memory);
+        activeTab="Memories";render();
+        message("Your original voice recording was saved privately ♡");
+    }
+    private void playVoice(File file){
+        try{
+            if(player!=null){player.release();player=null;}
+            player=new MediaPlayer();
+            player.setDataSource(file.getAbsolutePath());player.prepare();player.start();
+            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("♡ A voice to remember")
+               .setMessage("Playing this cherished recording…")
+               .setPositiveButton("Close",(d,w)->{}).create();
+            player.setOnCompletionListener(mp->{if(dialog.isShowing())dialog.dismiss();});
+            dialog.setOnDismissListener(d->{if(player!=null){player.release();player=null;}});
+            dialog.show();
+        }catch(Exception e){message("Unable to play recording: "+e.getMessage());}
+    }
     private void message(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
     @Override public void onBackPressed(){if(!activeTab.equals("Home")){activeTab="Home";render();}else super.onBackPressed();}
-    @Override protected void onDestroy(){io.shutdown();db.close();super.onDestroy();}
+    @Override protected void onDestroy(){
+        if(isRecording){
+            try{recorder.stop();}catch(Exception ignored){}
+            isRecording=false;releaseRecorder();
+        }
+        if(speechRecognizer!=null){speechRecognizer.cancel();speechRecognizer.destroy();}
+        if(player!=null)player.release();
+        io.shutdown();db.close();super.onDestroy();
+    }
 }

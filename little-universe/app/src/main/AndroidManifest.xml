@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:label="Little Universe"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar"
-        android:icon="@drawable/ic_launcher"
-        android:allowBackup="false"
-        android:usesCleartextTraffic="false">
-        <activity android:name=".MainActivity" android:exported="true"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-    </application>
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <queries>
+    <intent><action android:name="android.speech.RecognitionService" /></intent>
+  </queries>
+  <application android:label="Little Universe"
+      android:theme="@style/LittleUniverseTheme"
+      android:icon="@drawable/ic_launcher"
+      android:allowBackup="false"
+      android:usesCleartextTraffic="false">
+    <activity android:name="com.littleuniverse.memories.MainActivity"
+        android:exported="true" android:windowSoftInputMode="adjustResize">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+  </application>
 </manifest>
