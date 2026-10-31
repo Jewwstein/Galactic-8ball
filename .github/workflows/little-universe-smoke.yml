@@ -34,9 +34,9 @@ jobs:
           script: |
             gradle -p little-universe :app:assembleDebug --no-daemon
             adb install little-universe/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -W -n com.littleuniverse.memories.cosmic.arcfix/com.littleuniverse.memories.MainActivity
+            adb shell am start -W -n com.littleuniverse.memories.cosmic.family/com.littleuniverse.memories.MainActivity
             sleep 5
-            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.cosmic.arcfix'
+            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.cosmic.family'
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
             adb shell input tap 190 600
@@ -44,10 +44,14 @@ jobs:
             adb exec-out screencap -p > screenshots/interaction.png
             adb logcat -d -v brief | grep -A 12 -F 'FATAL EXCEPTION' > screenshots/crashes.txt || true
             test ! -s screenshots/crashes.txt
+            gradle -p little-universe :app:assembleDebugAndroidTest --no-daemon
+            adb install little-universe/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w com.littleuniverse.memories.cosmic.family.test/androidx.test.runner.AndroidJUnitRunner | tee screenshots/merge-tests.txt
+            grep -q "OK (2 tests)" screenshots/merge-tests.txt
       - name: Share emulator screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-v0.3.1-Emulator-Preview
+          name: Little-Universe-v0.3.2-Emulator-Preview
           path: screenshots
           retention-days: 7

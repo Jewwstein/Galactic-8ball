@@ -565,14 +565,14 @@ public final class MainActivity extends Activity {
         LinearLayout vault=card();
         put(vault,eyebrow("✧  YOUR PRIVATE ARCHIVE",MINT),0,10);
         put(vault,headline("Every memory. Safely yours.",24),0,8);
-        put(vault,text("Export a full ZIP containing every journal entry, milestone, letter, photo, video and voice recording. Keep a copy on a computer or external drive.",14,MUTED,false),0,14);
-        put(vault,button("↓   Export everything as ZIP",true,()->{
+        put(vault,text("Export your complete memory collection as a ZIP. Send it privately to family members; they can import it, add their own memories, and send you their updated ZIP.",14,MUTED,false),0,14);
+        put(vault,button("↓   Export / share full family ZIP",true,()->{
             Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
             i.putExtra(Intent.EXTRA_TITLE,"Little_Universe_Backup_"+today()+".zip");
             startActivityForResult(i,EXPORT);
         }),0,9);
-        put(vault,button("↑   Restore an existing ZIP",false,()->{
+        put(vault,button("↑   Merge a family ZIP (no duplicates)",false,()->{
             Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
             i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/zip");
             startActivityForResult(i,IMPORT);
@@ -611,61 +611,42 @@ public final class MainActivity extends Activity {
     }
     private void importFrom(Uri location){
         if(location==null)return;
-        new AlertDialog.Builder(this).setTitle("Restore memories?")
-            .setMessage("This merges memories from the selected Little Universe ZIP into your phone's existing timeline.")
-            .setNegativeButton("Cancel",null).setPositiveButton("Restore",(dd,w)->doImport(location)).show();
+        new AlertDialog.Builder(this)
+            .setTitle("Merge memories from your family?")
+            .setMessage("Import new moments from another family member's Little Universe ZIP. "+
+                "Memories already on your phone won't be duplicated or overwritten. "+
+                "New attachments to existing memories will be added, too.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Merge memories",(dialog,which)->doImport(location))
+            .show();
     }
     private void doImport(Uri location){
-        message("Restoring backup…");
+        message("Checking family ZIP and safely merging memories…");
         io.execute(()->{
-            String err=null;File tmp=new File(getCacheDir(),"restore_"+UUID.randomUUID());tmp.mkdirs();
-            try(InputStream raw=getContentResolver().openInputStream(location);
-                ZipInputStream zip=new ZipInputStream(new BufferedInputStream(raw))){
-                ByteArrayOutputStream meta=null;ZipEntry entry;int files=0;
-                while((entry=zip.getNextEntry())!=null){
-                    if(++files>20000)throw new IOException("Too many files in backup");
-                    String name=entry.getName();OutputStream out;
-                    if(name.equals("archive.json")){meta=new ByteArrayOutputStream();out=meta;}
-                    else if(name.matches("media/[a-zA-Z0-9_.-]{1,150}")){
-                        out=new FileOutputStream(new File(tmp,name.substring(6)));
-                    }else throw new IOException("Invalid archive entry");
-                    byte[] buf=new byte[65536];int n;long total=0;
-                    while((n=zip.read(buf))!=-1){total+=n;if(name.equals("archive.json")&&total>10_000_000)throw new IOException("Journal too large");out.write(buf,0,n);}
-                    out.close();zip.closeEntry();
+            FamilySync.Result summary=null;
+            String problem=null;
+            try{
+                summary=FamilySync.merge(getApplicationContext(),db,location);
+            }catch(Exception failure){
+                problem=failure.getMessage()==null?failure.toString():failure.getMessage();
+            }
+            final FamilySync.Result result=summary;
+            final String error=problem;
+            runOnUiThread(()->{
+                if(error!=null){
+                    new AlertDialog.Builder(this)
+                        .setTitle("Family ZIP wasn't imported")
+                        .setMessage(error+"\n\nYour existing memories have not been overwritten.")
+                        .setPositiveButton("OK",null).show();
+                }else{
+                    render();
+                    new AlertDialog.Builder(this)
+                        .setTitle("Family memories merged ♡")
+                        .setMessage(result.summary()+
+                            "\n\nYou can export another full ZIP from the Vault to share your combined collection.")
+                        .setPositiveButton("Lovely",null).show();
                 }
-                if(meta==null)throw new IOException("Not a Little Universe backup");
-                JSONObject root=new JSONObject(meta.toString("UTF-8"));
-                if(!"little-universe-android-v1".equals(root.optString("format")))throw new IOException("Unrecognized backup format");
-                JSONArray memories=root.getJSONArray("memories");
-                ArrayList<Memory> recovered=new ArrayList<>();
-                for(int i=0;i<memories.length();i++){
-                    Memory m=Memory.from(memories.getJSONObject(i));
-                    for(String name:m.media){
-                        if(!name.matches("[a-zA-Z0-9_.-]{1,150}"))throw new IOException("Invalid media name");
-                        File from=new File(tmp,name),existing=new File(new File(getFilesDir(),"media"),name);
-                        if(!from.isFile()&&!existing.isFile())throw new IOException("Missing media: "+name);
-                    }
-                    recovered.add(m);
-                }
-                File destDir=new File(getFilesDir(),"media");
-                File[] extracted=tmp.listFiles();
-                if(extracted!=null)for(File f:extracted) {
-                    File to=new File(destDir,f.getName());
-                    if(!to.exists()&&!f.renameTo(to)){
-                        try(InputStream in=new FileInputStream(f);OutputStream out=new FileOutputStream(to)){
-                            byte[] buf=new byte[65536];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);
-                        }
-                    }
-                }
-                for(Memory m:recovered)save(m);
-                JSONObject settings=root.optJSONObject("settings");
-                if(settings!=null)prefs.edit().putString("childName",settings.optString("childName",""))
-                    .putString("parents",settings.optString("parents",""))
-                    .putString("dueDate",settings.optString("dueDate","")).apply();
-            }catch(Exception e){err=e.toString();}
-            File[] remains=tmp.listFiles();if(remains!=null)for(File f:remains)f.delete();tmp.delete();
-            final String result=err;
-            runOnUiThread(()->{render();message(result==null?"Backup restored ♡":"Restore failed: "+result);});
+            });
         });
     }
     private void withMic(Runnable action){
