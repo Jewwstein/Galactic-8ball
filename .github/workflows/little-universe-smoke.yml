@@ -1,4 +1,5 @@
 name: Our Little Universe Android Launch Test
+# Re-run emulator with corrected keepsake sharing build
 on:
   push:
     branches: [little-universe-v1]
