@@ -37,17 +37,17 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-Android-v0.2.0
+          name: Little-Universe-Android-v0.3.0
           path: little-universe/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish permanent APK download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="little-universe-v0.2.0"
+          TAG="little-universe-v0.3.0"
           APK="little-universe/app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#Little-Universe-v0.2.0.apk" --clobber
+            gh release upload "$TAG" "$APK#Little-Universe-v0.3.0.apk" --clobber
           else
-            gh release create "$TAG" "$APK#Little-Universe-v0.2.0.apk" --target "$GITHUB_SHA" --title "Little Universe v0.2.0 • Android" --notes "Redesigned native baby keepsake. Local audio recordings, offline dictation where Android supports it, photo and video memories, timeline, milestones, letters and ZIP backup. No internet access or cloud required. This v2 app has a separate application ID to protect existing v1 data; use a backup ZIP to migrate. Signed with temporary CI debug key."
+            gh release create "$TAG" "$APK#Little-Universe-v0.3.0.apk" --target "$GITHUB_SHA" --title "Little Universe v0.3.0 • Android" --notes "Blue and purple dimensional keepsake design with animated starfield, glowing moon, animated orb controls, tactile 3D cards and buttons. Original recording, journal, milestone, photo/video, and ZIP backup functions preserved. Completely offline. Separate application ID avoids overwriting previous versions; export previous backup and import here. CI debug signing remains temporary."
           fi

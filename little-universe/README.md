@@ -1,26 +1,22 @@
-# Little Universe · Keepsake Edition v0.2.0
+# Little Universe — Blue & Purple Cosmic Edition v0.3.0
 
-A personal, completely local Android keepsake app dedicated to your child's lifetime story.
+Native offline Android keepsake app. This is the **real implemented UI**, not a rendered mockup.
 
-**This lives on the isolated `little-universe-v1` branch** of the original Galactic-8ball GitHub repo. Galactic 8-Ball `main` is not modified.
+## Changes from v0.2
+- Parents' shared blue and purple color palette throughout. No gender-based assumptions.
+- Animated native galaxy, twinkling stars and glowing moon on the home screen and memory editor.
+- Native custom-drawn multi-layer 3D glass cards with glossy highlights, colored rim lighting and subtle bottom shadow.
+- Raised vivid blue and violet story / voice cards with tactile press and release animations.
+- Pulsing 3D glowing central Create orb, star orb in the header, and an illuminated recording orb.
+- Richer vault, memory feed, firsts, buttons and menu styling.
+- Gentle animated card entrances. All effects drawn on-device by Android Canvas, no remote images or cloud dependencies.
+- Existing offline voice recording, on-device dictation (when supported), journal, photos/videos, milestones, letters, and original-size ZIP backup/restore all preserved.
 
-## What's new
-- Cinematic night-sky / moon / starlight home screen and warm keepsake-style visual identity
-- Redesigned story feed with photo cards, video playback and voice-note players
-- One-tap **Record your voice** — saves full original AAC audio files on the phone, no transcription required
-- On-device dictation for titles and stories **only if Android has a local speech recognizer** (no network speech fallback)
-- Full-screen memory editor with date picker; customizable baby's name and due date
-- Milestone progress, letters vault, original-quality photo/video attachments, ZIP backup/restore
-- Local private SQLite database and files. No network permission, accounts, analytics, ads, or cloud.
+## Installing without losing earlier records
+This version deliberately has its **own Android application ID** (`com.littleuniverse.memories.cosmic`). The CI debug signature is not persistent, so an APK with the old application ID might not install as an update. Therefore v0.3 installs alongside v0.1/v0.2. If you recorded earlier memories, export a ZIP in the older app's Vault, then use the new app's Vault → Restore. Confirm your records and save a fresh external ZIP before uninstalling the older version.
 
-## Installing
-Install the APK from GitHub Releases. Version 0.2.0 has a **separate Android applicationId** (`com.littleuniverse.memories.keepsake`) so it can install alongside the v0.1.0 prototype. To bring earlier entries across, use the v0.1.0 app's Settings → Export ZIP then v0.2.0's Vault → Restore ZIP. Do not uninstall the older APK until you have confirmed the copy and safe backup.
-
-## Speech details
-Android 12+ offers an on-device recognizer when an offline speech service/model exists. Only that service is used; if unavailable, audio recording still works on Android 8+. The app never asks for internet permission. Microphone permission is requested when needed.
-
-## Backups / release notes
-The app uses private app storage that Android removes on uninstall. Export your ZIP regularly and keep copies outside the device. Debug-signing from CI is not stable across builds; plan an enduring private signing key before in-place upgrades. **Do not upload personal family photos or backup ZIPs to this public source repository.**
+## Offline privacy and cost
+No INTERNET permission, tracking, subscriptions, paid assets or cloud APIs. Database and original media stay locally on the device. Export full backups regularly to computer/external media. The code lives in the `little-universe-v1` branch of `Jewwstein/Galactic-8ball`; the Galactic 8-Ball main branch is untouched. Never put your family media/backup ZIP in this public repo.
 
 ## Build
-Java 17, Gradle 8.10.2, Android 35. Workflow: `.github/workflows/build-little-universe.yml`.
+GitHub Actions workflow `.github/workflows/build-little-universe.yml`, Java 17, Gradle 8.10.2, Android 35. Install the release APK from `little-universe-v0.3.0`.

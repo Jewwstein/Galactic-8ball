@@ -27,8 +27,8 @@ import java.util.concurrent.*;
 import java.util.zip.*;
 
 public final class MainActivity extends Activity {
-    private static final int BACKGROUND=0xff0D1423, PANEL=0xff1D2A3E, PANEL2=0xff304158;
-    private static final int TEXT=0xffFFF6EC, MUTED=0xffB7C5D9, GOLD=0xffF5D0AA, MINT=0xffA6E3D8, ROSE=0xffF1B4C5;
+    private static final int BACKGROUND=0xff090F25, PANEL=0xff171E43, PANEL2=0xff29275A;
+    private static final int TEXT=0xffF4F3FF, MUTED=0xffB9B6E6, GOLD=0xffC0A6FF, MINT=0xff74BFFF, ROSE=0xffDCA8FF;
     private static final int PICK_MEDIA=101, EXPORT=102, IMPORT=103;
     private MediaRecorder recorder;
     private MediaPlayer player;
@@ -49,8 +49,8 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
-        getWindow().setStatusBarColor(BACKGROUND);
-        getWindow().setNavigationBarColor(BACKGROUND);
+        getWindow().setStatusBarColor(0xff090F25);
+        getWindow().setNavigationBarColor(0xff090F25);
         getWindow().getDecorView().setSystemUiVisibility(0);
         prefs=getSharedPreferences("little_universe_profile",MODE_PRIVATE);
         db=new Store(this).getWritableDatabase();
@@ -160,30 +160,39 @@ public final class MainActivity extends Activity {
         LinearLayout l=new LinearLayout(this);l.setOrientation(1);l.setPadding(dp(pad),dp(pad),dp(pad),dp(pad));return l;
     }
     private LinearLayout card(){
-        LinearLayout c=vertical(18);c.setBackground(outlined(PANEL,22,0xff36435B));put(page,c,0,16);return c;
+        LinearLayout c=vertical(19);
+        c.setBackground(CosmicUI.glass(this,23,0xff24295D,0xff111C44,0xff796AE8));
+        c.setElevation(dp(10));put(page,c,0,17);
+        CosmicUI.enter(c,this,Math.min(6,page.getChildCount()));
+        return c;
     }
     
         private Button button(String title,boolean primary,Runnable r){
         Button b=new Button(this);b.setAllCaps(false);b.setText(title);b.setTextSize(14);
-        b.setTextColor(primary?BACKGROUND:TEXT);
-        b.setBackground(bg(primary?GOLD:PANEL2,13));b.setMinHeight(dp(49));
+        b.setTypeface(null,android.graphics.Typeface.BOLD);
+        b.setTextColor(TEXT);b.setPadding(dp(12),dp(4),dp(12),dp(4));
+        b.setBackground(CosmicUI.glass(this,17,
+            primary?0xff704AF0:0xff30367C,
+            primary?0xff35229C:0xff1A2A61,
+            primary?0xffC9A5FF:0xff5D8EF9));
+        b.setMinHeight(dp(51));CosmicUI.lift(b,this);
         b.setOnClickListener(v->r.run());return b;
     }
-    private void line(LinearLayout c,String title,String subtitle){
+        private void line(LinearLayout c,String title,String subtitle){
         put(c,text(title,21,TEXT,true),3,3);
         if(!subtitle.isEmpty())put(c,text(subtitle,13,MUTED,false),0,10);
     }
-    private void section(String s){put(page,text(s,22,TEXT,true),18,12);}
+    private void section(String s){put(page,headline(s,23),18,12);}
     private void hint(String s){put(page,text(s,13,MUTED,false),6,15);}
     private void render(){
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(BACKGROUND);setContentView(root);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackground(gradient(0xff090F25==0?0:0,0xff090F25,0xff15123C,0xff080D20));setContentView(root);
         LinearLayout head=vertical(0);head.setPadding(dp(22),dp(19),dp(22),dp(14));
         LinearLayout header=horizontal();
-        LinearLayout brand=vertical(0);put(brand,eyebrow("✦   LITTLE UNIVERSE",GOLD),0,5);
+        LinearLayout brand=vertical(0);put(brand,headline("✦ Little Universe",21),0,5);
         String baby=prefs.getString("childName","").trim();put(brand,text((baby.isEmpty()?"Our little one":baby)+"'s story",13,MUTED,false),0,0);
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         TextView star=text("✧",27,GOLD,false);star.setGravity(Gravity.CENTER);
-        star.setBackground(outlined(PANEL,16,0xff394962));
+        star.setBackground(CosmicUI.sphere(this,CosmicUI.VIOLET,CosmicUI.BLUE));CosmicUI.pulse(star);
         header.addView(star,new LinearLayout.LayoutParams(dp(46),dp(46)));
         head.addView(header);root.addView(head);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);
@@ -196,7 +205,7 @@ public final class MainActivity extends Activity {
             case "Settings":showSettings();break;
             default:showHome();
         }
-        LinearLayout nav=horizontal();nav.setPadding(dp(7),dp(6),dp(7),dp(4));nav.setBackground(outlined(0xff19263A,18,0xff2E3E54));
+        LinearLayout nav=horizontal();nav.setPadding(dp(7),dp(6),dp(7),dp(4));nav.setBackground(CosmicUI.glass(this,22,0xff222456,0xff0D1331,0xff6758D6));nav.setElevation(dp(18));
         String[] names={"Home","Moments","＋","Firsts","Vault"};
         String[] marks={"⌂","▣","＋","✧","◇"};
         String[] routes={"Home","Memories","Create","Milestones","Settings"};
@@ -206,7 +215,7 @@ public final class MainActivity extends Activity {
             LinearLayout item=vertical(0);item.setGravity(Gravity.CENTER);
             TextView glyph=text(marks[i],i==2?27:23,i==2?BACKGROUND:selected?GOLD:MUTED,true);glyph.setGravity(Gravity.CENTER);
             if(i==2){
-                glyph.setBackground(gradient(15,GOLD,ROSE));item.addView(glyph,new LinearLayout.LayoutParams(dp(46),dp(42)));
+                glyph.setTextColor(TEXT);glyph.setBackground(CosmicUI.sphere(this,CosmicUI.VIOLET,CosmicUI.BLUE));item.addView(glyph,new LinearLayout.LayoutParams(dp(52),dp(49)));CosmicUI.pulse(glyph);
             }else item.addView(glyph);
             TextView label=text(names[i],10,selected?TEXT:MUTED,selected);label.setGravity(Gravity.CENTER);
             put(item,label,2,0);nav.addView(item,new LinearLayout.LayoutParams(0,dp(68),1));
@@ -217,29 +226,29 @@ public final class MainActivity extends Activity {
     
         private void showHome(){
         FrameLayout hero=new FrameLayout(this);
-        hero.setBackground(gradient(27,0xff483452,0xff253D5B,0xff1A2A42));hero.setClipToOutline(true);
-        hero.addView(new Sky(),new FrameLayout.LayoutParams(-1,-1));
+        hero.setBackground(CosmicUI.glass(this,29,0xff373177,0xff111C48,0xff9681FE));hero.setClipToOutline(true);hero.setElevation(dp(12));
+        hero.addView(new CosmicUI.Galaxy(this),new FrameLayout.LayoutParams(-1,-1));
         LinearLayout overlay=vertical(23);overlay.setGravity(Gravity.BOTTOM);
-        put(overlay,eyebrow("CHAPTER ONE  •  OCTOBER 31, 2026",GOLD),0,8);
+        put(overlay,eyebrow("✦  OUR FIRST CHAPTER  ·  OCTOBER 31, 2026",MINT),0,8);
         put(overlay,headline("Before we met you,\nwe loved you.",31),0,11);
         put(overlay,text("A little universe. A lifetime of memories.",13,0xffEBE2ED,false),0,0);
         hero.addView(overlay,new FrameLayout.LayoutParams(-1,-1,Gravity.BOTTOM));
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(286));hp.setMargins(0,dp(5),0,dp(22));page.addView(hero,hp);
-        put(page,eyebrow("CAPTURE THE MOMENT",MINT),0,11);
+        put(page,eyebrow("✦   YOUR STORY BEGINS HERE",MINT),0,13);
         LinearLayout actions=horizontal();
-        LinearLayout write=vertical(13);write.setBackground(gradient(19,0xff374465,0xff283B55));
-        put(write,text("✎  Tell their story",15,TEXT,true),0,7);
+        LinearLayout write=vertical(13);write.setBackground(CosmicUI.glass(this,22,0xff214DD1,0xff122F78,0xff69ADFF));write.setElevation(dp(13));
+        put(write,text("✧  ✎",25,MINT,true),0,3);put(write,text("Tell their story",15,TEXT,true),0,7);
         put(write,text("Write or dictate",12,MUTED,false),0,0);
-        LinearLayout voice=vertical(13);voice.setBackground(gradient(19,0xff714B65,0xff4B3A59));
-        put(voice,text("●  Record your voice",15,TEXT,true),0,7);
+        LinearLayout voice=vertical(13);voice.setBackground(CosmicUI.glass(this,22,0xff6B38CD,0xff382376,0xffC596FF));voice.setElevation(dp(13));
+        put(voice,text("◉  ♡",25,ROSE,true),0,3);put(voice,text("Record your voice",15,TEXT,true),0,7);
         put(voice,text("No typing. Just talk.",12,0xffF3DBE3,false),0,0);
-        LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(103),1);a.setMargins(0,0,dp(6),0);actions.addView(write,a);
-        LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,dp(103),1);b.setMargins(dp(6),0,0,0);actions.addView(voice,b);
-        write.setOnClickListener(v->editor(null,"Journal",true));
-        voice.setOnClickListener(v->startVoice(null));
+        LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(126),1);a.setMargins(0,0,dp(6),0);actions.addView(write,a);
+        LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,dp(126),1);b.setMargins(dp(6),0,0,0);actions.addView(voice,b);
+        CosmicUI.lift(write,this);write.setOnClickListener(v->editor(null,"Journal",true));
+        CosmicUI.lift(voice,this);voice.setOnClickListener(v->startVoice(null));
         put(page,actions,0,18);
         LinearLayout chapter=card();
-        put(chapter,eyebrow("✧   TODAY'S CHAPTER",GOLD),0,9);
+        put(chapter,eyebrow("✧  OCTOBER 31, 2026  ·  CHAPTER ONE",MINT),0,9);
         put(chapter,headline("The day everything changed",23),0,9);
         put(chapter,text("October 31, 2026. The first page of their story. Preserve how you felt when you learned you were becoming parents.",14,MUTED,false),0,15);
         put(chapter,button("♡  Capture today's announcement",true,()->editor(null,"Journal",true)),0,0);
@@ -295,8 +304,8 @@ public final class MainActivity extends Activity {
         LinearLayout progress=card();
         put(progress,headline(completed+" of "+FIRSTS.length,31),0,4);
         put(progress,text("moments you've captured",13,MUTED,false),0,12);
-        LinearLayout rail=horizontal();rail.setBackground(bg(PANEL2,8));
-        View fill=new View(this);fill.setBackground(gradient(8,MINT,GOLD));
+        LinearLayout rail=horizontal();rail.setBackground(CosmicUI.glass(this,10,0xff313577,0xff202B62,0xff7E8FFF));
+        View fill=new View(this);fill.setBackground(gradient(8,CosmicUI.BLUE,CosmicUI.VIOLET));
         rail.addView(fill,new LinearLayout.LayoutParams(0,dp(7),Math.max(0.01f,(float)completed/FIRSTS.length)));
         rail.addView(new View(this),new LinearLayout.LayoutParams(0,dp(7),Math.max(0.01f,1f-(float)completed/FIRSTS.length)));
         put(progress,rail,0,0);
@@ -306,7 +315,7 @@ public final class MainActivity extends Activity {
             for(Memory m:memories())if(m.kind.equals("Milestone")&&m.title.equals(t[1])){done=true;break;}
             LinearLayout c=card();LinearLayout line=horizontal();
             TextView symbol=text(done?"✓":"✧",25,done?MINT:GOLD,true);
-            symbol.setGravity(Gravity.CENTER);symbol.setBackground(bg(done?0xff285552:0xff3D3955,17));
+            symbol.setGravity(Gravity.CENTER);symbol.setBackground(CosmicUI.sphere(this,done?0xff3986EC:0xff8646E8,CosmicUI.BLUE));
             line.addView(symbol,new LinearLayout.LayoutParams(dp(54),dp(54)));
             LinearLayout info=vertical(0);
             put(info,eyebrow(String.format(Locale.US,"MILESTONE %02d",++num),MUTED),0,4);
@@ -333,7 +342,7 @@ public final class MainActivity extends Activity {
             File f=new File(new File(getFilesDir(),"media"),name);if(!f.isFile())continue;
             if(name.endsWith(".m4a")||name.endsWith(".aac")||name.endsWith(".3gp")){
                 LinearLayout audio=horizontal();audio.setPadding(dp(11),dp(8),dp(11),dp(8));
-                audio.setBackground(gradient(16,0xff614759,0xff35455F));
+                audio.setBackground(CosmicUI.glass(this,16,0xff3D2B81,0xff1A2F76,0xffAA73FF));
                 audio.addView(text("◉  A voice to remember",13,TEXT,true),new LinearLayout.LayoutParams(0,-2,1));
                 Button play=button("▶ Play",true,()->playVoice(f));audio.addView(play,new LinearLayout.LayoutParams(dp(92),dp(44)));
                 put(c,audio,2,10);
@@ -399,8 +408,8 @@ public final class MainActivity extends Activity {
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
         LinearLayout form=vertical(20);form.setPadding(dp(23),dp(7),dp(23),dp(35));
         scroll.addView(form);screen.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
-        FrameLayout art=new FrameLayout(this);art.setBackground(gradient(25,0xff524258,0xff284458));
-        art.addView(new Sky(),new FrameLayout.LayoutParams(-1,-1));
+        FrameLayout art=new FrameLayout(this);art.setBackground(CosmicUI.glass(this,25,0xff292D78,0xff142B62,0xff9887FF));
+        art.addView(new CosmicUI.Galaxy(this),new FrameLayout.LayoutParams(-1,-1));
         TextView artText=headline("A moment worth\nkeeping forever.",29);
         artText.setPadding(dp(19),dp(52),dp(12),dp(12));
         art.addView(artText,new FrameLayout.LayoutParams(-1,-1,Gravity.BOTTOM));
@@ -437,7 +446,7 @@ public final class MainActivity extends Activity {
         put(form,body,0,11);
         put(form,button("◉   Dictate my story • on-device",true,()->dictateInto(body)),0,8);
         put(form,text("No need to type. Android's offline dictation can fill this in, or you can save your actual voice as an audio memory.",12,MUTED,false),0,18);
-        LinearLayout footer=vertical(16);footer.setBackground(outlined(0xff1A273A,18,0xff39445B));
+        LinearLayout footer=vertical(16);footer.setBackground(CosmicUI.glass(this,18,0xff27255D,0xff161940,0xff6559CF));
         Button save=button("♡   Save this cherished moment",true,()->{
             String heading=title.getText().toString().trim(),when=day.getText().toString().trim();
             if(heading.isEmpty()||!when.matches("\\d{4}-\\d{2}-\\d{2}")){
@@ -732,8 +741,8 @@ public final class MainActivity extends Activity {
             message("Could not start voice recording: "+e.getMessage());return;
         }
         LinearLayout frame=vertical(24);
-        frame.setBackground(gradient(23,0xff533D58,0xff253854));
-        TextView glow=text("◉",62,ROSE,true);glow.setGravity(Gravity.CENTER);
+        frame.setBackground(CosmicUI.glass(this,24,0xff3B2A82,0xff142967,0xffB17CFF));
+        TextView glow=text("◉",62,TEXT,true);glow.setGravity(Gravity.CENTER);glow.setBackground(CosmicUI.sphere(this,CosmicUI.VIOLET,CosmicUI.BLUE));glow.setMinHeight(dp(165));CosmicUI.pulse(glow);
         put(frame,glow,3,7);
         TextView title=headline("Your voice is a memory.",25);title.setGravity(Gravity.CENTER);
         put(frame,title,0,6);
