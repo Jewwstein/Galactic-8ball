@@ -1,0 +1,46 @@
+name: Build Little Universe Android APK
+on:
+  push:
+    branches: [little-universe-v1]
+    paths:
+      - 'little-universe/**'
+      - '.github/workflows/build-little-universe.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build installable Android APK
+        run: gradle -p little-universe :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify APK exists
+        run: |
+          ls -lh little-universe/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l little-universe/app/build/outputs/apk/debug/app-debug.apk | grep -E 'classes.dex|AndroidManifest.xml'
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Little-Universe-Android-v0.1.0
+          path: little-universe/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+      - name: Publish permanent APK download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="little-universe-v0.1.0"
+          APK="little-universe/app/build/outputs/apk/debug/app-debug.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#Little-Universe-v0.1.0.apk" --clobber
+          else
+            gh release create "$TAG" "$APK#Little-Universe-v0.1.0.apk" --target "$GITHUB_SHA" --title "Little Universe v0.1.0 • Android" --notes "Offline-first baby memory journal. No cloud, accounts, ads, or internet permission. Export backups regularly. Prototype signed with a CI debug key; a future update may require backup and reinstall."
+          fi
