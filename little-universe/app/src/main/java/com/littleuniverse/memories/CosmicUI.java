@@ -8,204 +8,146 @@ import android.view.*;
 import android.view.animation.DecelerateInterpolator;
 import java.util.Random;
 
-/**
- * Little Universe's native dimensional UI.
- * No orbit lines, decorative arcs, wireframes or outlined geometry on cards.
- * Depth comes from real layered shadows, inset glass reflections and soft lighting.
+/** Native, entirely offline blue-and-violet dimensional design system.
+ * These are real Android canvas effects and animations, not screenshot overlays.
  */
 public final class CosmicUI {
-    public static final int BLUE = 0xff367CFA;
-    public static final int VIOLET = 0xff8453F4;
-    public static final int PALE = 0xffE7DFFF;
-    public static final int NIGHT = 0xff090E22;
+    public static final int BLUE = 0xff397CFF;
+    public static final int VIOLET = 0xff915AFF;
+    public static final int PALE = 0xffE3DEFF;
+    public static final int NIGHT = 0xff090F23;
     private CosmicUI() {}
-    static float dp(Context ctx,float value){
-        return ctx.getResources().getDisplayMetrics().density*value;
+
+    static float dp(Context context,float number){
+        return number*context.getResources().getDisplayMetrics().density;
     }
     public static Drawable glass(Context ctx,int radius,int top,int bottom,int rim){
         return new GlassDrawable(ctx,radius,top,bottom,rim);
     }
-    public static Drawable sphere(Context ctx,int primary,int secondary){
-        return new SphereDrawable(ctx,primary,secondary);
+    public static Drawable sphere(Context ctx,int top,int bottom){
+        return new SphereDrawable(ctx,top,bottom);
     }
     public static void lift(View view,Context ctx){
-        view.setElevation(dp(ctx,10));
+        view.setElevation(dp(ctx,7));
         view.setTranslationZ(dp(ctx,2));
         view.setOnTouchListener((v,event)->{
             if(event.getAction()==MotionEvent.ACTION_DOWN){
-                v.animate().scaleX(.974f).scaleY(.974f).translationZ(0f).setDuration(95).start();
-            }else if(event.getAction()==MotionEvent.ACTION_UP||
-                     event.getAction()==MotionEvent.ACTION_CANCEL){
-                v.animate().scaleX(1).scaleY(1).translationZ(dp(ctx,2)).setDuration(190)
+                v.animate().scaleX(.965f).scaleY(.965f).translationZ(dp(ctx,0)).setDuration(105).start();
+            }else if(event.getAction()==MotionEvent.ACTION_UP||event.getAction()==MotionEvent.ACTION_CANCEL){
+                v.animate().scaleX(1).scaleY(1).translationZ(dp(ctx,2)).setDuration(170)
                     .setInterpolator(new DecelerateInterpolator()).start();
             }
             return false;
         });
     }
-    public static void enter(View view,Context ctx,int index){
-        view.setAlpha(0);view.setTranslationY(dp(ctx,13));
-        view.animate().alpha(1).translationY(0).setDuration(330)
-            .setStartDelay(Math.min(240,index*42))
-            .setInterpolator(new DecelerateInterpolator()).start();
+    public static void enter(View v,Context ctx,int index){
+        v.setAlpha(0f);v.setTranslationY(dp(ctx,12));
+        v.animate().alpha(1).translationY(0).setStartDelay(Math.min(260,index*55))
+            .setDuration(360).setInterpolator(new DecelerateInterpolator()).start();
     }
     public static void pulse(View view){
-        ObjectAnimator scaleX=ObjectAnimator.ofFloat(view,"scaleX",1f,1.045f,1f);
-        ObjectAnimator scaleY=ObjectAnimator.ofFloat(view,"scaleY",1f,1.045f,1f);
-        scaleX.setDuration(2100);scaleY.setDuration(2100);
-        scaleX.setRepeatCount(ValueAnimator.INFINITE);
-        scaleY.setRepeatCount(ValueAnimator.INFINITE);
+        ObjectAnimator ax=ObjectAnimator.ofFloat(view,"scaleX",1f,1.075f,1f);
+        ObjectAnimator ay=ObjectAnimator.ofFloat(view,"scaleY",1f,1.075f,1f);
+        ax.setDuration(1650);ay.setDuration(1650);
+        ax.setRepeatCount(ValueAnimator.INFINITE);ay.setRepeatCount(ValueAnimator.INFINITE);
         view.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener(){
-            @Override public void onViewAttachedToWindow(View v){scaleX.start();scaleY.start();}
-            @Override public void onViewDetachedFromWindow(View v){
-                scaleX.cancel();scaleY.cancel();v.setScaleX(1f);v.setScaleY(1f);
-            }
+            @Override public void onViewAttachedToWindow(View v){ax.start();ay.start();}
+            @Override public void onViewDetachedFromWindow(View v){ax.cancel();ay.cancel();v.setScaleX(1f);v.setScaleY(1f);}
         });
-        if(view.isAttachedToWindow()){scaleX.start();scaleY.start();}
-    }
-    private static int blended(int x,int y,float t){
-        return Color.argb((int)(Color.alpha(x)*(1-t)+Color.alpha(y)*t),
-            (int)(Color.red(x)*(1-t)+Color.red(y)*t),
-            (int)(Color.green(x)*(1-t)+Color.green(y)*t),
-            (int)(Color.blue(x)*(1-t)+Color.blue(y)*t));
+        if(view.isAttachedToWindow()){ax.start();ay.start();}
     }
     private static final class GlassDrawable extends Drawable {
-        final Context ctx;
-        final float radius;
-        final int top,bottom,rim;
-        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
-        GlassDrawable(Context context,int r,int start,int end,int edge){
-            ctx=context;radius=dp(context,r);top=start;bottom=end;rim=edge;
-        }
+        final Context ctx;final float radius;final int top,bottom,rim;final Paint p=new Paint(3);
+        GlassDrawable(Context c,int r,int t,int b,int outline){ctx=c;radius=dp(c,r);top=t;bottom=b;rim=outline;}
         @Override public void draw(Canvas c){
-            Rect bounds=getBounds();
-            float d=dp(ctx,1),x=bounds.left+3*d,y=bounds.top+2*d;
-            float w=bounds.width()-6*d,h=bounds.height()-9*d;
+            Rect r=getBounds();float x=r.left+dp(ctx,2),y=r.top+dp(ctx,2),w=r.width()-dp(ctx,4),h=r.height()-dp(ctx,5);
             if(w<=0||h<=0)return;
-            float rad=Math.min(radius,Math.min(w,h)*.47f);
-            RectF front=new RectF(x,y,x+w,y+h);
-
-            // A soft, offset base gives the tile a tactile raised surface.
+            RectF shape=new RectF(x,y,x+w,y+h);
             p.setShader(null);p.setStyle(Paint.Style.FILL);
-            for(int i=4;i>=1;i--){
-                p.setColor(Color.argb(16+i*6,1,4,27));
-                float offset=dp(ctx,2+i*1.8f);
-                c.drawRoundRect(new RectF(x-offset*.20f,y+offset*.55f,x+w+offset*.20f,
-                    y+h+offset),rad+offset*.1f,rad+offset*.1f,p);
-            }
-
-            // Dimensional lower layer, like the dark side of a piece of polished glass.
-            p.setShader(new LinearGradient(x,y+h*.5f,x,y+h+dp(ctx,6),
-                blended(bottom,0xff05091D,.12f),0xff0A102D,Shader.TileMode.CLAMP));
-            c.drawRoundRect(new RectF(x,y+dp(ctx,4),x+w,y+h+dp(ctx,5)),
-                rad,rad,p);
-            p.setShader(null);
-
-            // Main blue/purple material, lit from the upper left.
-            int mid=blended(top,bottom,.45f);
-            p.setShader(new LinearGradient(x,y,x+w*.75f,y+h,
-                new int[]{blended(top,0xffFFFFFF,.13f),mid,bottom},
-                new float[]{0,.42f,1},Shader.TileMode.CLAMP));
-            c.drawRoundRect(front,rad,rad,p);p.setShader(null);
-
-            // All reflections are clipped to the card itself. No elliptical outlines.
-            Path clip=new Path();clip.addRoundRect(front,rad,rad,Path.Direction.CW);
-            c.save();c.clipPath(clip);
-            p.setShader(new RadialGradient(x+w*.12f,y+h*.04f,Math.max(w,h)*.86f,
-                new int[]{0x45FFFFFF,0x16A5B9FF,0x00000000},
-                new float[]{0,.48f,1},Shader.TileMode.CLAMP));
-            c.drawRect(front,p);p.setShader(null);
-            p.setShader(new RadialGradient(x+w*.96f,y+h*.93f,Math.max(w,h)*.63f,
-                new int[]{0x38524FEA,0x0C6657D8,0x00000000},
-                null,Shader.TileMode.CLAMP));
-            c.drawRect(front,p);p.setShader(null);
-
-            // Soft top glass sheen fades out naturally instead of drawing arcs.
-            p.setShader(new LinearGradient(x,y,x,y+h*.53f,
-                new int[]{0x35FFFFFF,0x11FFFFFF,0x00FFFFFF},
-                new float[]{0,.3f,1},Shader.TileMode.CLAMP));
-            c.drawRect(x,y,x+w,y+h*.53f,p);p.setShader(null);
-            c.restore();
-
-            // Restrained bevel edges: thin top light, dim bottom edge.
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(ctx,1.1f));
-            p.setColor(blended(rim,0xffFFFFFF,.12f)&0xBFFFFFFF);
-            c.drawRoundRect(front,rad,rad,p);
+            p.setColor(0x992F2481);
+            c.drawRoundRect(new RectF(x+dp(ctx,2),y+dp(ctx,7),x+w+dp(ctx,2),y+h+dp(ctx,8)),radius,radius,p);
+            p.setColor(0x663CA1FF);
+            c.drawRoundRect(new RectF(x,y+dp(ctx,4),x+w,y+h+dp(ctx,5)),radius,radius,p);
+            p.setShader(new LinearGradient(x,y,x+w,y+h,new int[]{top,blend(top,bottom,.35f),bottom},null,Shader.TileMode.CLAMP));
+            c.drawRoundRect(shape,radius,radius,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(ctx,1.5f));p.setColor(rim);
+            c.drawRoundRect(shape,radius,radius,p);
             p.setStyle(Paint.Style.FILL);
-
-            // Tiny specular highlight along the TOP EDGE ONLY, not a dome/arc.
-            float inset=Math.min(rad,dp(ctx,28));
-            p.setShader(new LinearGradient(x+inset,y,x+w-inset,y,
-                new int[]{0x00FFFFFF,0x55FFFFFF,0x1DFFFFFF,0x00FFFFFF},
-                new float[]{0,.23f,.7f,1},Shader.TileMode.CLAMP));
-            c.drawRect(x+inset,y+dp(ctx,.7f),x+w-inset,y+dp(ctx,2f),p);
+            p.setShader(new LinearGradient(x,y,x,y+h*.52f,0x42FFFFFF,0x00FFFFFF,Shader.TileMode.CLAMP));
+            c.drawRoundRect(new RectF(x+dp(ctx,5),y+dp(ctx,5),x+w-dp(ctx,5),y+h*.55f),radius*.85f,radius*.85f,p);
             p.setShader(null);
         }
-        @Override public void setAlpha(int alpha){p.setAlpha(alpha);}
-        @Override public void setColorFilter(ColorFilter cf){p.setColorFilter(cf);}
-        @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        private int blend(int a,int b,float t){
+            int aa=(int)(Color.alpha(a)*(1-t)+Color.alpha(b)*t);
+            int rr=(int)(Color.red(a)*(1-t)+Color.red(b)*t);
+            int gg=(int)(Color.green(a)*(1-t)+Color.green(b)*t);
+            int bb=(int)(Color.blue(a)*(1-t)+Color.blue(b)*t);
+            return Color.argb(aa,rr,gg,bb);
+        }
+        @Override public void setAlpha(int a){p.setAlpha(a);}
+        @Override public void setColorFilter(android.graphics.ColorFilter f){p.setColorFilter(f);}
+        @Override public int getOpacity(){return android.graphics.PixelFormat.TRANSLUCENT;}
     }
     private static final class SphereDrawable extends Drawable {
-        final Context ctx;final Paint p=new Paint(3);final int primary,secondary;
-        SphereDrawable(Context c,int a,int b){ctx=c;primary=a;secondary=b;}
-        @Override public void draw(Canvas canvas){
-            Rect r=getBounds();
-            float x=r.exactCenterX(),y=r.exactCenterY(),rad=Math.min(r.width(),r.height())*.44f;
-            if(rad<=0)return;
+        final Context ctx;final Paint p=new Paint(3);final int a,b;
+        SphereDrawable(Context c,int primary,int secondary){ctx=c;a=primary;b=secondary;}
+        @Override public void draw(Canvas c){
+            Rect r=getBounds();float x=r.exactCenterX(),y=r.exactCenterY(),size=Math.min(r.width(),r.height())*.46f;
+            if(size<=0)return;
+            p.setShader(new RadialGradient(x-size*.32f,y-size*.40f,size*1.8f,
+                new int[]{0xffD2C8FF,a,b,0xff201852},new float[]{0,.26f,.73f,1},Shader.TileMode.CLAMP));
+            c.drawCircle(x,y,size,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(ctx,1.7f));p.setColor(0xffE3DAFF);c.drawCircle(x,y,size-dp(ctx,1),p);
+            p.setColor(0x884FA1FF);p.setStrokeWidth(dp(ctx,4));c.drawArc(new RectF(x-size,y-size,x+size,y+size),6,140,false,p);
+            p.setColor(0xD8FFFFFF);p.setStrokeWidth(dp(ctx,2));c.drawArc(new RectF(x-size*.80f,y-size*.80f,x+size*.80f,y+size*.80f),201,104,false,p);
             p.setStyle(Paint.Style.FILL);
-            // Natural soft-edged gel material, without concentric rings or arcs.
-            p.setShader(new RadialGradient(x-rad*.32f,y-rad*.35f,rad*1.75f,
-                new int[]{0xffF1E9FF,primary,secondary,0xff191642},
-                new float[]{0,.27f,.73f,1},Shader.TileMode.CLAMP));
-            canvas.drawCircle(x,y,rad,p);p.setShader(null);
-            p.setShader(new RadialGradient(x-rad*.37f,y-rad*.47f,rad*.66f,
-                new int[]{0xA2FFFFFF,0x2CFFFFFF,0x00FFFFFF},
-                new float[]{0,.55f,1},Shader.TileMode.CLAMP));
-            canvas.drawCircle(x-rad*.2f,y-rad*.20f,rad*.66f,p);p.setShader(null);
+            p.setShader(new RadialGradient(x-size*.40f,y-size*.44f,size*.48f,0x9CFFFFFF,0x00FFFFFF,Shader.TileMode.CLAMP));
+            c.drawCircle(x-size*.40f,y-size*.44f,size*.48f,p);p.setShader(null);
         }
         @Override public void setAlpha(int alpha){p.setAlpha(alpha);}
-        @Override public void setColorFilter(ColorFilter cf){p.setColorFilter(cf);}
-        @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        @Override public void setColorFilter(android.graphics.ColorFilter cf){p.setColorFilter(cf);}
+        @Override public int getOpacity(){return android.graphics.PixelFormat.TRANSLUCENT;}
     }
     public static final class Galaxy extends View {
-        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        final Random random=new Random(20261031);
-        final float[] starsX=new float[72],starsY=new float[72];
-        final float[] starsSize=new float[72],starsPhase=new float[72];
-        final long started=android.os.SystemClock.uptimeMillis();
-        public Galaxy(Context context){
-            super(context);
-            for(int i=0;i<starsX.length;i++){
-                starsX[i]=random.nextFloat();starsY[i]=random.nextFloat();
-                starsSize[i]=random.nextFloat();starsPhase[i]=random.nextFloat()*6.283f;
-            }
+        private final Paint p=new Paint(3);
+        private final Random random=new Random(20261031);
+        private final float[] x=new float[105],y=new float[105],size=new float[105],phase=new float[105];
+        private long start=android.os.SystemClock.uptimeMillis();
+        public Galaxy(Context c){
+            super(c);
+            for(int i=0;i<x.length;i++){x[i]=random.nextFloat();y[i]=random.nextFloat();size[i]=random.nextFloat();phase[i]=random.nextFloat()*6.283f;}
         }
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);
             float w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
-            float time=(android.os.SystemClock.uptimeMillis()-started)/1000f;
-
-            // Soft atmospheric blue-violet gradients instead of a cartoon planet,
-            // moon circle, orbital lines, or wireframe geometry.
+            float time=(android.os.SystemClock.uptimeMillis()-start)/1000f;
             p.setStyle(Paint.Style.FILL);
-            p.setShader(new LinearGradient(0,0,w,h,
-                new int[]{0x713866E5,0x332C78C9,0x242724A4},
-                new float[]{0,.46f,1},Shader.TileMode.CLAMP));
+            p.setShader(new RadialGradient(w*.78f,h*.22f,w*.82f,
+                new int[]{0x665A2CA9,0x443A65CB,0x000C1536},null,Shader.TileMode.CLAMP));
             c.drawRect(0,0,w,h,p);p.setShader(null);
-            p.setShader(new RadialGradient(w*.84f,h*.14f,Math.max(w,h)*.67f,
-                new int[]{0x887442DC,0x2A5C3FCD,0x00000000},
-                new float[]{0,.42f,1},Shader.TileMode.CLAMP));
+            p.setShader(new RadialGradient(w*.25f,h*.9f,w*.6f,
+                new int[]{0x644544B9,0x00332280},null,Shader.TileMode.CLAMP));
             c.drawRect(0,0,w,h,p);p.setShader(null);
-            p.setShader(new RadialGradient(w*.06f,h*.96f,Math.max(w,h)*.71f,
-                new int[]{0x66417CEB,0x1B203E87,0x00000000},
-                new float[]{0,.4f,1},Shader.TileMode.CLAMP));
-            c.drawRect(0,0,w,h,p);p.setShader(null);
-            for(int i=0;i<starsX.length;i++){
-                float twinkle=(float)(.5+.5*Math.sin(time*(.42+starsSize[i]) + starsPhase[i]));
-                int alpha=45+(int)(78*twinkle);
-                p.setColor(Color.argb(alpha,228,224,255));
-                c.drawCircle(starsX[i]*w,starsY[i]*h,dp(getContext(),.35f+starsSize[i]*.75f),p);
+            float moonX=w*.80f,moonY=h*.26f,rad=Math.min(w,h)*.18f;
+            p.setShader(new RadialGradient(moonX,moonY,rad*2.15f,new int[]{0xA44777FF,0x3F9E5BFF,0x00654AFF},null,Shader.TileMode.CLAMP));
+            c.drawCircle(moonX,moonY,rad*2.15f,p);p.setShader(null);
+            p.setShader(new RadialGradient(moonX-rad*.28f,moonY-rad*.28f,rad*1.45f,
+                new int[]{0xffF6F2FF,0xffA4BCFF,0xff5842D8,0xff211A5D},
+                new float[]{0,.42f,.76f,1f},Shader.TileMode.CLAMP));
+            c.drawCircle(moonX,moonY,rad,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(getContext(),1.5f));p.setColor(0xAAAFC6FF);
+            c.drawArc(new RectF(moonX-rad,moonY-rad,moonX+rad,moonY+rad),193,98,false,p);
+            p.setStyle(Paint.Style.FILL);
+            for(int i=0;i<x.length;i++){
+                float brightness=(float)(.48+.52*Math.sin(time*(.55+size[i])+phase[i]));
+                int alpha=(int)(70+130*brightness);
+                p.setColor(Color.argb(alpha, i%3==0?186:255,i%4==0?149:232,255));
+                float radius=dp(getContext(),.45f+size[i]*1.2f);
+                c.drawCircle(x[i]*w,y[i]*h,radius,p);
             }
-            if(isAttachedToWindow()&&getVisibility()==VISIBLE)postInvalidateDelayed(95);
+            p.setShader(new LinearGradient(0,h*.66f,0,h,new int[]{0x00101843,0xCE111739},null,Shader.TileMode.CLAMP));
+            c.drawRect(0,h*.66f,w,h,p);p.setShader(null);
+            if(isAttachedToWindow()&&getVisibility()==VISIBLE)postInvalidateDelayed(70);
         }
     }
 }

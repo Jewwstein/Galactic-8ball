@@ -185,13 +185,15 @@ public final class MainActivity extends Activity {
     private void section(String s){put(page,headline(s,23),18,12);}
     private void hint(String s){put(page,text(s,13,MUTED,false),6,15);}
     private void render(){
-        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackground(gradient(0,0xff090F25,0xff15123C,0xff080D20));setContentView(root);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setBackground(gradient(0xff090F25==0?0:0,0xff090F25,0xff15123C,0xff080D20));setContentView(root);
         LinearLayout head=vertical(0);head.setPadding(dp(22),dp(19),dp(22),dp(14));
         LinearLayout header=horizontal();
-        LinearLayout brand=vertical(0);put(brand,headline("Little Universe",23),0,6);
+        LinearLayout brand=vertical(0);put(brand,headline("✦ Little Universe",21),0,5);
         String baby=prefs.getString("childName","").trim();put(brand,text((baby.isEmpty()?"Our little one":baby)+"'s story",13,MUTED,false),0,0);
         header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        // No decorative header orb.
+        TextView star=text("✧",27,GOLD,false);star.setGravity(Gravity.CENTER);
+        star.setBackground(CosmicUI.sphere(this,CosmicUI.VIOLET,CosmicUI.BLUE));CosmicUI.pulse(star);
+        header.addView(star,new LinearLayout.LayoutParams(dp(46),dp(46)));
         head.addView(header);root.addView(head);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);
         page=vertical(0);page.setPadding(dp(20),dp(6),dp(20),dp(38));
@@ -227,18 +229,18 @@ public final class MainActivity extends Activity {
         hero.setBackground(CosmicUI.glass(this,29,0xff373177,0xff111C48,0xff9681FE));hero.setClipToOutline(true);hero.setElevation(dp(12));
         hero.addView(new CosmicUI.Galaxy(this),new FrameLayout.LayoutParams(-1,-1));
         LinearLayout overlay=vertical(23);overlay.setGravity(Gravity.BOTTOM);
-        put(overlay,eyebrow("OUR FIRST CHAPTER  ·  OCTOBER 31, 2026",MINT),0,8);
+        put(overlay,eyebrow("✦  OUR FIRST CHAPTER  ·  OCTOBER 31, 2026",MINT),0,8);
         put(overlay,headline("Before we met you,\nwe loved you.",31),0,11);
         put(overlay,text("A little universe. A lifetime of memories.",13,0xffEBE2ED,false),0,0);
         hero.addView(overlay,new FrameLayout.LayoutParams(-1,-1,Gravity.BOTTOM));
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,dp(286));hp.setMargins(0,dp(5),0,dp(22));page.addView(hero,hp);
-        put(page,eyebrow("YOUR STORY BEGINS HERE",MINT),0,13);
+        put(page,eyebrow("✦   YOUR STORY BEGINS HERE",MINT),0,13);
         LinearLayout actions=horizontal();
         LinearLayout write=vertical(13);write.setBackground(CosmicUI.glass(this,22,0xff214DD1,0xff122F78,0xff69ADFF));write.setElevation(dp(13));
-        put(write,eyebrow("JOURNAL",MINT),0,12);put(write,text("Tell their story",15,TEXT,true),0,7);
+        put(write,text("✧  ✎",25,MINT,true),0,3);put(write,text("Tell their story",15,TEXT,true),0,7);
         put(write,text("Write or dictate",12,MUTED,false),0,0);
         LinearLayout voice=vertical(13);voice.setBackground(CosmicUI.glass(this,22,0xff6B38CD,0xff382376,0xffC596FF));voice.setElevation(dp(13));
-        put(voice,eyebrow("VOICE NOTE",ROSE),0,12);put(voice,text("Record your voice",15,TEXT,true),0,7);
+        put(voice,text("◉  ♡",25,ROSE,true),0,3);put(voice,text("Record your voice",15,TEXT,true),0,7);
         put(voice,text("No typing. Just talk.",12,0xffF3DBE3,false),0,0);
         LinearLayout.LayoutParams a=new LinearLayout.LayoutParams(0,dp(126),1);a.setMargins(0,0,dp(6),0);actions.addView(write,a);
         LinearLayout.LayoutParams b=new LinearLayout.LayoutParams(0,dp(126),1);b.setMargins(dp(6),0,0,0);actions.addView(voice,b);
@@ -246,7 +248,7 @@ public final class MainActivity extends Activity {
         CosmicUI.lift(voice,this);voice.setOnClickListener(v->startVoice(null));
         put(page,actions,0,18);
         LinearLayout chapter=card();
-        put(chapter,eyebrow("OCTOBER 31, 2026  ·  CHAPTER ONE",MINT),0,9);
+        put(chapter,eyebrow("✧  OCTOBER 31, 2026  ·  CHAPTER ONE",MINT),0,9);
         put(chapter,headline("The day everything changed",23),0,9);
         put(chapter,text("October 31, 2026. The first page of their story. Preserve how you felt when you learned you were becoming parents.",14,MUTED,false),0,15);
         put(chapter,button("♡  Capture today's announcement",true,()->editor(null,"Journal",true)),0,0);
