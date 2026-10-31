@@ -1,22 +1,19 @@
-# Little Universe — Blue & Purple Cosmic Edition v0.3.0
+# Little Universe — Refined Depth Edition v0.4.0
 
-Native offline Android keepsake app. This is the **real implemented UI**, not a rendered mockup.
+Native, completely offline Android baby memory app for the family.
 
-## Changes from v0.2
-- Parents' shared blue and purple color palette throughout. No gender-based assumptions.
-- Animated native galaxy, twinkling stars and glowing moon on the home screen and memory editor.
-- Native custom-drawn multi-layer 3D glass cards with glossy highlights, colored rim lighting and subtle bottom shadow.
-- Raised vivid blue and violet story / voice cards with tactile press and release animations.
-- Pulsing 3D glowing central Create orb, star orb in the header, and an illuminated recording orb.
-- Richer vault, memory feed, firsts, buttons and menu styling.
-- Gentle animated card entrances. All effects drawn on-device by Android Canvas, no remote images or cloud dependencies.
-- Existing offline voice recording, on-device dictation (when supported), journal, photos/videos, milestones, letters, and original-size ZIP backup/restore all preserved.
+## What changed
+- Deleted the two decorative arcs drawn across *every tile* in the original `GlassDrawable`, including buttons, memory cards, the home feature tile and the bottom dock.
+- Removed artificial orbit/moon outlines and wireframe geometry from the animated hero background; it now has subtle blue/purple lighting and restrained twinkling stars.
+- Rebuilt the common card material with soft, offset shadows, polished bevel edges, a diffused top-left reflection, a subtle inner sheen, and lower-edge depth.
+- Simplified the top app header and small action labels. Retained tactile press animations, delicate card entrances, and pulsating Create control.
+- Existing offline photo/video albums, memory journal, milestones, letters, voice messages, offline dictation when Android supports it, and complete ZIP backups remain intact.
 
-## Installing without losing earlier records
-This version deliberately has its **own Android application ID** (`com.littleuniverse.memories.cosmic`). The CI debug signature is not persistent, so an APK with the old application ID might not install as an update. Therefore v0.3 installs alongside v0.1/v0.2. If you recorded earlier memories, export a ZIP in the older app's Vault, then use the new app's Vault → Restore. Confirm your records and save a fresh external ZIP before uninstalling the older version.
+## Safe installation
+This release uses a separate application ID `com.littleuniverse.memories.depth`. Because earlier prototypes used temporary GitHub CI signing certificates, Android cannot reliably upgrade those in place. Install v0.4 alongside earlier versions. If you have records in an older version, first export its Vault ZIP, then restore that ZIP in v0.4. Make sure the memories are present, back up v0.4 externally, and only then consider uninstalling prior versions.
 
-## Offline privacy and cost
-No INTERNET permission, tracking, subscriptions, paid assets or cloud APIs. Database and original media stay locally on the device. Export full backups regularly to computer/external media. The code lives in the `little-universe-v1` branch of `Jewwstein/Galactic-8ball`; the Galactic 8-Ball main branch is untouched. Never put your family media/backup ZIP in this public repo.
+## Privacy
+No cloud, ads, paid providers or Internet permission. Media and voice recordings live in private storage on the phone, so make regular full ZIP exports to a computer or external device. Do not upload family media to this public repository.
 
 ## Build
-GitHub Actions workflow `.github/workflows/build-little-universe.yml`, Java 17, Gradle 8.10.2, Android 35. Install the release APK from `little-universe-v0.3.0`.
+GitHub Actions workflow `.github/workflows/build-little-universe.yml`; Java 17, Gradle 8.10.2, Android API 35. Release tag `little-universe-v0.4.0`.

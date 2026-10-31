@@ -34,9 +34,9 @@ jobs:
           script: |
             gradle -p little-universe :app:assembleDebug --no-daemon
             adb install little-universe/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -W -n com.littleuniverse.memories.cosmic/com.littleuniverse.memories.MainActivity
+            adb shell am start -W -n com.littleuniverse.memories.depth/com.littleuniverse.memories.MainActivity
             sleep 5
-            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.cosmic'
+            adb shell dumpsys activity activities | grep -F 'com.littleuniverse.memories.depth'
             mkdir -p screenshots
             adb exec-out screencap -p > screenshots/home.png
             adb shell input tap 190 600
@@ -48,6 +48,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-v0.3-Emulator-Preview
+          name: Little-Universe-v0.4-Emulator-Preview
           path: screenshots
           retention-days: 7
