@@ -83,7 +83,7 @@ function manager({hub,dataDirectory,notify=()=>{}}){
      current.lastError='Automatic certificate/network maintenance needs attention: '+err.message;
      notify(status());
     }
-   },6*60*60*1000);
+   },25*60*1000);
    if(refresh.unref)refresh.unref();
    return status();
   }catch(error){
