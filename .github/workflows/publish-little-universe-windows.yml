@@ -1,0 +1,46 @@
+name: Publish Our Little Universe Windows EXE
+on:
+  push:
+    branches: [little-universe-v1]
+    paths:
+      - '.github/workflows/publish-little-universe-windows.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download previously verified Windows build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 41266427762 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name 'Our-Little-Universe-FamilyHub-Windows-Portable' \
+            --dir windows-build
+      - name: Verify executable and SHA-256
+        run: |
+          set -eu
+          EXE="windows-build/Our-Little-Universe-Windows-v0.3.0-BuiltInFamilyHub-Portable.exe"
+          test -f "$EXE"
+          sha256sum "$EXE"
+          printf '%s  %s\n' '824785847d80461f0331791c671a5ba36c568526d9539ffc079ab47a72cfd354' "$EXE" | sha256sum --check
+          test "$(dd if="$EXE" bs=2 count=1 status=none)" = "MZ"
+      - name: Publish permanent direct-download GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          TAG="our-little-universe-windows-v0.3.0"
+          EXE="windows-build/Our-Little-Universe-Windows-v0.3.0-BuiltInFamilyHub-Portable.exe"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$EXE" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$EXE" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Our Little Universe • Windows Family Hub v0.3.0" \
+              --notes "Official Windows portable EXE for Our Little Universe. The app contains built-in direct HTTPS family synchronization (no separate VPN application). Extracted and SHA-256 checked from Windows build 41266427762. Keep a verified ZIP archive of your family's memories before switching versions. Remote access requires a public home IP and reachable router ports."
+          fi
