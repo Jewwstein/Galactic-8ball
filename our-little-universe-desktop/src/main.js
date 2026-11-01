@@ -344,7 +344,7 @@ document.addEventListener('submit',async event=>{
   event.preventDefault();const data=new FormData(event.target);
   try{
    const connection=await pairHub(data.get('url'),data.get('code'),data.get('label'));
-   message('This device is paired! Synchronizing your family's memories…');
+   message("This device is paired! Synchronizing your family's memories…");
    await syncNow();await render('vault');
   }catch(err){message('Pairing failed: '+err.message);}
   return;
