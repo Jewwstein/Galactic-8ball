@@ -11,8 +11,29 @@
  */
 const fs=require('node:fs'),path=require('node:path');
 const {discover,externalIP,map,unmap,localIPs}=require('./home-router.cjs');
+const natpmp=require('./nat-pmp.cjs');
 const {obtain,cached,publicIPv4}=require('./direct-acme.cjs');
 const certFolder='public-tls';
+async function locateRouter(){
+ try{return await discover();}
+ catch(upnpFailure){
+  try{return await natpmp.discover();}
+  catch(natFailure){
+   throw Error('Neither of your router’s built-in automatic connection methods responded. '
+    +'UPnP: '+upnpFailure.message+' NAT-PMP: '+natFailure.message);
+  }
+ }
+}
+function externalAddress(gateway){
+ return gateway.kind==='natpmp'?natpmp.publicAddress(gateway.gateway):externalIP(gateway);
+}
+function openPort(gateway,port){
+ return gateway.kind==='natpmp'?natpmp.mapPort(gateway.gateway,port):map(gateway,port);
+}
+function closePort(gateway,port){
+ return gateway.kind==='natpmp'?natpmp.mapPort(gateway.gateway,port,0):unmap(gateway,port);
+}
+
 function manager({hub,dataDirectory,notify=()=>{}}){
  if(!hub||typeof hub.startPublic!=='function')throw Error('Secure hub instance required');
  const statePath=path.join(dataDirectory,'remote-access.json');
@@ -33,17 +54,17 @@ function manager({hub,dataDirectory,notify=()=>{}}){
    progress('discovering-home-router');
    gateway=null;
    if(!manual){
-    gateway=await discover();
+    gateway=await locateRouter();
    }
    let ip=manualIP;
    if(gateway){
-    ip=await externalIP(gateway);
+    ip=await externalAddress(gateway);
     if(!publicIPv4(ip))throw Error(
      'Your internet connection appears to use CGNAT or a non-public router address. A direct connection from distant phones cannot be established with ordinary port forwarding. Ask your provider about a public IPv4 address, or use native IPv6 in a future version.'
     );
     progress('opening-private-family-gateway');
     for(const port of [80,443]){
-     try{await map(gateway,port);createdMaps.push(port);}
+     try{await openPort(gateway,port);createdMaps.push(port);}
      catch(err){throw Error('Your router rejected automatic port '+port+
       ' setup. Use its built-in port-forward setting to forward TCP 80 and 443 to '+gateway.local+'. '+err.message);}
     }
@@ -65,13 +86,13 @@ function manager({hub,dataDirectory,notify=()=>{}}){
    refresh=setInterval(async()=>{
     try{
      if(gateway){
-      const liveIP=await externalIP(gateway);
+      const liveIP=await externalAddress(gateway);
       if(liveIP!==ip){
        if(!publicIPv4(liveIP))throw Error('Home ISP no longer provides a public IPv4 address');
        await attempt();
        return;
       }
-      for(const port of [80,443])await map(gateway,port);
+      for(const port of [80,443])await openPort(gateway,port);
      }
      const fresh=cached(directory,ip);
      if(!fresh){
@@ -88,7 +109,7 @@ function manager({hub,dataDirectory,notify=()=>{}}){
    return status();
   }catch(error){
    if(gateway&&createdMaps.length){
-    for(const port of createdMaps)await unmap(gateway,port);
+    for(const port of createdMaps)await closePort(gateway,port);
    }
    current={status:'needs-home-network-setup',lastError:error.message,url:'',ip:''};
    notify(status());
@@ -103,7 +124,7 @@ function manager({hub,dataDirectory,notify=()=>{}}){
   if(refresh)clearInterval(refresh);
   refresh=null;
   await hub.stopPublic();
-  if(gateway){for(const port of [80,443])await unmap(gateway,port);}
+  if(gateway){for(const port of [80,443])await closePort(gateway,port);}
   config.enabled=false;persist();
   current={status:'disabled',lastError:'',url:''};
   notify(status());return status();

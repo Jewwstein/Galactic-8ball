@@ -51,6 +51,8 @@ jobs:
         uses: actions/deploy-pages@v4
   windows:
     name: Build Windows portable EXE
+    permissions:
+      contents: write
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,3 +78,20 @@ jobs:
           name: Our-Little-Universe-FamilyHub-Windows-Portable
           path: our-little-universe-desktop/release/*.exe
           retention-days: 90
+      - name: Publish permanent Windows EXE download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = 'our-little-universe-windows-v0.3.1'
+          $exe = 'our-little-universe-desktop/release/Our-Little-Universe-Windows-v0.3.1-BuiltInFamilyHub-Portable.exe'
+          if (!(Test-Path $exe)) { throw "EXE missing" }
+          Get-FileHash -Algorithm SHA256 $exe | Format-Table -AutoSize
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $exe --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $tag $exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Our Little Universe Windows v0.3.1' --notes 'Windows Family Hub with two built-in router connectivity methods (UPnP and NAT-PMP), authenticated direct HTTPS family sync, no VPN client or extra software. Original files remain on family devices and the owners PC. Direct internet access remains dependent on home ISP/router connectivity.'
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publish failed' }

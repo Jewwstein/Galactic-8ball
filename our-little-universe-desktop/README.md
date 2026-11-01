@@ -1,11 +1,11 @@
-# Our Little Universe — Built-In Family Direct Sync v0.3.0
+# Our Little Universe — Built-In Family Direct Sync v0.3.1
 
 ## What this update changes
 The app no longer requires Tailscale, a VPN application, or any extra software on relatives' phones.
 
 Your Windows PC runs the first-party **Our Little Universe Family Hub**. The PC and every phone keep their local archives, then push new memories and original media to the hub and pull missing items whenever the app is open.
 
-An owner-only button, **Enable built-in remote access**, tries to configure your home router with first-party UPnP code and obtains a public HTTPS certificate with a first-party ACME implementation. The certificate is issued by Let's Encrypt (free public certificate authority), valid for ~6 days and renewed automatically while the hub is running. The Windows app alone runs the local and internet servers. It opens public TCP 80 only for certificate validation and HTTPS TCP 443 for authenticated family sync. There is **no other application to install**.
+An owner-only button, **Enable built-in remote access**, tries to configure your home router with first-party UPnP and NAT-PMP code and obtains a public HTTPS certificate with a first-party ACME implementation. The certificate is issued by Let's Encrypt (free public certificate authority), valid for ~6 days and renewed automatically while the hub is running. The Windows app alone runs the local and internet servers. It opens public TCP 80 only for certificate validation and HTTPS TCP 443 for authenticated family sync. There is **no other application to install**.
 
 ## How the family joins
 1. Owner runs the Windows Family Hub and selects **Family Vault → Enable built-in remote access**.
