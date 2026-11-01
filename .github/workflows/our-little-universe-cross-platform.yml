@@ -1,0 +1,77 @@
+name: Our Little Universe Web and Windows
+on:
+  push:
+    branches: [little-universe-v1]
+    paths:
+      - 'our-little-universe-desktop/**'
+      - '.github/workflows/our-little-universe-cross-platform.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  web:
+    name: Build and test installable web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: our-little-universe-desktop
+        run: npm install --no-audit --no-fund
+      - name: Run archive format smoke tests
+        working-directory: our-little-universe-desktop
+        run: npm test
+      - name: Build browser PWA
+        working-directory: our-little-universe-desktop
+        run: npm run build
+      - name: Upload standalone web files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Our-Little-Universe-Web-PWA
+          path: our-little-universe-desktop/dist/
+          retention-days: 90
+      - name: Prepare GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: our-little-universe-desktop/dist/
+  publish-web:
+    needs: web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - name: Publish browser PWA to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+  windows:
+    name: Build Windows portable EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: our-little-universe-desktop
+        run: npm install --no-audit --no-fund
+      - name: Build browser application
+        working-directory: our-little-universe-desktop
+        run: npm run build
+      - name: Package Windows portable executable
+        working-directory: our-little-universe-desktop
+        run: npx electron-builder --win portable --x64 --publish never
+      - name: Verify executable exists
+        shell: pwsh
+        run: |
+          Get-ChildItem our-little-universe-desktop/release/*.exe | Select-Object Name,Length
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Our-Little-Universe-Windows-Portable
+          path: our-little-universe-desktop/release/*.exe
+          retention-days: 90
