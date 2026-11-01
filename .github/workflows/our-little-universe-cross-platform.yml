@@ -40,10 +40,11 @@ jobs:
     needs: web
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
-      name: github-pages
+      name: our-little-universe-site
     steps:
       - name: Publish browser PWA to GitHub Pages
         id: deploy
