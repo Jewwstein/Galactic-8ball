@@ -93,14 +93,14 @@ async function vault(){
  const p=await profile(),deleted=await all('trash'),saved=await all('memories'),files=await all('media');
  const connection=await currentHub();
  const isOwner=!!window.ourHub;
- const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores the master family archive. It listens only on your own computer until you connect it privately through Tailscale.</p>'+
+ const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores your family's master archive. Built-in encrypted remote access uses your own internet connection—no separate VPN applications.</p>'+
  '<div class="buttonrow">'+btn('✓ Sync with this PC','sync-now','','primary')+
  btn('＋ Invite a family member','hub-invite')+btn('Manage paired devices','hub-devices')+
- btn('Connect family internet access','hub-network')+btn('Setup help','hub-help')+'</div>'+
- '<p class="subtle">Hub port: 43877 · No public web port exposed · Leave the Windows app running to receive updates.</p></div>':
+ btn('Enable built-in remote access','hub-network')+btn('Network status','hub-help')+'</div>'+
+ '<p class="subtle">Remote access stays disabled until you enable it here. Your PC must remain powered on to sync with your family.</p></div>':
  '<div class="card"><h3>♡ Connect to your private family hub</h3>'+
  '<p class="muted">Pair once with the Windows PC. Afterward, updates transfer automatically while this app is open. No daily ZIPs.</p>'+
- '<form id="hubPairForm">'+input('url','Private hub HTTPS address',connection?.url||'')+
+ '<form id="hubPairForm">'+input('url','Family Hub secure HTTPS address',connection?.url||'')+
  input('code','One-time family invitation code','')+
  input('label','This device is',p.contributorName||'Family member')+
  '<div class="buttonrow"><button type="submit" class="primary">Pair this device</button>'+
@@ -279,31 +279,67 @@ async function act(name,el){
    {await clearHub();message('Device disconnected.');return render('vault');}
  }
  if(name==='hub-network'){
-  if(!window.ourHub?.privateNetwork)throw Error('This feature runs only on the Windows PC');
-  message('Checking your PC private network…');
-  const result=await window.ourHub.privateNetwork();
-  return modal(result.ok?'Private family network is ready':'Private network setup needs a step',
-    result.ok?'<div class="info"><b>Share this private HTTPS address with invited family members:</b><p style="overflow-wrap:anywhere">'+
-      safe(result.url||'Check Tailscale Serve status')+'</p>'+
-      '<p>Your Windows PC is the master hub. Next, create one-time invitation codes for your relatives.</p></div>':
-      '<div class="info">'+safe(result.error||'Tailscale is not ready')+
-      '<p>Install the free Tailscale client on your PC, sign in, then press Connect family internet access again.</p></div>');
+  if(!window.ourHub?.directEnable)throw Error('Available on the owner Windows PC only.');
+  message('Checking your router and connecting the built-in encrypted family hub…');
+  const result=await window.ourHub.directEnable();
+  return modal(result.status==='ready'?'Your private family hub is connected':'Home network needs attention',
+    result.status==='ready'?
+     '<div class="info"><h3>Ready for family invitations ♡</h3>'+
+     '<p>Remote hub: <b>'+safe(result.url)+'</b></p>'+
+     '<p>Family members do not need any extra applications. Invite them from this app and send their single-tap joining link.</p>'+
+     '<p>Your PC must remain on. Your baby's original photos remain on your family devices and PC.</p></div>':
+     '<div class="info"><b>Automatic setup could not complete.</b><p>'+safe(result.lastError||'No public connection available')+
+     '</p><p>This is a home-router or internet-provider limitation, not something your mom has to configure.</p>'+
+     '<p>If your router does not offer automatic port forwarding, your PC needs public TCP 80 and 443 forwarded to its local address. A CGNAT connection requires a public IP from your provider or another connection path.</p>'+
+     btn('Advanced: I configured the router','hub-manual')+'</div>');
  }
- if(name==='hub-help')return modal('Private remote access',
-  '<div class="info">1. Install Tailscale on your Windows PC and sign in with a free personal account.<br>'+
-  '2. Run <code>tailscale serve --bg 43877</code> from Windows Terminal once; it provides a private HTTPS address ending in .ts.net.<br>'+
-  '3. Invite family members to your private Tailscale network, then share their one-time Our Little Universe pairing code.<br><br>'+
-  'Do not use Tailscale Funnel or forward a public router port. Your originals stay on this PC.</div>');
+ if(name==='hub-manual'){
+  const ip=prompt('Enter the public IPv4 address of your home internet connection. Your router must already forward TCP 80 and 443 to this PC.');
+  if(!ip)return;
+  message('Checking your direct family connection and trusted certificate…');
+  const result=await window.ourHub.directEnable(true,ip);
+  return modal(result.status==='ready'?'Family connection ready':'Could not connect',
+   '<div class="info">'+(result.status==='ready'?safe(result.url):safe(result.lastError))+'</div>');
+ }
+ if(name==='hub-help'){
+  const result=await window.ourHub.directStatus();
+  return modal('Your built-in family connection',
+   '<div class="info"><h3>'+safe(result.status||'Not configured')+'</h3>'+
+   '<p>'+safe(result.url||result.lastError||'Remote access is not enabled yet.')+'</p>'+
+   '<p>Our Little Universe handles the private HTTPS connection itself. No VPN software is required on any phone.</p>'+
+   '<p>For direct reachability your home needs a public IPv4 address, and inbound TCP ports 80 and 443 must reach this PC. We try configuring your router automatically.</p>'+
+   (result.status==='ready'?btn('Disable remote access','hub-disable','', 'tertiary danger'):'')+'</div>');
+ }
+ if(name==='hub-disable'){
+  if(!confirm('Stop remote syncing from outside your house? Existing memories are unaffected.'))return;
+  const result=await window.ourHub.directDisable();
+  return modal('Family connection disabled','<div class="info">'+safe(result.status)+'</div>');
+ }
  if(name==='hub-invite'){
-  if(!window.ourHub)throw Error('Invitations can be created on the owner PC only');
-  const label=prompt('Who are you inviting? (e.g. Grandma)');if(!label)return;
-  const role=confirm('Should '+label+' be allowed to add memories? Select OK for Contributor, or Cancel for read-only.')?'contributor':'viewer';
+  if(!window.ourHub)throw Error('Invitations are created on your PC.');
+  const remote=await window.ourHub.directStatus();
+  if(remote.status!=='ready')return modal('Enable family access first',
+   '<div class="info">Press <b>Enable built-in remote access</b> in the Family Vault. When your PC is reachable, you can create one-tap invitations for relatives.</div>');
+  const label=prompt('Who would you like to invite? For example: Grandma');
+  if(!label)return;
+  const role=confirm('Can '+label+' contribute new memories? OK = contribute; Cancel = view only.')?'contributor':'viewer';
   const invite=await window.ourHub.invite(label,role);
-  modal('Invitation for '+label,
-   '<div class="info"><b>One-time code</b><p style="overflow-wrap:anywhere;font-size:21px">'+safe(invite.code)+'</p>'+
-   '<p>This code expires in 7 days and can be used once.</p>'+
-   '<p>Share your private HTTPS address from Tailscale and the code privately. Do not put family codes on GitHub.</p></div>');
+  const base='https://jewwstein.github.io/Galactic-8ball/';
+  const payload=new URLSearchParams({join:remote.url+'|'+invite.code+'|'+label});
+  const joinLink=base+'#'+payload.toString();
+  modal('Invite '+label,
+   '<div class="info"><h3>One tap to join your family ♡</h3>'+
+   '<p>Send '+safe(label)+' this invitation link. They open it in Safari or Chrome, enter their name if needed, and tap Join. No VPN app or network settings.</p>'+
+   '<p style="overflow-wrap:anywhere;font-size:12px">'+safe(joinLink)+'</p>'+
+   '<p>This invitation works once and expires in seven days.</p></div>'+
+   btn('Copy family invitation link','copy-invite','','primary'));
+  window.__familyJoinLink=joinLink;
   return;
+ }
+ if(name==='copy-invite'){
+  if(!window.__familyJoinLink)return;
+  await navigator.clipboard.writeText(window.__familyJoinLink);
+  message('Family invitation copied. Send it to your relative privately.');return;
  }
  if(name==='hub-devices'){
   if(!window.ourHub)throw Error('Only available on the owner PC');
@@ -401,8 +437,32 @@ async function launchFamilySync(){
   }
  }
 }
+async function joinByLink(){
+ const hash=window.location.hash.replace(/^#/,'');
+ const joined=new URLSearchParams(hash).get('join');
+ if(!joined)return;
+ const [hubAddress,code,defaultName]=joined.split('|');
+ if(!hubAddress||!code)return;
+ history.replaceState(null,'',window.location.pathname+window.location.search);
+ modal('You are invited to Our Little Universe ♡',
+  '<div class="info"><h3>Join your family's private memory archive</h3>'+
+  '<p>This connects to the family's own Windows computer, not a cloud photo library.</p>'+
+  '<form id="familyJoinForm"><label class="field"><span>My name</span><input name="name" value="'+safe(defaultName||'Family')+'"></label>'+
+  '<button class="primary" type="submit">♡ Join my family</button></form></div>');
+ $('familyJoinForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const label=new FormData(event.target).get('name');
+  try{
+   message('Securing your family invitation…');
+   await pairHub(hubAddress,code,label);
+   await syncNow();message('Welcome to your family universe ♡');
+   await render('home');
+  }catch(error){message('Could not join yet: '+error.message);}
+ });
+}
 openStore().then(async()=>{
  await render('home');launchFamilySync().catch(console.error);
+ joinByLink().catch(error=>message(error.message));
 }).catch(err=>{
  $('screen').innerHTML=blank('Storage unavailable',err.message+' — open the app in a normal browser.');
 });

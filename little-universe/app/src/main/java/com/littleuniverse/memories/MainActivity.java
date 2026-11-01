@@ -75,6 +75,35 @@ public final class MainActivity extends Activity {
         new File(getFilesDir(),"media").mkdirs();
         render();
         for(FeatureStore.Item reminder:FeatureStore.items(db,"Reminder"))ReminderReceiver.schedule(this,reminder);
+        getWindow().getDecorView().post(()->processFamilyInvitation(getIntent()));
+    }
+    @Override protected void onNewIntent(Intent intent){
+        super.onNewIntent(intent);
+        setIntent(intent);
+        processFamilyInvitation(intent);
+    }
+    private void processFamilyInvitation(Intent intent){
+        if(intent==null||intent.getData()==null)return;
+        Uri uri=intent.getData();
+        if(!"jewwstein.github.io".equalsIgnoreCase(uri.getHost()))return;
+        String fragment=uri.getEncodedFragment();
+        if(fragment==null||!fragment.startsWith("join="))return;
+        try{
+            String text=java.net.URLDecoder.decode(fragment.substring(5),"UTF-8");
+            String[] parts=text.split("\\|",3);
+            if(parts.length<2||!parts[0].startsWith("https://"))return;
+            String label=parts.length>2?parts[2]:"Family member";
+            LinearLayout layout=vertical(12);
+            put(layout,text("You've been invited to your family's private memory archive. No additional applications are required.",14,MUTED,false),0,12);
+            EditText name=input(label,"Your name",false);
+            put(layout,name,0,10);
+            new AlertDialog.Builder(this).setTitle("♡ Join Our Little Universe")
+                .setView(layout).setNegativeButton("Not now",null)
+                .setPositiveButton("Join my family",(d,w)->
+                    pairWithHub(parts[0],parts[1],name.getText().toString())).show();
+        }catch(Exception problem){
+            message("Could not open this family invitation.");
+        }
     }
     @Override protected void onResume(){
         super.onResume();
@@ -116,7 +145,7 @@ public final class MainActivity extends Activity {
             }catch(Exception error){
                 runOnUiThread(()->new AlertDialog.Builder(this)
                     .setTitle("Could not connect to your family PC")
-                    .setMessage(error.getMessage()+"\n\nMake sure your PC is on, Tailscale is connected, and your one-time invitation is correct.")
+                    .setMessage(error.getMessage()+"\n\nMake sure the Windows Family Hub is on, remote access is enabled, and your invitation is valid.")
                     .setPositiveButton("OK",null).show());
             }
         });
@@ -854,7 +883,7 @@ public final class MainActivity extends Activity {
         put(hub,text("Pair once with your private family PC. Afterward, this phone exchanges new memories and original media automatically while Our Little Universe is open—even on mobile data.",14,MUTED,false),0,10);
         put(hub,text("Connection: "+FamilyHubSync.lastStatus(this),12,MINT,false),0,12);
         put(hub,text("PC's private HTTPS address",13,GOLD,true),0,5);
-        EditText hubUrl=input(FamilyHubSync.hubAddress(this),"https://your-pc.your-network.ts.net",false);
+        EditText hubUrl=input(FamilyHubSync.hubAddress(this),"https://your-home-public-address",false);
         put(hub,hubUrl,0,12);
         put(hub,text("One-time invitation code from your PC",13,GOLD,true),0,5);
         EditText invitation=input("","Paste the code from the Windows app",false);

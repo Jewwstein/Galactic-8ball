@@ -1,7 +1,7 @@
 'use strict';
 // Local family hub. Receives remote traffic ONLY via an HTTPS reverse proxy
 // such as Tailscale Serve. Never bind this HTTP endpoint to 0.0.0.0.
-const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const http=require('node:http'),https=require('node:https'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const PORT=43877;
 const SAFE=/^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,149}$/;
 const ID=/^[A-Za-z0-9_-]{1,120}$/;
@@ -84,7 +84,8 @@ function hub(directory,options={}){
   config.devices[id].revoked=true;
   saveAtomic(configPath,config);return true;
  };
- let server=null,closed=false;
+ let server=null,publicServer=null;
+ const pairingAttempts=new Map();
  async function request(req,res){
   const origin=req.headers.origin||'';
   const allowed=origin==='null'||origin==='https://jewwstein.github.io'||
@@ -112,6 +113,14 @@ function hub(directory,options={}){
   try{pathname=new URL(req.url,'http://localhost').pathname;}catch{return reply(400,{error:'Invalid URL'});}
   if(req.method==='GET'&&pathname==='/api/v1/health')return reply(200,{online:true,version:1,owner:'Our Little Universe'});
   if(req.method==='POST'&&pathname==='/api/v1/pair'){
+   // The invitation has ~156 bits of entropy, but throttle guessing anyway.
+   const source=req.socket.remoteAddress||'unknown',now=Date.now();
+   const recent=(pairingAttempts.get(source)||[]).filter(time=>now-time<300000);
+   recent.push(now);pairingAttempts.set(source,recent);
+   if(pairingAttempts.size>2000){
+    for(const [key,hits] of pairingAttempts)if(hits[hits.length-1]<now-300000)pairingAttempts.delete(key);
+   }
+   if(recent.length>12)return reply(429,{error:'Too many pairing attempts. Try again later.'});
    const body=await receive(4096),entry=config.invites[hash(String(body.code||''))];
    if(!entry||entry.expires<Date.now())return reply(403,{error:'Invalid or expired family invitation'});
    delete config.invites[hash(String(body.code||''))];
@@ -223,11 +232,12 @@ function hub(directory,options={}){
   }
   return reply(404,{error:'Unknown family hub operation'});
  }
- server=http.createServer((req,res)=>{request(req,res).catch(error=>{
+ const handler=(req,res)=>{request(req,res).catch(error=>{
   if(!res.headersSent){const payload=Buffer.from(JSON.stringify({error:error.message||'Hub error'}));
    res.writeHead(400,{'Content-Type':'application/json','Content-Length':payload.length});res.end(payload);}
   else res.destroy();
- });});
+ });};
+ server=http.createServer(handler);
  function start(port=PORT,host='127.0.0.1'){
   return new Promise((resolve,reject)=>{
    server.once('error',reject);server.listen(port,host,()=>{
@@ -237,8 +247,36 @@ function hub(directory,options={}){
    });
   });
  }
- function stop(){return new Promise(resolve=>server.close(resolve));}
- return {start,stop,invite,revoke,devices:()=>Object.values(config.devices).map(x=>({
+ async function startPublic(certificate,port=443){
+  if(publicServer){
+   publicServer.setSecureContext({key:fs.readFileSync(certificate.keyPath),cert:fs.readFileSync(certificate.certPath)});
+   return {port:publicServer.address().port};
+  }
+  const web=https.createServer({
+   key:fs.readFileSync(certificate.keyPath),cert:fs.readFileSync(certificate.certPath),
+   minVersion:'TLSv1.2',maxHeaderSize:16384,requestTimeout:120000
+  },handler);
+  await new Promise((resolve,reject)=>{
+   web.once('error',reject);
+   web.listen(port,'0.0.0.0',()=>{web.off('error',reject);resolve();});
+  });
+  publicServer=web;
+  return {port:web.address().port};
+ }
+ async function updatePublicCertificate(certificate){
+  if(!publicServer)throw Error('The remote HTTPS listener is not active');
+  publicServer.setSecureContext({key:fs.readFileSync(certificate.keyPath),cert:fs.readFileSync(certificate.certPath)});
+ }
+ async function stopPublic(){
+  if(!publicServer)return;
+  const old=publicServer;publicServer=null;
+  await new Promise(resolve=>old.close(()=>resolve()));
+ }
+ function stop(){return Promise.all([
+  new Promise(resolve=>server.close(resolve)),stopPublic()
+ ]);}
+ return {start,stop,startPublic,stopPublic,updatePublicCertificate,invite,revoke,
+ devices:()=>Object.values(config.devices).map(x=>({
   id:x.id,label:x.label,role:x.role,revoked:x.revoked,lastSeen:x.lastSeen
  })),adminToken:initialAdminToken,port:PORT};
 }

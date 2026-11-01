@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('ourHub',{
  devices:()=>ipcRenderer.invoke('family-hub-devices'),
  revoke:id=>ipcRenderer.invoke('family-hub-revoke',String(id||'')),
  startup:enabled=>ipcRenderer.invoke('family-hub-autostart',!!enabled),
- privateNetwork:()=>ipcRenderer.invoke('family-hub-private-network')
+ directStatus:()=>ipcRenderer.invoke('family-direct-status'),
+ directEnable:(manual=false,ip='')=>ipcRenderer.invoke('family-direct-enable',!!manual,String(ip)),
+ directDisable:()=>ipcRenderer.invoke('family-direct-disable')
 });

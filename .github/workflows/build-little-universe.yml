@@ -37,7 +37,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Little-Universe-Android-v0.7.0
+          name: Little-Universe-Android-v0.7.1
           path: little-universe/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Publish APK release when authorized
@@ -45,10 +45,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="little-universe-v0.7.0"
+          TAG="little-universe-v0.7.1"
           APK="little-universe/app/build/outputs/apk/debug/app-debug.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$APK#Little-Universe-v0.7.0.apk" --clobber
+            gh release upload "$TAG" "$APK#Little-Universe-v0.7.1.apk" --clobber
           else
-            gh release create "$TAG" "$APK#Little-Universe-v0.7.0.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.7.0 • Android" --notes "Our Little Universe v0.7.0 adds private Family Hub pairing, automatic original-media transfer, and incremental two-way syncing with the owner's Windows PC from home Wi-Fi or mobile data using a private HTTPS connection. Android stays offline-first, ZIP backup/export remains available, and v3 styling is unchanged."
+            gh release create "$TAG" "$APK#Little-Universe-v0.7.1.apk" --target "$GITHUB_SHA" --title "Our Little Universe v0.7.1 • Android" --notes "Our Little Universe v0.7.1: Built-in direct Family Hub invitations, no separate VPN app. Native Android can open one-tap family invitation links, sync over a trusted HTTPS address, and preserve every original. Private ZIP backups remain available."
           fi
