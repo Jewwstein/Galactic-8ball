@@ -93,7 +93,7 @@ async function vault(){
  const p=await profile(),deleted=await all('trash'),saved=await all('memories'),files=await all('media');
  const connection=await currentHub();
  const isOwner=!!window.ourHub;
- const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores your family's master archive. Built-in encrypted remote access uses your own internet connection—no separate VPN applications.</p>'+
+ const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores your family’s master archive. Built-in encrypted remote access uses your own internet connection—no separate VPN applications.</p>'+
  '<div class="buttonrow">'+btn('✓ Sync with this PC','sync-now','','primary')+
  btn('＋ Invite a family member','hub-invite')+btn('Manage paired devices','hub-devices')+
  btn('Enable built-in remote access','hub-network')+btn('Network status','hub-help')+'</div>'+
@@ -287,7 +287,7 @@ async function act(name,el){
      '<div class="info"><h3>Ready for family invitations ♡</h3>'+
      '<p>Remote hub: <b>'+safe(result.url)+'</b></p>'+
      '<p>Family members do not need any extra applications. Invite them from this app and send their single-tap joining link.</p>'+
-     '<p>Your PC must remain on. Your baby's original photos remain on your family devices and PC.</p></div>':
+     '<p>Your PC must remain on. Your baby’s original photos remain on your family devices and PC.</p></div>':
      '<div class="info"><b>Automatic setup could not complete.</b><p>'+safe(result.lastError||'No public connection available')+
      '</p><p>This is a home-router or internet-provider limitation, not something your mom has to configure.</p>'+
      '<p>If your router does not offer automatic port forwarding, your PC needs public TCP 80 and 443 forwarded to its local address. A CGNAT connection requires a public IP from your provider or another connection path.</p>'+
@@ -445,8 +445,8 @@ async function joinByLink(){
  if(!hubAddress||!code)return;
  history.replaceState(null,'',window.location.pathname+window.location.search);
  modal('You are invited to Our Little Universe ♡',
-  '<div class="info"><h3>Join your family's private memory archive</h3>'+
-  '<p>This connects to the family's own Windows computer, not a cloud photo library.</p>'+
+  '<div class="info"><h3>Join your family’s private memory archive</h3>'+
+  '<p>This connects to the family’s own Windows computer, not a cloud photo library.</p>'+
   '<form id="familyJoinForm"><label class="field"><span>My name</span><input name="name" value="'+safe(defaultName||'Family')+'"></label>'+
   '<button class="primary" type="submit">♡ Join my family</button></form></div>');
  $('familyJoinForm').addEventListener('submit',async event=>{
