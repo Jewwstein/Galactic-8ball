@@ -79,19 +79,19 @@ jobs:
           path: our-little-universe-desktop/release/*.exe
           retention-days: 90
       - name: Publish permanent Windows EXE download
-        shell: pwsh
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $tag = 'our-little-universe-windows-v0.4.0'
-          $exe = 'our-little-universe-desktop/release/Our-Little-Universe-Windows-v0.4.0-FamilyRelay-Portable.exe'
-          if (!(Test-Path $exe)) { throw "EXE missing" }
-          Get-FileHash -Algorithm SHA256 $exe | Format-Table -AutoSize
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) {
-            gh release upload $tag $exe --repo $env:GITHUB_REPOSITORY --clobber
-          } else {
-            gh release create $tag $exe --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title 'Our Little Universe Windows v0.4.0' --notes 'Windows Family Hub with our own outbound family relay program, no router configuration and no VPN application. Family originals remain on family devices and the owner's PC. One-time free relay hosting setup in the EXE required.'
-          }
-          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publish failed' }
+          set -euo pipefail
+          TAG="our-little-universe-windows-v0.4.0"
+          EXE="our-little-universe-desktop/release/Our-Little-Universe-Windows-v0.4.0-FamilyRelay-Portable.exe"
+          test -f "$EXE"
+          sha256sum "$EXE"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$EXE" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$EXE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Our Little Universe Windows v0.4.0" \
+              --notes "Family Relay built into our Windows app. No VPN or router configuration. Your PC stores family originals. One-time free relay hosting account setup required on owner PC only."
+          fi
