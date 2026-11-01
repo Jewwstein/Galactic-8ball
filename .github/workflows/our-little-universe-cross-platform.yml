@@ -84,14 +84,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="our-little-universe-windows-v0.4.0"
-          EXE="our-little-universe-desktop/release/Our-Little-Universe-Windows-v0.4.0-FamilyRelay-Portable.exe"
+          TAG="our-little-universe-windows-v0.4.1"
+          EXE="our-little-universe-desktop/release/Our-Little-Universe-Windows-v0.4.1-FamilyRelay-Portable.exe"
           test -f "$EXE"
           sha256sum "$EXE"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$EXE" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$TAG" "$EXE" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "Our Little Universe Windows v0.4.0" \
+              --title "Our Little Universe Windows v0.4.1" \
               --notes "Family Relay built into our Windows app. No VPN or router configuration. Your PC stores family originals. One-time free relay hosting account setup required on owner PC only."
           fi

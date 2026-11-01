@@ -282,9 +282,10 @@ async function act(name,el){
   if(!window.ourHub?.relayDeploy)throw Error('Only your Windows PC can set up the family relay.');
   const state=await window.ourHub.relayStatus();
   if(state.configured)return modal('Automatic Family Sync',
-   '<div class="info"><h3>'+(state.connected?'Connected ✓':'Reconnecting automatically…')+'</h3>'+
+   '<div class="info"><h3>'+(state.connected?'Connected ✓':'Connection being checked…')+'</h3>'+
    '<p>Family address: '+safe(state.url)+'</p>'+
-   '<p>Your PC is the only master archive. Relatives join through invitation links without installing anything besides our app.</p></div>');
+   '<p>Your PC is the master archive. The relay only forwards requests.</p>'+
+   btn('Check connection','hub-check','','primary')+'</div>');
   return modal('One-time Family Sync setup',
    '<div class="info"><h3>No router changes. No VPN. No other app installs.</h3>'+
    '<p>Our own small relay program needs free internet hosting. This is a one-time setup on your PC. It passes updates without permanently storing family photos or journals.</p>'+
@@ -299,10 +300,22 @@ async function act(name,el){
   if(!window.ourHub?.relayStatus)throw Error('Windows app only');
   const result=await window.ourHub.relayStatus();
   return modal('Family Sync status',
-   '<div class="info"><h3>'+(result.connected?'Connected ✓':result.configured?'Waiting for connection':'Not set up')+'</h3>'+
+   '<div class="info"><h3>'+(result.connected?'Connected ✓':result.configured?'Connection pending':'Not set up')+'</h3>'+
    '<p>'+safe(result.url||result.error||'Use Set up automatic family sync to get started.')+'</p>'+
-   '<p>Your PC stores every original; the relay only passes data between active devices.</p>'+
-   (result.configured?btn('Reconnect','hub-reconnect')+btn('Pause relay','hub-disable','','tertiary'):'')+'</div>');
+   '<p>Your PC stores every original; the relay only forwards updates.</p>'+
+   (result.configured?btn('Check connection','hub-check','','primary')+btn('Reconnect','hub-reconnect')+btn('Pause relay','hub-disable','','tertiary'):'')+'</div>');
+ }
+ if(name==='hub-check'){
+  if(!window.ourHub?.relayCheck)throw Error('Windows only');
+  message('Checking whether our relay is responding…');
+  const state=await window.ourHub.relayCheck();
+  return modal('Family connection diagnosis',
+   '<div class="info"><h3>'+(state.connected?'Connected to your PC ✓':state.ready?'Relay address is responding':'Relay address not responding yet')+'</h3>'+
+   '<p>'+safe(state.url||'No address has been saved.')+'</p>'+
+   '<p>'+safe(state.diagnostic||state.error||'Connection pending')+'</p>'+
+   (state.ready&&!state.connected?'<p>The relay is online, but the Windows PC connection is still reconnecting. Use Reconnect, then check again.</p>':'')+
+   (state.connected?'<p>Your PC is ready to share memory updates with approved family devices.</p>':'')+
+   btn('Check again','hub-check','','primary')+'</div>');
  }
  if(name==='hub-reconnect'){
   await window.ourHub.relayResume();
@@ -316,7 +329,9 @@ async function act(name,el){
   if(!window.ourHub)throw Error('Invitations are created on your PC.');
   const remote=await window.ourHub.relayStatus();
   if(!remote.configured)return modal('Set up automatic sync first',
-   '<div class="info">Press <b>Set up automatic family sync</b> in Family Vault on your Windows PC. This is a one-time step only you perform.</div>');
+   '<div class="info">Press <b>Set up automatic family sync</b> in Family Vault on your Windows PC.</div>');
+  if(!remote.connected)return modal('Your PC is still connecting',
+   '<div class="info">The relay address has been saved, but the Windows Hub has not confirmed a live connection. Use <b>Connection status → Check connection</b> before sending invitations.</div>');
   const label=prompt('Who would you like to invite? For example: Grandma');
   if(!label)return;
   const role=confirm('Can '+label+' contribute new memories? OK = contribute; Cancel = view only.')?'contributor':'viewer';
@@ -382,9 +397,12 @@ document.addEventListener('submit',async event=>{
   try{
    const status=await window.ourHub.relayDeploy(account,token);
    close();await render('vault');
-   modal('Family Sync is configured ♡',
-    '<div class="info"><h3>Success!</h3><p>From here your PC connects itself. No other apps or networking configuration needed for your relatives.</p>'+
-    '<p>Family address: '+safe(status.url)+'</p><p>Now choose Invite a family member.</p></div>');
+   modal(status.ready?'Relay installed — connecting PC':'Relay deployed — address is being checked',
+    '<div class="info"><h3>'+(status.ready?'The relay address is responding':'Your relay settings have been saved')+'</h3>'+
+    '<p>Family address: '+safe(status.url)+'</p>'+
+    '<p>'+safe(status.diagnostic||'Waiting for confirmation from the hosting provider')+'</p>'+
+    '<p>Our Little Universe will reconnect automatically. You do not need to create another token or deploy another Worker.</p>'+
+    btn('Check connection','hub-check','','primary')+'</div>');
   }catch(error){
    message('Setup issue: '+error.message);
    event.target.querySelector('button[type=submit]').disabled=false;

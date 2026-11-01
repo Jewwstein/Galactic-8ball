@@ -33,3 +33,6 @@ Windows auto-reconnects to its own relay over outbound WSS. Every API call is se
 - Back up the Windows archive to an external drive; the PC master copy is otherwise a single point of failure.
 - Earlier Android prototypes had different package IDs/signing. The v0.8.0 APK installs separately; export a ZIP from the old app and import into this APK before relying on it.
 - Do not grant blanket permission to a provider account token or share it in ChatGPT. Use the appropriate narrowly scoped Workers permission, then revoke the token after setup succeeds if desired.
+
+## Activation recovery (v0.4.1)
+The first setup iteration incorrectly treated an immediate HTTP status-check failure as failed deployment and discarded the Worker name/secret. On the next deployment, the Windows app now lists existing Our Little Universe Workers in the owner's hosting account, reuses the existing Worker, updates its token and saves the connection address even if the public DNS/route isn't ready. No duplicate Worker should be created for a single existing match. Check Connection Status inside the EXE for HTTPS status and WebSocket connection; wait for the PC to report Connected before sharing invites. Setup credentials are still never stored. The public endpoint is verified before being called reachable; an uploaded script is not evidence that family syncing has succeeded.

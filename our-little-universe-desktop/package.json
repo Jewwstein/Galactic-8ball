@@ -1,5 +1,5 @@
 {
-"name":"our-little-universe","version":"0.4.0","private":true,"type":"module",
+"name":"our-little-universe","version":"0.4.1","private":true,"type":"module",
 "description":"Offline-compatible family archive for Windows and iPhone",
 "scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","test":"node --test tests/*.test.mjs","windows":"npm run build && electron-builder --win portable --x64 --publish never"},
 "dependencies":{"jszip":"^3.10.1"},
@@ -7,5 +7,5 @@
 "main":"electron.cjs",
 "build":{"appId":"com.ourlittleuniverse.desktop","productName":"Our Little Universe",
 "files":["dist/**/*","electron.cjs","preload.cjs","hub-server.cjs","home-router.cjs","direct-acme.cjs","direct-access.cjs","nat-pmp.cjs","relay-agent.cjs","relay-setup.cjs","relay/**/*","package.json"],"directories":{"output":"release"},
-"win":{"target":[{"target":"portable","arch":["x64"]}],"artifactName":"Our-Little-Universe-Windows-v0.4.0-FamilyRelay-Portable.exe"}}
+"win":{"target":[{"target":"portable","arch":["x64"]}],"artifactName":"Our-Little-Universe-Windows-v0.4.1-FamilyRelay-Portable.exe"}}
 }

@@ -3,7 +3,7 @@ const {app,BrowserWindow,shell,session,ipcMain}=require('electron');
 const path=require('path');
 const fs=require('fs');
 const {agent}=require('./relay-agent.cjs');
-const {deploy}=require('./relay-setup.cjs');
+const {deploy,probePublic}=require('./relay-setup.cjs');
 const {hub}=require('./hub-server.cjs');
 let familyHub,hubStatus,window,relay;
 app.setName('Our Little Universe');
@@ -26,10 +26,17 @@ app.whenReady().then(async()=>{
   app.setLoginItemSettings({openAtLogin:enabled});return app.getLoginItemSettings().openAtLogin;
  });
  ipcMain.handle('family-relay-status',()=>relay.state());
+ ipcMain.handle('family-relay-check',async()=>{
+  const current=relay.state();
+  if(!current.configured)return {...current,ready:false,diagnostic:'Relay not configured'};
+  const check=await probePublic(current.url,1);
+  return {...relay.state(),...check};
+ });
  ipcMain.handle('family-relay-deploy',async(_event,accountId,apiToken)=>{
   // One-time PC-only deployment. The hosting token is not saved or forwarded.
   const settings=await deploy({accountId:String(accountId||''),apiToken:String(apiToken||'')});
-  return relay.configure(settings);
+  const saved=relay.configure(settings);
+  return {...saved,ready:settings.ready,diagnostic:settings.diagnostic,reused:settings.reused};
  });
  ipcMain.handle('family-relay-pause',()=>{relay.stop();return relay.state();});
  ipcMain.handle('family-relay-resume',()=>relay.start());

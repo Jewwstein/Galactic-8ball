@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('ourHub',{
  revoke:id=>ipcRenderer.invoke('family-hub-revoke',String(id||'')),
  startup:enabled=>ipcRenderer.invoke('family-hub-autostart',!!enabled),
  relayStatus:()=>ipcRenderer.invoke('family-relay-status'),
+ relayCheck:()=>ipcRenderer.invoke('family-relay-check'),
  relayDeploy:(accountId,apiToken)=>ipcRenderer.invoke('family-relay-deploy',String(accountId),String(apiToken)),
  relayPause:()=>ipcRenderer.invoke('family-relay-pause'),
  relayResume:()=>ipcRenderer.invoke('family-relay-resume')

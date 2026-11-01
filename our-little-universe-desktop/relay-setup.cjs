@@ -11,8 +11,11 @@ async function deploy({accountId,apiToken,workerName}){
  if(token.length<30||token.length>500)
   throw Error('Enter a Workers Scripts Edit API token (not an account password).');
  const secret=crypto.randomBytes(28).toString('base64url');
- const script=workerName||('our-little-universe-'+crypto.randomBytes(5).toString('hex'));
- if(!/^[a-z0-9-]{5,100}$/.test(script))throw Error('Invalid relay script name');
+ // Discover already-deployed versions before creating anything else.
+ // The first installer uploaded a Worker but threw away its address on an
+ // immediate reachability failure. Reuse that Worker rather than orphan it.
+ let script=workerName||'';
+ let existing=false;
  const call=async(route,method='GET',body=null)=>{
   const headers={Authorization:'Bearer '+token};
   if(body!==null&&!(body instanceof FormData))headers['Content-Type']='application/json';
@@ -27,6 +30,15 @@ async function deploy({accountId,apiToken,workerName}){
   );
   return payload.result;
  };
+ if(!script){
+  const scripts=await call('/workers/scripts');
+  const entries=Array.isArray(scripts)?scripts:Array.isArray(scripts?.scripts)?scripts.scripts:[];
+  const matches=entries.filter(x=>/^our-little-universe-[a-f0-9]{10}$/.test(x.id||x.name||''))
+   .sort((a,b)=>String(b.modified_on||b.created_on||'').localeCompare(String(a.modified_on||a.created_on||'')));
+  if(matches.length){script=matches[0].id||matches[0].name;existing=true;}
+  else script='our-little-universe-'+crypto.randomBytes(5).toString('hex');
+ }
+ if(!/^[a-z0-9-]{5,100}$/.test(script))throw Error('Unexpected relay script name');
  const subdomainInfo=await call('/workers/subdomain');
  const subdomain=subdomainInfo?.subdomain;
  if(!/^[a-z0-9-]{3,100}$/.test(subdomain||''))
@@ -35,7 +47,7 @@ async function deploy({accountId,apiToken,workerName}){
  const metadata={
   main_module:'worker.mjs',compatibility_date:'2026-10-30',
   bindings:[{type:'durable_object_namespace',name:'FAMILY',class_name:'FamilyRoom'}],
-  migrations:{new_tag:'family-v1',new_sqlite_classes:['FamilyRoom']}
+  ...(existing?{}:{migrations:{new_tag:'family-v1',new_sqlite_classes:['FamilyRoom']}})
  };
  const form=new FormData();
  form.set('metadata',new Blob([JSON.stringify(metadata)],{type:'application/json'}),'metadata.json');
@@ -44,11 +56,29 @@ async function deploy({accountId,apiToken,workerName}){
  await call('/workers/scripts/'+script+'/secrets','PUT',{name:'HUB_SECRET',type:'secret_text',text:secret});
  await call('/workers/scripts/'+script+'/subdomain','POST',{enabled:true,previews_enabled:false});
  const url='https://'+script+'.'+subdomain+'.workers.dev';
- const test=await fetch(url+'/status',{signal:AbortSignal.timeout(15000)}).catch(()=>null);
- if(!test?.ok)throw Error('Relay was deployed, but its public address has not become reachable yet. Check the Worker in your account.');
- const details=await test.json();
- if(details.app!=='Our Little Universe'||details.storage!=='none')
-  throw Error('The deployed relay returned an unexpected response.');
- return {url,secret,script};
+ // The hosting provider can activate a new workers.dev hostname after API
+ // deployment has succeeded. A transient 404 must not discard the new
+ // secret and leave an orphaned Worker behind.
+ const probe=await probePublic(url);
+ return {url,secret,script,ready:probe.ready,diagnostic:probe.diagnostic,reused:existing};
 }
-module.exports={deploy};
+async function probePublic(url,attempts=3){
+ let last='No connection was returned';
+ for(let i=0;i<attempts;i++){
+  if(i)await new Promise(resolve=>setTimeout(resolve,i*1800));
+  try{
+   const response=await fetch(url+'/status',{cache:'no-store',signal:AbortSignal.timeout(6000)});
+   const body=(await response.text()).slice(0,600);
+   if(response.status===200){
+    let details;try{details=JSON.parse(body);}catch{}
+    if(details?.app==='Our Little Universe'&&details?.storage==='none')
+     return {ready:true,diagnostic:'Our Little Universe relay is responding'};
+    last='HTTP 200 but the relay status response was not recognized';
+   }else{
+    last='HTTPS '+response.status+' '+body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').slice(0,140);
+   }
+  }catch(error){last='Connection check failed: '+String(error.message||error).slice(0,150);}
+ }
+ return {ready:false,diagnostic:last};
+}
+module.exports={deploy,probePublic};
