@@ -160,6 +160,53 @@ function hub(directory,options={}){
    const name=decodeURIComponent(pathname.slice('/api/v1/media/'.length));
    if(!SAFE.test(name)||name.includes('..'))return reply(400,{error:'Invalid filename'});
    const dest=path.join(mediaDir,name);
+   const params=new URL(req.url,'http://localhost').searchParams;
+   if(req.method==='GET'&&params.has('meta')){
+    if(!fs.existsSync(dest))return reply(404,{error:'Original not available'});
+    return reply(200,{size:fs.statSync(dest).size,sha256:await hashFile(dest)});
+   }
+   if(req.method==='GET'&&params.has('offset')){
+    if(!fs.existsSync(dest))return reply(404,{error:'Original not available'});
+    const size=fs.statSync(dest).size;
+    const offset=Number(params.get('offset')),limit=Number(params.get('limit')||196608);
+    if(!Number.isSafeInteger(offset)||offset<0||offset>=size||
+       !Number.isSafeInteger(limit)||limit<1||limit>196608)
+     return reply(400,{error:'Invalid original chunk request'});
+    const count=Math.min(limit,size-offset);
+    res.writeHead(200,{...headers,'Content-Type':'application/octet-stream',
+     'Content-Length':count,'X-File-Size':size});
+    fs.createReadStream(dest,{start:offset,end:offset+count-1}).pipe(res);return;
+   }
+   if(req.method==='PUT'&&params.has('offset')){
+    if(user.role==='viewer')return reply(403,{error:'Read-only member'});
+    const offset=Number(params.get('offset')),total=Number(params.get('total'));
+    if(!Number.isSafeInteger(total)||total<0||total>1024*1024*1024||
+       !Number.isSafeInteger(offset)||offset<0||offset>total)
+     return reply(400,{error:'Invalid original upload size'});
+    const staging=path.join(mediaDir,'.part-'+name);
+    if(fs.existsSync(dest)){
+     // An already-complete original is never overwritten by another device.
+     if(fs.statSync(dest).size!==total)return reply(409,{error:'Original filename collision'});
+     return reply(200,{stored:false,complete:true});
+    }
+    if(offset===0)fs.writeFileSync(staging,Buffer.alloc(0),{mode:0o600});
+    if(!fs.existsSync(staging)||fs.statSync(staging).size!==offset)
+     return reply(409,{error:'Upload interrupted; restart attachment'});
+    let chunk,totalRead=0;const parts=[];
+    for await(const part of req){
+     totalRead+=part.length;
+     if(totalRead>196608)throw Error('Attachment chunk too large');
+     parts.push(part);
+    }
+    if(offset+totalRead>total)throw Error('Attachment chunk exceeds declared original size');
+    chunk=Buffer.concat(parts);
+    fs.appendFileSync(staging,chunk);
+    if(offset+totalRead===total){
+     fs.renameSync(staging,dest);
+     return reply(200,{stored:true,complete:true,sha256:await hashFile(dest)});
+    }
+    return reply(200,{stored:false,complete:false,next:offset+totalRead});
+   }
    if(req.method==='GET'){
     if(!fs.existsSync(dest))return reply(404,{error:'Original not on PC'});
     const stat=fs.statSync(dest);
@@ -226,9 +273,17 @@ function hub(directory,options={}){
   if(req.method==='GET'&&pathname==='/api/v1/changes'){
    const since=Math.max(0,Number(new URL(req.url,'http://localhost').searchParams.get('since')||0));
    if(!Number.isSafeInteger(since))return reply(400,{error:'Invalid sync cursor'});
-   const memories=Object.values(db.memories).filter(x=>x.rev>since);
-   const items=Object.values(db.items).filter(x=>x.rev>since).map(x=>x.item);
-   return reply(200,{seq:db.seq,memories,items});
+   const allChanges=[
+    ...Object.values(db.memories).filter(x=>x.rev>since).map(x=>({type:'memory',record:x,rev:x.rev})),
+    ...Object.values(db.items).filter(x=>x.rev>since).map(x=>({type:'item',record:x.item,rev:x.rev}))
+   ].sort((a,b)=>a.rev-b.rev);
+   // Pagination is essential for memory collections too large for a single relay message.
+   const batch=allChanges.slice(0,12);
+   const more=allChanges.length>batch.length;
+   const memories=batch.filter(x=>x.type==='memory').map(x=>x.record);
+   const items=batch.filter(x=>x.type==='item').map(x=>x.record);
+   const end=more?batch[batch.length-1].rev:db.seq;
+   return reply(200,{seq:end,more,memories,items});
   }
   return reply(404,{error:'Unknown family hub operation'});
  }

@@ -1,39 +1,35 @@
-# Our Little Universe — Built-In Family Direct Sync v0.3.1
+# Our Little Universe — Family Relay v0.4.0
 
-## What this update changes
-The app no longer requires Tailscale, a VPN application, or any extra software on relatives' phones.
+**Your Windows PC holds the family archive. Every other device gets the APK or the iPhone PWA website.**
 
-Your Windows PC runs the first-party **Our Little Universe Family Hub**. The PC and every phone keep their local archives, then push new memories and original media to the hub and pull missing items whenever the app is open.
+This release replaces the failed router-dependent approach with an **outbound relay connection**. It does not install or use any third-party VPN software, change router settings, intercept Spark traffic, or require any additional app on a family member's phone.
 
-An owner-only button, **Enable built-in remote access**, tries to configure your home router with first-party UPnP and NAT-PMP code and obtains a public HTTPS certificate with a first-party ACME implementation. The certificate is issued by Let's Encrypt (free public certificate authority), valid for ~6 days and renewed automatically while the hub is running. The Windows app alone runs the local and internet servers. It opens public TCP 80 only for certificate validation and HTTPS TCP 443 for authenticated family sync. There is **no other application to install**.
+## One-time owner setup in the Windows EXE
 
-## How the family joins
-1. Owner runs the Windows Family Hub and selects **Family Vault → Enable built-in remote access**.
-2. When the screen says *Ready*, owner selects **Invite a family member** and copies the generated single-use join link.
-3. Relative opens the invite link in Safari/Chrome, taps **Join my family**. No VPN account, router login, manual IP entry, or command line for the relative. The iPhone can add the website to its Home Screen. The Android APK also registers an optional link handler; the OS may offer to open the invitation in the native app.
-4. Memories and original attachments sync both ways when the apps are active. Routine updates are incremental, not whole ZIP imports. Existing full ZIP backups still work.
+Go to **Family Vault → Set up automatic family sync**. Our Little Universe can deploy its own source code (\`relay/worker.mjs\`) to an internet-accessible free account. An outside hosting company runs only our relay program; it does not store the baby's photo archive.
 
-## Honest requirements and limits
-- This is **direct home hosting**. Your PC must be on and the app must be running. You must have a **public reachable IPv4 address** and a router capable of forwarding TCP **80 and 443**. The Windows app first tries automatic UPnP; if the router doesn't support it, the PC owner may need to configure port forwarding manually. The relative never does.
-- **Carrier-grade NAT (CGNAT), inbound port filtering, and unconfigurable router firewalls cannot be bypassed by software only** when no external relay/infrastructure is allowed. With CGNAT, ask your home ISP for a public IPv4 address; a later IPv6 mode is possible when the connection supports inbound IPv6.
-- Public HTTPS certificate issuance uses Let's Encrypt, but **no family photos, voice clips or journal entries are uploaded to a cloud service**. TLS and public certificates are standards, not a separate VPN app. The ACME client is in our Windows EXE. If certificate validation cannot reach port 80, the app reports the problem; it must never silently skip TLS verification.
-- Remote hub endpoints use per-device secret bearer tokens, one-time expiring invitations, authentication for all media downloads, and the hub owner's revocation controls. Keep your computer locked and encrypted and retain backups on another drive.
-- The iPhone PWA syncs while it is **open**; iOS background execution for PWA is not guaranteed. Android syncs while active. This release does not guarantee background sync while closed.
-- Deletions are not propagated to relatives in this first version, preventing accidental destruction across the family.
-- Complex simultaneous changes to the same memory's wording are not merged; established wording is retained and extra media/metadata merge. Future versions should add revision history and conflict-resolution dialogs.
-- Free hosting of the PWA *app code* at GitHub Pages is independent of the private family content. ZIP backups are not encrypted.
-- First cross-platform implementation; test small fake memories and an old ZIP before trusting irreplaceable family archives. Windows EXE and Android APK builds use development signatures. The new APK installs separately, so use a verified backup ZIP to migrate content.
+Only the owner needs a free Workers hosting account (Cloudflare provides a free limited-use plan). The owner enters their 32-character account ID and a scoped Workers Scripts Edit API token on the Windows setup screen. The app deploys the code, configures a secret and the public HTTPS address, and connects the Windows hub automatically. **The API token is not saved.** No one else creates an account or uses the provider's dashboard.
 
-## Source and automated tests
-- \`hub-server.cjs\`: first-party server, media streaming, auth, pairing, synchronization.
-- \`home-router.cjs\`: first-party SSDP/UPnP discovery and optional router port mapping.
-- \`direct-acme.cjs\`: first-party ACME short-lived public IPv4 TLS certificate implementation (no Certbot).
-- \`direct-access.cjs\`: owner-initiated remote server startup and certificate renewal.
-- \`electron.cjs\`, \`preload.cjs\`: owner-only local desktop controls.
-- \`src/hub-sync.js\`: offline-capable browser and Windows sync client.
-- Android \`FamilyHubSync.java\`: native device-to-PC sync over standard HTTPS.
-- \`tests/direct-access.test.mjs\`: IP reachability classification, CSR signature/IP SAN, secure-listener off by default.
-- \`tests/hub.test.mjs\`: token handling, no duplicate memories, access revocation, original media bytes.
+The owner then uses **Invite a family member**. The invitation is a single URL to the existing iPhone PWA. A family member opens it and taps Join my family. On Android, the native app can handle the same link (or users can join via the web app); the family member never configures networking.
 
-## Clear distinction
-**No third-party applications installed.** The public internet, router firmware, free certificate authority, and the pre-existing website hosting are infrastructure and cannot be replaced by purely offline code when relatives are miles apart. If there is no remotely reachable address, a relay or ISP public-address change is necessary. No claim of universal connection is made.
+Windows auto-reconnects to its own relay over outbound WSS. Every API call is sent from family phones over HTTPS and forwarded over the long-lived connection to the owner's local Windows server. The hub handles pairing, permission checks, device revocation and permanent archive storage. The relay stores no family records, queued photos or videos. It transmits limited-size chunks.
+
+## Implementation
+- \`relay/worker.mjs\`: first-party HTTP/WebSocket forwarding, Durable Object room (in-memory only; no persistent family content), CORS controls and owner authentication
+- \`relay-setup.cjs\`: Windows-only one-time API deployment of our relay source; no extra software installed
+- \`relay-agent.cjs\`: native Node/Electron outbound WebSocket connection with automatic reconnection and request forwarding to localhost
+- \`hub-server.cjs\`: local archive and deduplicating permission-checked media API, now with partial originals and paginated change feeds
+- \`src/hub-sync.js\`: iPhone/browser incremental upload/download of large originals in 192 KiB chunks
+- Android \`FamilyHubSync.java\`: same native protocol on Android, no VPN service
+- \`tests/relay.test.mjs\`: on-disk original checksum tests and owner/phone relay routing tests
+
+## Constraints
+- This is a first implementation, not a confirmed live family sync. An actual hosted deployment and cross-network test still require the owner's one-time free hosting account credentials.
+- Your PC must be on, running Our Little Universe, and connected to the internet to receive new updates. Offline memories remain on the device until its next sync.
+- The free hosting plan has request and usage limits, particularly with many large videos. With 192 KiB media pieces, a 1 GB video uses thousands of requests.
+- The relay's HTTPS terminates at the hosting provider. Files transit in memory there in chunks, but no permanent family archive or database is created. The connection from the relay to Windows uses WSS. Do not claim the relay is end-to-end encrypted or independent of the hosting provider.
+- iPhone PWA and current Android code sync while their apps are open. They cannot guarantee background sync after force-close.
+- Conflict handling is conservative: previous text is kept on existing memories, extra media and tags merge; remote deletions are not propagated.
+- Back up the Windows archive to an external drive; the PC master copy is otherwise a single point of failure.
+- Earlier Android prototypes had different package IDs/signing. The v0.8.0 APK installs separately; export a ZIP from the old app and import into this APK before relying on it.
+- Do not grant blanket permission to a provider account token or share it in ChatGPT. Use the appropriate narrowly scoped Workers permission, then revoke the token after setup succeeds if desired.

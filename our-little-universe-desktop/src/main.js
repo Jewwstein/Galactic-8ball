@@ -93,11 +93,11 @@ async function vault(){
  const p=await profile(),deleted=await all('trash'),saved=await all('memories'),files=await all('media');
  const connection=await currentHub();
  const isOwner=!!window.ourHub;
- const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores your family’s master archive. Built-in encrypted remote access uses your own internet connection—no separate VPN applications.</p>'+
+ const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">Your PC holds the master archive. Family phones connect automatically through our small relay program. No VPN, router settings or extra installations.</p>'+
  '<div class="buttonrow">'+btn('✓ Sync with this PC','sync-now','','primary')+
  btn('＋ Invite a family member','hub-invite')+btn('Manage paired devices','hub-devices')+
- btn('Enable built-in remote access','hub-network')+btn('Network status','hub-help')+'</div>'+
- '<p class="subtle">Remote access stays disabled until you enable it here. Your PC must remain powered on to sync with your family.</p></div>':
+ btn('Set up automatic family sync','hub-network')+btn('Connection status','hub-help')+'</div>'+
+ '<p class="subtle">First-time setup happens here on this PC only. Relatives just join with your invitation. The relay never stores your photos.</p></div>':
  '<div class="card"><h3>♡ Connect to your private family hub</h3>'+
  '<p class="muted">Pair once with the Windows PC. Afterward, updates transfer automatically while this app is open. No daily ZIPs.</p>'+
  '<form id="hubPairForm">'+input('url','Family Hub secure HTTPS address',connection?.url||'')+
@@ -108,7 +108,7 @@ async function vault(){
  '</div></form></div>';
 
  const size=(files.reduce((n,x)=>n+(x.size||x.blob?.size||0),0)/1048576).toFixed(1);
- return '<p class="eyebrow">YOURS, OFFLINE AND PRIVATE</p><h1>The family vault</h1><p class="muted">Manual ZIP sharing keeps everyone together without a cloud account.</p>'+
+ return '<p class="eyebrow">YOURS, OFFLINE AND PRIVATE</p><h1>The family vault</h1><p class="muted">Your memories live on your devices. Automatic Family Sync is available, and ZIP backups remain yours.</p>'+
  '<div style="margin-top:24px" class="stack">'+hubUi+'</div>'+
  '<div class="grid two" style="margin-top:26px"><div class="card"><h3>Import a family ZIP</h3>'+
  '<p class="muted">Merge the latest archive from Android or another family member. Existing IDs are skipped; new photos and letters are added.</p>'+
@@ -279,47 +279,44 @@ async function act(name,el){
    {await clearHub();message('Device disconnected.');return render('vault');}
  }
  if(name==='hub-network'){
-  if(!window.ourHub?.directEnable)throw Error('Available on the owner Windows PC only.');
-  message('Checking your router and connecting the built-in encrypted family hub…');
-  const result=await window.ourHub.directEnable();
-  return modal(result.status==='ready'?'Your private family hub is connected':'Home network needs attention',
-    result.status==='ready'?
-     '<div class="info"><h3>Ready for family invitations ♡</h3>'+
-     '<p>Remote hub: <b>'+safe(result.url)+'</b></p>'+
-     '<p>Family members do not need any extra applications. Invite them from this app and send their single-tap joining link.</p>'+
-     '<p>Your PC must remain on. Your baby’s original photos remain on your family devices and PC.</p></div>':
-     '<div class="info"><b>Automatic setup could not complete.</b><p>'+safe(result.lastError||'No public connection available')+
-     '</p><p>This is a home-router or internet-provider limitation, not something your mom has to configure.</p>'+
-     '<p>If your router does not offer automatic port forwarding, your PC needs public TCP 80 and 443 forwarded to its local address. A CGNAT connection requires a public IP from your provider or another connection path.</p>'+
-     btn('Advanced: I configured the router','hub-manual')+'</div>');
- }
- if(name==='hub-manual'){
-  const ip=prompt('Enter the public IPv4 address of your home internet connection. Your router must already forward TCP 80 and 443 to this PC.');
-  if(!ip)return;
-  message('Checking your direct family connection and trusted certificate…');
-  const result=await window.ourHub.directEnable(true,ip);
-  return modal(result.status==='ready'?'Family connection ready':'Could not connect',
-   '<div class="info">'+(result.status==='ready'?safe(result.url):safe(result.lastError))+'</div>');
+  if(!window.ourHub?.relayDeploy)throw Error('Only your Windows PC can set up the family relay.');
+  const state=await window.ourHub.relayStatus();
+  if(state.configured)return modal('Automatic Family Sync',
+   '<div class="info"><h3>'+(state.connected?'Connected ✓':'Reconnecting automatically…')+'</h3>'+
+   '<p>Family address: '+safe(state.url)+'</p>'+
+   '<p>Your PC is the only master archive. Relatives join through invitation links without installing anything besides our app.</p></div>');
+  return modal('One-time Family Sync setup',
+   '<div class="info"><h3>No router changes. No VPN. No other app installs.</h3>'+
+   '<p>Our own small relay program needs free internet hosting. This is a one-time setup on your PC. It passes updates without permanently storing family photos or journals.</p>'+
+   '<p>Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener">free hosting account</a> and obtain the Account ID. Then create an API token with <b>Workers Scripts Edit</b> permission in <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">API Tokens</a>. Do not share the token with relatives or paste it into chat.</p>'+
+   '<form id="familyRelaySetupForm">'+
+   '<label class="field"><span>Free hosting account ID</span><input name="account" required autocomplete="off" placeholder="32-character account ID"></label>'+
+   '<label class="field"><span>One-time setup API token</span><input name="token" required type="password" autocomplete="off" placeholder="Worker deployment token"></label>'+
+   '<button type="submit" class="primary">Set up my family connection</button></form>'+
+   '<p>This credential is used only to deploy our relay and is not saved in Our Little Universe.</p></div>');
  }
  if(name==='hub-help'){
-  const result=await window.ourHub.directStatus();
-  return modal('Your built-in family connection',
-   '<div class="info"><h3>'+safe(result.status||'Not configured')+'</h3>'+
-   '<p>'+safe(result.url||result.lastError||'Remote access is not enabled yet.')+'</p>'+
-   '<p>Our Little Universe handles the private HTTPS connection itself. No VPN software is required on any phone.</p>'+
-   '<p>For direct reachability your home needs a public IPv4 address, and inbound TCP ports 80 and 443 must reach this PC. We try configuring your router automatically.</p>'+
-   (result.status==='ready'?btn('Disable remote access','hub-disable','', 'tertiary danger'):'')+'</div>');
+  if(!window.ourHub?.relayStatus)throw Error('Windows app only');
+  const result=await window.ourHub.relayStatus();
+  return modal('Family Sync status',
+   '<div class="info"><h3>'+(result.connected?'Connected ✓':result.configured?'Waiting for connection':'Not set up')+'</h3>'+
+   '<p>'+safe(result.url||result.error||'Use Set up automatic family sync to get started.')+'</p>'+
+   '<p>Your PC stores every original; the relay only passes data between active devices.</p>'+
+   (result.configured?btn('Reconnect','hub-reconnect')+btn('Pause relay','hub-disable','','tertiary'):'')+'</div>');
+ }
+ if(name==='hub-reconnect'){
+  await window.ourHub.relayResume();
+  message('Reconnecting automatically…');
  }
  if(name==='hub-disable'){
-  if(!confirm('Stop remote syncing from outside your house? Existing memories are unaffected.'))return;
-  const result=await window.ourHub.directDisable();
-  return modal('Family connection disabled','<div class="info">'+safe(result.status)+'</div>');
+  if(!confirm('Pause remote Family Sync? Memories are never deleted.'))return;
+  await window.ourHub.relayPause();message('Relay paused on this PC.');
  }
  if(name==='hub-invite'){
   if(!window.ourHub)throw Error('Invitations are created on your PC.');
-  const remote=await window.ourHub.directStatus();
-  if(remote.status!=='ready')return modal('Enable family access first',
-   '<div class="info">Press <b>Enable built-in remote access</b> in the Family Vault. When your PC is reachable, you can create one-tap invitations for relatives.</div>');
+  const remote=await window.ourHub.relayStatus();
+  if(!remote.configured)return modal('Set up automatic sync first',
+   '<div class="info">Press <b>Set up automatic family sync</b> in Family Vault on your Windows PC. This is a one-time step only you perform.</div>');
   const label=prompt('Who would you like to invite? For example: Grandma');
   if(!label)return;
   const role=confirm('Can '+label+' contribute new memories? OK = contribute; Cancel = view only.')?'contributor':'viewer';
@@ -376,6 +373,24 @@ document.addEventListener('click',event=>{
  if(cmd)act(cmd.dataset.command,cmd).catch(e=>message(e.message));
 });
 document.addEventListener('submit',async event=>{
+ if(event.target.id==='familyRelaySetupForm'){
+  event.preventDefault();
+  const fields=new FormData(event.target);
+  const token=String(fields.get('token')||''),account=String(fields.get('account')||'');
+  event.target.querySelector('button[type=submit]').disabled=true;
+  message('Installing our connection program on your free relay host…');
+  try{
+   const status=await window.ourHub.relayDeploy(account,token);
+   close();await render('vault');
+   modal('Family Sync is configured ♡',
+    '<div class="info"><h3>Success!</h3><p>From here your PC connects itself. No other apps or networking configuration needed for your relatives.</p>'+
+    '<p>Family address: '+safe(status.url)+'</p><p>Now choose Invite a family member.</p></div>');
+  }catch(error){
+   message('Setup issue: '+error.message);
+   event.target.querySelector('button[type=submit]').disabled=false;
+  }
+  return;
+ }
  if(event.target.id==='hubPairForm'){
   event.preventDefault();const data=new FormData(event.target);
   try{

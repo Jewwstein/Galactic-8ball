@@ -122,50 +122,68 @@ public final class FamilyHubSync {
     private static void upload(Context c,File source,String name)throws Exception{
         if(!name.matches(SAFE)||name.contains("..")||!source.isFile())
             throw new IOException("Original media is missing: "+name);
-        HttpURLConnection conn=open(c,"/api/v1/media/"+name,"PUT");
-        try{
-            conn.setDoOutput(true);
-            conn.setRequestProperty("Content-Type","application/octet-stream");
-            if(source.length()>1024L*1024L*1024L)throw new IOException("Media exceeds 1 GB hub limit.");
-            conn.setFixedLengthStreamingMode(source.length());
-            try(OutputStream out=new BufferedOutputStream(conn.getOutputStream());
-                InputStream in=new BufferedInputStream(new FileInputStream(source))){
-                byte[] buf=new byte[65536];int n;
-                while((n=in.read(buf))!=-1)out.write(buf,0,n);
+        if(source.length()>1024L*1024L*1024L)throw new IOException("Media exceeds 1 GB.");
+        final int chunkSize=196608;
+        byte[] bytes=new byte[chunkSize];
+        long offset=0;
+        try(InputStream input=new BufferedInputStream(new FileInputStream(source))){
+            int count;
+            while((count=input.read(bytes))!=-1){
+                HttpURLConnection conn=open(c,"/api/v1/media/"+name+
+                    "?offset="+offset+"&total="+source.length(),"PUT");
+                try{
+                    conn.setDoOutput(true);
+                    conn.setRequestProperty("Content-Type","application/octet-stream");
+                    conn.setFixedLengthStreamingMode(count);
+                    try(OutputStream out=conn.getOutputStream()){out.write(bytes,0,count);}
+                    jsonResponse(conn);
+                    offset+=count;
+                }finally{conn.disconnect();}
             }
-            jsonResponse(conn);
-        }finally{conn.disconnect();}
+        }
+        if(offset!=source.length())throw new IOException("Original upload interrupted");
     }
     private static void download(Context c,File directory,String name)throws Exception{
-        if(!name.matches(SAFE)||name.contains(".."))throw new IOException("Unsafe media filename.");
+        if(!name.matches(SAFE)||name.contains(".."))throw new IOException("Invalid media filename.");
         File target=new File(directory,name);
         if(target.isFile())return;
+        JSONObject metadata=request(c,"/api/v1/media/"+name+"?meta=1","GET",null);
+        long size=metadata.getLong("size");
+        String expected=metadata.getString("sha256");
+        if(size<0||size>1024L*1024L*1024L)throw new IOException("Original too large");
         File temp=new File(directory,".sync-"+UUID.randomUUID());
-        HttpURLConnection conn=open(c,"/api/v1/media/"+name,"GET");
+        MessageDigest sha=MessageDigest.getInstance("SHA-256");
+        long received=0;
         try{
-            int status=conn.getResponseCode();
-            if(status!=200){
-                jsonResponse(conn);throw new IOException("Original not available");
-            }
-            if(conn.getContentLengthLong()>1024L*1024L*1024L)
-                throw new IOException("Original exceeds the 1 GB limit");
-            MessageDigest sha=MessageDigest.getInstance("SHA-256");
-            long size=0;
-            try(InputStream in=new BufferedInputStream(conn.getInputStream());
-                OutputStream out=new BufferedOutputStream(new FileOutputStream(temp))){
-                byte[] buf=new byte[65536];int n;
-                while((n=in.read(buf))!=-1){
-                    size+=n;if(size>1024L*1024L*1024L)throw new IOException("Original too large");
-                    sha.update(buf,0,n);out.write(buf,0,n);
+            try(OutputStream out=new BufferedOutputStream(new FileOutputStream(temp))){
+                while(received<size){
+                    HttpURLConnection conn=open(c,"/api/v1/media/"+name+
+                        "?offset="+received+"&limit=196608","GET");
+                    try{
+                        if(conn.getResponseCode()!=200){
+                            jsonResponse(conn);throw new IOException("Original download failed");
+                        }
+                        long count=0;
+                        try(InputStream in=new BufferedInputStream(conn.getInputStream())){
+                            byte[] buffer=new byte[32768];int n;
+                            while((n=in.read(buffer))!=-1){
+                                count+=n;
+                                if(count>196608)throw new IOException("Original chunk exceeds limit");
+                                out.write(buffer,0,n);sha.update(buffer,0,n);
+                            }
+                        }
+                        if(count==0)throw new IOException("Original download was interrupted");
+                        received+=count;
+                    }finally{conn.disconnect();}
                 }
             }
-            String expected=conn.getHeaderField("X-File-SHA256");
+            if(received!=size)throw new IOException("Incomplete original");
             StringBuilder actual=new StringBuilder();
             for(byte x:sha.digest())actual.append(String.format(Locale.US,"%02x",x&255));
-            if(expected!=null&&!expected.equalsIgnoreCase(actual.toString()))
-                throw new IOException("Attachment checksum mismatch: "+name);
-            if(!temp.renameTo(target)&&!target.isFile())throw new IOException("Unable to save original.");
-        }finally{conn.disconnect();if(temp.exists())temp.delete();}
+            if(!expected.equalsIgnoreCase(actual.toString()))
+                throw new IOException("Original checksum mismatch");
+            if(!temp.renameTo(target)&&!target.isFile())throw new IOException("Cannot save original");
+        }finally{if(temp.exists())temp.delete();}
     }
     private static JSONObject memory(Cursor cursor)throws Exception{
         JSONObject m=new JSONObject();
@@ -218,18 +236,25 @@ public final class FamilyHubSync {
             if("Reminder".equals(it.optString("kind"))||"Private".equals(it.optString("kind")))continue;
             allowed.put(it);
         }
-        if(allEntries.length()==0){sendBatch(c,new JSONArray(),allowed);return;}
-        for(int i=0;i<allEntries.length();i+=70){
+
+        for(int i=0;i<allEntries.length();i+=8){
             JSONArray batch=new JSONArray();
-            for(int j=i;j<Math.min(i+70,allEntries.length());j++)batch.put(allEntries.getJSONObject(j));
-            sendBatch(c,batch,i==0?allowed:new JSONArray());
+            for(int j=i;j<Math.min(i+8,allEntries.length());j++)batch.put(allEntries.getJSONObject(j));
+            sendBatch(c,batch,new JSONArray());
+        }
+        for(int i=0;i<allowed.length();i+=16){
+            JSONArray batch=new JSONArray();
+            for(int j=i;j<Math.min(i+16,allowed.length());j++)batch.put(allowed.getJSONObject(j));
+            sendBatch(c,new JSONArray(),batch);
         }
     }
     private static int pull(Context c,SQLiteDatabase db,File dir)throws Exception{
         long cursor=prefs(c).getLong("cursor",0L);
+        int fresh=0;
+        boolean more;
+        do{
         JSONObject data=request(c,"/api/v1/changes?since="+cursor,"GET",null);
         JSONArray records=data.optJSONArray("memories");
-        int fresh=0;
         if(records!=null)for(int i=0;i<records.length();i++){
             JSONObject entry=records.optJSONObject(i);if(entry==null)continue;
             JSONObject memory=entry.optJSONObject("memory");
@@ -276,7 +301,10 @@ public final class FamilyHubSync {
             JSONObject feature=new JSONObject();feature.put("items",items);
             FeatureStore.merge(db,feature);
         }
-        prefs(c).edit().putLong("cursor",data.optLong("seq",cursor)).apply();
+        cursor=data.optLong("seq",cursor);
+        prefs(c).edit().putLong("cursor",cursor).apply();
+        more=data.optBoolean("more",false);
+        }while(more);
         return fresh;
     }
     public static final class Result{

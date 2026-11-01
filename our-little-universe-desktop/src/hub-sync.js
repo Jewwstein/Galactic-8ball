@@ -63,8 +63,13 @@ async function mediaChunks(hub,mediaNames,progress){
   for(const name of missing){
    const original=await media(name);
    if(!original)throw Error('Original media missing locally: '+name);
-   await request(hub,'/api/v1/media/'+encodeURIComponent(name),{
-    method:'PUT',body:original,timeout:Math.max(90000,original.size/100000*2000)});
+   // Transfer in small chunks so neither the relay nor a phone must buffer a video.
+   for(let offset=0;offset<original.size;offset+=192*1024){
+    const part=original.slice(offset,Math.min(original.size,offset+192*1024));
+    await request(hub,'/api/v1/media/'+encodeURIComponent(name)+
+     '?offset='+offset+'&total='+original.size,{
+      method:'PUT',body:part,timeout:90000});
+   }
    uploaded++;
    if(progress)progress({status:'Uploading original attachments',uploaded});
   }
@@ -94,25 +99,28 @@ async function push(hub,progress){
  const mediaNames=allowed.flatMap(x=>x.media||[]);
  const mediaCount=await mediaChunks(hub,mediaNames,progress);
  let pushed=0;
- for(let i=0;i<allowed.length;i+=100){
-  const chunk=allowed.slice(i,i+100);
+ for(let i=0;i<allowed.length;i+=8){
+  const chunk=allowed.slice(i,i+8);
   await request(hub,'/api/v1/records',{
    method:'POST',body:{
     memories:chunk.map(m=>({memory:m,details:details[m.id]||{}})),
-    items:i===0?items:[]
+    items:[]
    }
   });
   pushed+=chunk.length;
  }
- if(!allowed.length&&items.length)
-  await request(hub,'/api/v1/records',{method:'POST',body:{memories:[],items}});
+ for(let i=0;i<items.length;i+=16){
+  await request(hub,'/api/v1/records',{method:'POST',
+   body:{memories:[],items:items.slice(i,i+16)}});
+ }
  return {media:mediaCount,sent:pushed};
 }
 async function pull(hub,progress){
  // A sync cursor avoids downloading other family members' entire archive repeatedly.
- const since=hub.cursor||0;
+ let since=hub.cursor||0;
+ let received=0,downloaded=0,more=true;
+ while(more){
  const data=await request(hub,'/api/v1/changes?since='+since);
- let received=0,downloaded=0;
  for(const record of data.memories||[]){
   const incoming=record.memory;
   if(!incoming?.id)continue;
@@ -120,8 +128,26 @@ async function pull(hub,progress){
   const allFiles=[...new Set([...(local?.media||[]),...(incoming.media||[])])];
   for(const name of incoming.media||[]){
    if(await media(name))continue;
-   const blob=await request(hub,'/api/v1/media/'+encodeURIComponent(name),{timeout:300000});
-   await put('media',{id:name,blob:new Blob([blob],{type:mediaMime(name)}),size:blob.size});
+   const meta=await request(hub,'/api/v1/media/'+encodeURIComponent(name)+'?meta=1');
+   if(!Number.isSafeInteger(meta.size)||meta.size<0||meta.size>1024*1024*1024)
+    throw Error('Original attachment has an invalid size');
+   const pieces=[];let total=0;
+   while(total<meta.size){
+    const chunk=await request(hub,'/api/v1/media/'+encodeURIComponent(name)+
+     '?offset='+total+'&limit=196608',{timeout:90000});
+    if(!(chunk instanceof Blob)||chunk.size<=0||chunk.size>196608)
+     throw Error('Incomplete original transfer: '+name);
+    pieces.push(chunk);total+=chunk.size;
+   }
+   const blob=new Blob(pieces,{type:mediaMime(name)});
+   if(meta.sha256&&blob.size<250*1024*1024){
+    const bytes=await blob.arrayBuffer();
+    const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)))
+     .map(v=>v.toString(16).padStart(2,'0')).join('');
+    if(digest.toLowerCase()!==meta.sha256.toLowerCase())
+     throw Error('Original file checksum mismatch: '+name);
+   }
+   await put('media',{id:name,blob,size:blob.size});
    downloaded++;
    if(progress)progress({status:'Receiving family photos',downloaded});
   }
@@ -138,7 +164,11 @@ async function pull(hub,progress){
   if(!item?.id||await get('items',item.id))continue;
   await put('items',item);
  }
- hub.cursor=data.seq||hub.cursor||0;
+ since=data.seq||since;
+ hub.cursor=since;
+ await remember(hub);
+ more=!!data.more;
+ }
  hub.lastSynced=now();
  await remember(hub);
  return {received,downloaded};
