@@ -9,6 +9,7 @@ const $=id=>document.getElementById(id);
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const short=(x,n=200)=>String(x||'').length>n?String(x).slice(0,n)+'…':String(x||'');
 let page='home',filter='',query='',objectUrls=[],pendingAudio=[],recorder=null;
+let pendingConfirmation=null,latestInviteLink='';
 function message(text){
  const div=$('toast');div.textContent=text;div.classList.add('visible');
  clearTimeout(message.handle);message.handle=setTimeout(()=>div.classList.remove('visible'),4500);
@@ -17,11 +18,18 @@ function modal(title,body){
  $('modalTitle').textContent=title;$('modalBody').innerHTML=body;$('modal').hidden=false;
 }
 function close(){
+ pendingConfirmation=null;
  if(recorder?.state==='recording')recorder.stop();
  $('modal').hidden=true;$('modalBody').replaceChildren();
 }
+function confirmInsideApp(title,description,onConfirm){
+ pendingConfirmation=onConfirm;
+ modal(title,'<div class="info"><p>'+safe(description)+'</p>'+
+  '<div class="buttonrow">'+btn('Cancel','confirm-cancel')+
+  btn('Yes, continue','confirm-yes','','primary')+'</div></div>');
+}
 function btn(title,cmd,extra='',className='secondary'){
- return '<button class="'+className+'" data-command="'+cmd+'" '+extra+'>'+safe(title)+'</button>';
+ return '<button type="button" class="'+className+'" data-command="'+cmd+'" '+extra+'>'+safe(title)+'</button>';
 }
 function blank(title,body){
  return '<div class="card empty"><div class="empty-symbol">♡</div><strong>'+safe(title)+'</strong>'+safe(body)+'</div>';
@@ -253,6 +261,13 @@ async function recycle(){
 }
 async function act(name,el){
  const id=el?.dataset.id;
+ if(name==='confirm-cancel'){close();return;}
+ if(name==='confirm-yes'){
+  const callback=pendingConfirmation;
+  close();
+  if(callback)await callback();
+  return;
+ }
  if(name==='new')return editor();
  if(name==='letter')return editor(null,'Letter');
  if(name==='edit')return editor(id);
@@ -264,8 +279,9 @@ async function act(name,el){
   return render(page);
  }
  if(name==='delete'){
-  if(!confirm('Move this memory to Recently Deleted? You can restore it from the Vault.'))return;
-  await recycleMemory(id);message('Memory moved to Recently Deleted.');return render(page);
+  return confirmInsideApp('Move memory to Recently Deleted?',
+   'You can restore this memory from the Family Vault.',
+   async()=>{await recycleMemory(id);message('Memory moved to Recently Deleted.');await render(page);});
  }
  if(name==='record')return startRecording();
  if(name==='sync-now'){
@@ -275,8 +291,9 @@ async function act(name,el){
   await render(page);return;
  }
  if(name==='hub-disconnect'){
-  if(confirm('Disconnect this device from Family Sync? Existing memories stay here.'))
-   {await clearHub();message('Device disconnected.');return render('vault');}
+  return confirmInsideApp('Disconnect this device?',
+   'All existing memories remain on this device. Family syncing will stop until you pair again.',
+   async()=>{await clearHub();message('Device disconnected.');await render('vault');});
  }
  if(name==='hub-network'){
   if(!window.ourHub?.relayDeploy)throw Error('Only your Windows PC can set up the family relay.');
@@ -322,36 +339,48 @@ async function act(name,el){
   message('Reconnecting automatically…');
  }
  if(name==='hub-disable'){
-  if(!confirm('Pause remote Family Sync? Memories are never deleted.'))return;
-  await window.ourHub.relayPause();message('Relay paused on this PC.');
+  return confirmInsideApp('Pause Family Sync?',
+   'This stops remote synchronization, but none of your memories will be deleted.',
+   async()=>{await window.ourHub.relayPause();message('Relay paused on this PC.');});
  }
  if(name==='hub-invite'){
-  if(!window.ourHub)throw Error('Invitations are created on your PC.');
+  if(!window.ourHub?.invite)throw Error('Invitations can be created only on your Windows PC.');
   const remote=await window.ourHub.relayStatus();
-  if(!remote.configured)return modal('Set up automatic sync first',
-   '<div class="info">Press <b>Set up automatic family sync</b> in Family Vault on your Windows PC.</div>');
+  if(!remote.configured)return modal('Set up Family Sync first',
+   '<div class="info">On this PC, select <b>Set up automatic family sync</b> to connect your family archive.</div>');
   if(!remote.connected)return modal('Your PC is still connecting',
-   '<div class="info">The relay address has been saved, but the Windows Hub has not confirmed a live connection. Use <b>Connection status → Check connection</b> before sending invitations.</div>');
-  const label=prompt('Who would you like to invite? For example: Grandma');
-  if(!label)return;
-  const role=confirm('Can '+label+' contribute new memories? OK = contribute; Cancel = view only.')?'contributor':'viewer';
-  const invite=await window.ourHub.invite(label,role);
-  const base='https://jewwstein.github.io/Galactic-8ball/';
-  const payload=new URLSearchParams({join:remote.url+'|'+invite.code+'|'+label});
-  const joinLink=base+'#'+payload.toString();
-  modal('Invite '+label,
-   '<div class="info"><h3>One tap to join your family ♡</h3>'+
-   '<p>Send '+safe(label)+' this invitation link. They open it in Safari or Chrome, enter their name if needed, and tap Join. No VPN app or network settings.</p>'+
-   '<p style="overflow-wrap:anywhere;font-size:12px">'+safe(joinLink)+'</p>'+
-   '<p>This invitation works once and expires in seven days.</p></div>'+
-   btn('Copy family invitation link','copy-invite','','primary'));
-  window.__familyJoinLink=joinLink;
-  return;
+   '<div class="info">Open <b>Connection status → Check connection</b> before sending invitations. Your existing settings are saved.</div>');
+  return modal('Invite someone to Our Little Universe ♡',
+   '<div class="info"><p>Create a personal invitation for a family member. They will open the link and join—no VPN or extra setup.</p>'+
+   '<form id="familyInviteForm">'+
+   '<label class="field"><span>Family member’s name</span>'+
+   '<input name="label" required minlength="1" maxlength="64" autocomplete="off" placeholder="For example, Grandma or Mariah"></label>'+
+   '<label class="field"><span>What can they do?</span><select name="role">'+
+   '<option value="contributor">Contributor — add memories and view family moments</option>'+
+   '<option value="viewer">Viewer — read and enjoy family memories</option>'+
+   '</select></label>'+
+   '<div class="buttonrow"><button class="primary" type="submit">Create family invitation</button>'+
+   btn('Cancel','confirm-cancel')+'</div></form>'+
+   '<p class="muted">Each invitation works once and expires in seven days. You can revoke a paired device later.</p></div>');
  }
  if(name==='copy-invite'){
-  if(!window.__familyJoinLink)return;
-  await navigator.clipboard.writeText(window.__familyJoinLink);
-  message('Family invitation copied. Send it to your relative privately.');return;
+  if(!latestInviteLink)return message('Please create an invitation first.');
+  try{
+   if(navigator.clipboard?.writeText){
+    await navigator.clipboard.writeText(latestInviteLink);
+   }else{
+    const field=$('familyInvitationLink');
+    if(!field)throw Error('Invitation field unavailable');
+    field.focus();field.select();
+    if(!document.execCommand('copy'))throw Error('Clipboard permission is unavailable');
+   }
+   message('Invitation copied! Send the link directly to your family member.');
+  }catch(error){
+   const field=$('familyInvitationLink');
+   if(field){field.focus();field.select();}
+   message('Select and copy the highlighted invitation link.');
+  }
+  return;
  }
  if(name==='hub-devices'){
   if(!window.ourHub)throw Error('Only available on the owner PC');
@@ -363,8 +392,10 @@ async function act(name,el){
    '</div>').join('')+'</div>':blank('No paired devices','Create an invitation to add your first family member.'));
  }
  if(name==='hub-revoke'){
-  if(!window.ourHub||!confirm('Revoke this device? It will not be able to sync again until you issue a new invite.'))return;
-  await window.ourHub.revoke(id);message('Device access revoked.');return act('hub-devices',el);
+  if(!window.ourHub||!id)return;
+  return confirmInsideApp('Revoke this family device?',
+   'This device will no longer be able to sync. Its already-downloaded memories are not deleted.',
+   async()=>{await window.ourHub.revoke(id);message('Device access revoked.');await act('hub-devices',null);});
  }
  if(name==='import'||name==='verify'){
   $('zipInput').dataset.mode=name;$('zipInput').click();return;
@@ -378,8 +409,9 @@ async function act(name,el){
  if(name==='trash')return recycle();
  if(name==='restore'){await restoreMemory(id);message('Memory recovered ♡');return recycle();}
  if(name==='erase'){
-  if(!confirm('Erase forever? This cannot be undone without a backup.'))return;
-  await removeForever(id);message('Permanently removed.');return recycle();
+  return confirmInsideApp('Erase this memory forever?',
+   'This cannot be undone without a backup.',
+   async()=>{await removeForever(id);message('Permanently removed.');await recycle();});
  }
 }
 document.addEventListener('click',event=>{
@@ -388,6 +420,35 @@ document.addEventListener('click',event=>{
  if(cmd)act(cmd.dataset.command,cmd).catch(e=>message(e.message));
 });
 document.addEventListener('submit',async event=>{
+ if(event.target.id==='familyInviteForm'){
+  event.preventDefault();
+  const form=event.target,fields=new FormData(form);
+  const label=String(fields.get('label')||'').trim();
+  const role=fields.get('role')==='viewer'?'viewer':'contributor';
+  if(!label)return message('Please enter a name for the family member.');
+  const button=form.querySelector('button[type=submit]');
+  if(button)button.disabled=true;
+  try{
+   const remote=await window.ourHub.relayStatus();
+   if(!remote.connected)throw Error('Your PC is not currently connected to the family relay.');
+   const invite=await window.ourHub.invite(label,role);
+   const base='https://jewwstein.github.io/Galactic-8ball/';
+   const payload=new URLSearchParams({join:remote.url+'|'+invite.code+'|'+label});
+   latestInviteLink=base+'#'+payload.toString();
+   modal('Invitation ready for '+label+' ♡',
+    '<div class="info"><h3>One tap to join your family</h3>'+
+    '<p>Send this link to '+safe(label)+'. They open it in the app or browser, enter their name, and tap Join my family.</p>'+
+    '<label class="field"><span>Your private invitation link</span>'+
+    '<textarea id="familyInvitationLink" readonly rows="4">'+safe(latestInviteLink)+'</textarea></label>'+
+    '<div class="buttonrow">'+btn('Copy invitation link','copy-invite','','primary')+
+    btn('Invite someone else','hub-invite')+'</div>'+
+    '<p class="muted">This link expires in seven days and is for one person only.</p></div>');
+  }catch(error){
+   message('Could not create invitation: '+error.message);
+   if(button)button.disabled=false;
+  }
+  return;
+ }
  if(event.target.id==='familyRelaySetupForm'){
   event.preventDefault();
   const fields=new FormData(event.target);
