@@ -1,27 +1,40 @@
-# Our Little Universe — Web + Windows Companion (v0.1.0)
+# Our Little Universe v0.7.0 — Private Family Hub
 
-This is a **new companion app**, not an Android replacement. It shares the family archive format little-universe-android-v1 with the native Android app. It runs in Safari/Chrome and packages into a Windows portable executable with Electron.
+## What changed
+You can now make your Windows PC the **master family archive**. Family phones keep their own offline copies and synchronize original media and memory records directly with your PC. New memories from Grandma appear on every phone that reconnects, no daily manual ZIPs. This is a first operational sync build, not a hosted cloud product.
 
-## Included
-- Private browser/desktop local storage (IndexedDB), usable offline after PWA installation.
-- Timeline, journals, milestones, letters, audio recording (where supported), photos and videos.
-- Gallery and playback, original media download.
-- Author credit, favorites, tags, album labels, profile settings.
-- Deletion/restore, family-only versus full ZIP, ZIP integrity verification.
-- **Bidirectional Android ZIP exchange:** preserves stable record UUIDs, merges only missing entries and attachments, and keeps existing text unchanged. Reads/writes the original Android archive.json and media/ paths.
-- A responsive blue/purple theme inspired by the approved Android v3 design without decorative arches.
-- No remote database or app store required.
+### Architecture
+- The original Windows EXE now embeds a small **self-written** Node.js HTTP server that starts when the desktop app starts. The server listens ONLY on \`127.0.0.1:43877\` and stores data in the current Windows user's private app-data directory.
+- Family members reach your PC privately via **Tailscale Serve HTTPS**, which forwards connections into that local listener. Do not use Funnel, public router port forwarding, or expose the hub HTTP endpoint openly.
+- Each family member gets a single-use, seven-day **Family Hub pairing code** from the Windows app. The hub issues a per-device bearer token, supports contributor/viewer roles, and allows the PC owner to revoke access.
+- The hub stores memory records, structured keepsakes and original media on your PC. Sync sends only missing media and new/changed records, never remote backups to commercial cloud storage.
+- On Android, go to Vault → Private Family Sync; pair once with the private HTTPS address and invitation, then use Sync Now or leave the app open for ~2.5-minute checks.
+- On the iPhone Safari PWA, go to Family Vault → Connect to private family hub. Pair once, then it checks about every two minutes while active.
+- On the Windows app, open Family Vault → Invite a family member / Manage paired devices. The PC must stay on and the Windows app must remain running.
+- Existing ZIP exports and imports are preserved as offline recovery options. A real full backup on separate storage is still required to survive PC drive failure.
 
-## iPhone
-A website must be published under HTTPS before the app can be installed on iOS Home Screen: open in Safari → Share → Add to Home Screen. It then caches for offline use. Never upload real family ZIPs to GitHub; import them into the locally running application. GitHub Pages requires Pages to be enabled in Settings → Pages (GitHub Actions). This project's CI attempts publishing.
+### One-time private remote connection (no cloud memory storage)
+1. Install the free personal [Tailscale](https://tailscale.com/download) client on your Windows PC, your Android device, and each family member's phone. Sign in; invite family accounts to the private network, or share just the PC to each outside account.
+2. On your Windows PC, run \`tailscale serve --bg 43877\` in Windows Terminal. Tailscale will provide a private \`https://your-computer.your-tailnet.ts.net\` address, and may ask you to enable its free HTTPS certificates. Check the result using \`tailscale serve status\`.
+3. On the Windows app, create an invitation for each relative. Share the private HTTPS address and invitation code **privately**. On their phone, connect Tailscale, then paste the address and code into the Our Little Universe Family Vault and tap Pair.
+4. Create a sample memory on the phone, tap Sync Now, and confirm it arrives on the Windows app and another paired phone. Only after confirming should you import original family ZIP backups into the Windows app to seed the hub.
 
-## Windows EXE
-GitHub Actions builds an unsigned portable Windows x64 EXE using Electron. Download it from the Windows artifact, unzip and launch it. Windows SmartScreen may warn about unsigned software.
+### Important limitations
+- This is PRIVATE REMOTE NETWORKING: relatives far away still use their own Wi-Fi/mobile internet, but do not need direct ZIP messages or a paid cloud photo database.
+- **Tailscale is the transport and identity layer**, not storage for your family photos. It is third-party networking software; relay/coordinator metadata may pass through Tailscale infrastructure, and traffic is encrypted. If your requirement is to use *no third party at all*, a VPN server you self-host and manually configure is an alternative.
+- iOS web apps cannot guarantee background synchronization while closed. Android currently synchronizes when the app is open; a future native Android background worker can extend it.
+- The PC must be powered on and the Family Hub EXE running to accept sync.
+- The first sync can take substantial time if many video originals exist. Media files are limited to 1 GB each in this version.
+- Deletion is NOT remotely propagated in v0.7.0: deliberately so one phone cannot permanently delete everybody's history. Conflicting edits to existing shared text preserve the original PC wording while merging new attachments and metadata. New memories with unique IDs are synchronized.
+- Owner tokens/invite codes are stored locally and should be treated as secrets. ZIP backups are unencrypted. The master hub's files are stored unencrypted in local Windows user storage; protect that PC with Windows account login and full-disk encryption.
+- Personal Tailscale is free for up to six users at time of building. Different networking configurations and firewall policies may require adjustments. This release is not yet verified on family members' real networks.
+- The v0.7.0 APK installs separately because earlier prototypes used inconsistent debug signing keys. From previous Android app export a full ZIP, import into this version and verify it before removing anything.
 
-## Safety and differences
-No live sync. Each phone/PC stores its own local data until a ZIP is exchanged. Browser website data deletion can remove private memories; keep full backups. ZIP files are **not encrypted**. Large ZIPs consume browser memory. GitHub Pages hosts app code, not private photos.
+## Source layout
+- \`hub-server.cjs\`: local PC master archive, pairing, auth, media streaming and incremental changes.
+- \`preload.cjs\` + \`electron.cjs\`: securely expose owner-only controls to the desktop UI.
+- \`src/hub-sync.js\`: iPhone/browser and Windows sync logic.
+- \`little-universe/app/.../FamilyHubSync.java\`: native Android sync, pairing and original-file verification.
+- \`tests/hub.test.mjs\`: automated tests for unauthorized access, device pairing, original byte exchange, duplicate prevention, persistence and revocation.
 
-This companion has core timeline, media, voice, family ZIP compatibility. It does NOT yet have the full advanced Android suite (growth charts, 35 milestone picker, photo Keepsake Maker, printable book). Voice recording depends on browser microphone permission.
-
-## Build
-Run npm install; npm run build; npm run dev; on Windows npm run windows. npm test runs ZIP format smoke tests. The app uses zero-cost tools.
+No subscription, external photo database, backend VPS, or phone App Store is required.

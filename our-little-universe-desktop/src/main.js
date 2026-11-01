@@ -1,5 +1,6 @@
 import './style.css';
 import {registerSW} from 'virtual:pwa-register';
+import {currentHub,setHostHub,pairHub,clearHub,syncNow,beginAutoSync} from './hub-sync.js';
 import {openStore,get,all,put,profile,saveProfile,upsertMemory,saveMedia,media,
 recycleMemory,restoreMemory,removeForever,exportZip,importZip,checkZip,downloadBlob,
 uuid,dateString,mediaMime,normalizeName} from './store.js';
@@ -90,8 +91,25 @@ async function gallery(){
 }
 async function vault(){
  const p=await profile(),deleted=await all('trash'),saved=await all('memories'),files=await all('media');
+ const connection=await currentHub();
+ const isOwner=!!window.ourHub;
+ const hubUi=isOwner?'<div class="card"><h3>♡ Your Windows Family Hub</h3><p class="muted">This PC stores the master family archive. It listens only on your own computer until you connect it privately through Tailscale.</p>'+
+ '<div class="buttonrow">'+btn('✓ Sync with this PC','sync-now','','primary')+
+ btn('＋ Invite a family member','hub-invite')+btn('Manage paired devices','hub-devices')+
+ btn('Connect family internet access','hub-network')+btn('Setup help','hub-help')+'</div>'+
+ '<p class="subtle">Hub port: 43877 · No public web port exposed · Leave the Windows app running to receive updates.</p></div>':
+ '<div class="card"><h3>♡ Connect to your private family hub</h3>'+
+ '<p class="muted">Pair once with the Windows PC. Afterward, updates transfer automatically while this app is open. No daily ZIPs.</p>'+
+ '<form id="hubPairForm">'+input('url','Private hub HTTPS address',connection?.url||'')+
+ input('code','One-time family invitation code','')+
+ input('label','This device is',p.contributorName||'Family member')+
+ '<div class="buttonrow"><button type="submit" class="primary">Pair this device</button>'+
+ (connection?.token?btn('Sync now','sync-now')+btn('Disconnect','hub-disconnect'):'')+
+ '</div></form></div>';
+
  const size=(files.reduce((n,x)=>n+(x.size||x.blob?.size||0),0)/1048576).toFixed(1);
  return '<p class="eyebrow">YOURS, OFFLINE AND PRIVATE</p><h1>The family vault</h1><p class="muted">Manual ZIP sharing keeps everyone together without a cloud account.</p>'+
+ '<div style="margin-top:24px" class="stack">'+hubUi+'</div>'+
  '<div class="grid two" style="margin-top:26px"><div class="card"><h3>Import a family ZIP</h3>'+
  '<p class="muted">Merge the latest archive from Android or another family member. Existing IDs are skipped; new photos and letters are added.</p>'+
  btn('↑ Import ZIP','import','','primary')+'</div>'+
@@ -250,6 +268,56 @@ async function act(name,el){
   await recycleMemory(id);message('Memory moved to Recently Deleted.');return render(page);
  }
  if(name==='record')return startRecording();
+ if(name==='sync-now'){
+  message('Synchronizing with your private PC…');
+  const result=await syncNow();
+  message('Sync complete: '+result.received+' new memories, '+result.downloaded+' downloaded originals, '+result.media+' uploads.');
+  await render(page);return;
+ }
+ if(name==='hub-disconnect'){
+  if(confirm('Disconnect this device from Family Sync? Existing memories stay here.'))
+   {await clearHub();message('Device disconnected.');return render('vault');}
+ }
+ if(name==='hub-network'){
+  if(!window.ourHub?.privateNetwork)throw Error('This feature runs only on the Windows PC');
+  message('Checking your PC private network…');
+  const result=await window.ourHub.privateNetwork();
+  return modal(result.ok?'Private family network is ready':'Private network setup needs a step',
+    result.ok?'<div class="info"><b>Share this private HTTPS address with invited family members:</b><p style="overflow-wrap:anywhere">'+
+      safe(result.url||'Check Tailscale Serve status')+'</p>'+
+      '<p>Your Windows PC is the master hub. Next, create one-time invitation codes for your relatives.</p></div>':
+      '<div class="info">'+safe(result.error||'Tailscale is not ready')+
+      '<p>Install the free Tailscale client on your PC, sign in, then press Connect family internet access again.</p></div>');
+ }
+ if(name==='hub-help')return modal('Private remote access',
+  '<div class="info">1. Install Tailscale on your Windows PC and sign in with a free personal account.<br>'+
+  '2. Run <code>tailscale serve --bg 43877</code> from Windows Terminal once; it provides a private HTTPS address ending in .ts.net.<br>'+
+  '3. Invite family members to your private Tailscale network, then share their one-time Our Little Universe pairing code.<br><br>'+
+  'Do not use Tailscale Funnel or forward a public router port. Your originals stay on this PC.</div>');
+ if(name==='hub-invite'){
+  if(!window.ourHub)throw Error('Invitations can be created on the owner PC only');
+  const label=prompt('Who are you inviting? (e.g. Grandma)');if(!label)return;
+  const role=confirm('Should '+label+' be allowed to add memories? Select OK for Contributor, or Cancel for read-only.')?'contributor':'viewer';
+  const invite=await window.ourHub.invite(label,role);
+  modal('Invitation for '+label,
+   '<div class="info"><b>One-time code</b><p style="overflow-wrap:anywhere;font-size:21px">'+safe(invite.code)+'</p>'+
+   '<p>This code expires in 7 days and can be used once.</p>'+
+   '<p>Share your private HTTPS address from Tailscale and the code privately. Do not put family codes on GitHub.</p></div>');
+  return;
+ }
+ if(name==='hub-devices'){
+  if(!window.ourHub)throw Error('Only available on the owner PC');
+  const devices=await window.ourHub.devices();
+  return modal('Approved family devices',devices.length?
+   '<div class="stack">'+devices.map(d=>'<div class="card">'+safe(d.label)+
+   ' · '+safe(d.role)+(d.revoked?' · Revoked':'')+
+   (d.revoked?'':btn('Revoke access','hub-revoke','data-id="'+safe(d.id)+'"','tertiary danger'))+
+   '</div>').join('')+'</div>':blank('No paired devices','Create an invitation to add your first family member.'));
+ }
+ if(name==='hub-revoke'){
+  if(!window.ourHub||!confirm('Revoke this device? It will not be able to sync again until you issue a new invite.'))return;
+  await window.ourHub.revoke(id);message('Device access revoked.');return act('hub-devices',el);
+ }
  if(name==='import'||name==='verify'){
   $('zipInput').dataset.mode=name;$('zipInput').click();return;
  }
@@ -272,6 +340,15 @@ document.addEventListener('click',event=>{
  if(cmd)act(cmd.dataset.command,cmd).catch(e=>message(e.message));
 });
 document.addEventListener('submit',async event=>{
+ if(event.target.id==='hubPairForm'){
+  event.preventDefault();const data=new FormData(event.target);
+  try{
+   const connection=await pairHub(data.get('url'),data.get('code'),data.get('label'));
+   message('This device is paired! Synchronizing your family's memories…');
+   await syncNow();await render('vault');
+  }catch(err){message('Pairing failed: '+err.message);}
+  return;
+ }
  if(event.target.id!=='profileForm')return;
  event.preventDefault();
  const p=await profile(),changes=Object.fromEntries(new FormData(event.target).entries());
@@ -303,6 +380,29 @@ $('zipInput').onchange=async event=>{
  }catch(err){modal('Could not import ZIP','<div class="info">'+safe(err.message||err)+
   '<br><br>Do not delete your old copy of the archive.</div>');}
 };
-openStore().then(()=>render('home')).catch(err=>{
+async function launchFamilySync(){
+ if(window.ourHub){
+  const admin=await window.ourHub.info();
+  if(admin?.adminToken&&!admin.error){
+   await setHostHub(admin.url,admin.adminToken);
+  }
+ }
+ beginAutoSync(result=>{
+  if(result.ok&&result.result?.received>0){
+   message(result.result.received+' new family memories received ♡');
+   if(!$('modal').hidden)return;
+   render(page).catch(()=>{});
+  }
+ });
+ const connection=await currentHub();
+ if(connection?.token&&!connection.disabled){
+  try{await syncNow();await render(page);}catch(error){
+   console.warn('Family hub not reachable yet:',error.message);
+  }
+ }
+}
+openStore().then(async()=>{
+ await render('home');launchFamilySync().catch(console.error);
+}).catch(err=>{
  $('screen').innerHTML=blank('Storage unavailable',err.message+' — open the app in a normal browser.');
 });

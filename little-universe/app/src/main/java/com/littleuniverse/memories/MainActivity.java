@@ -42,6 +42,13 @@ public final class MainActivity extends Activity {
     private long recordingStart=0L;
     private static final int REQUEST_MIC=104;
     private final ExecutorService io=Executors.newSingleThreadExecutor();
+    private final android.os.Handler familySyncHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable familySyncTimer=new Runnable(){
+        @Override public void run(){
+            if(FamilyHubSync.paired(MainActivity.this))requestFamilyHubSync(false);
+            familySyncHandler.postDelayed(this,150000);
+        }
+    };
     private SQLiteDatabase db;
     private KeepsakeHub studio;
     private static final int EXPORT_PDF=120, EXPORT_FAMILY=121, SAVE_MEDIA_AS=122, VERIFY_BACKUP=123;
@@ -68,6 +75,51 @@ public final class MainActivity extends Activity {
         new File(getFilesDir(),"media").mkdirs();
         render();
         for(FeatureStore.Item reminder:FeatureStore.items(db,"Reminder"))ReminderReceiver.schedule(this,reminder);
+    }
+    @Override protected void onResume(){
+        super.onResume();
+        familySyncHandler.removeCallbacks(familySyncTimer);
+        familySyncHandler.postDelayed(familySyncTimer,1500);
+    }
+    @Override protected void onPause(){
+        familySyncHandler.removeCallbacks(familySyncTimer);
+        super.onPause();
+    }
+    private void requestFamilyHubSync(boolean showResult){
+        if(!FamilyHubSync.paired(this)){
+            if(showResult)message("Pair your phone with the family PC first.");
+            return;
+        }
+        if(showResult)message("Synchronizing with the family PC…");
+        io.execute(()->{
+            try{
+                FamilyHubSync.Result result=FamilyHubSync.sync(getApplicationContext(),db);
+                runOnUiThread(()->{
+                    if(result.received>0)render();
+                    if(showResult||result.received>0)message(result.summary());
+                });
+            }catch(Exception error){
+                FamilyHubSync.error(getApplicationContext(),error);
+                if(showResult)runOnUiThread(()->message("Family PC unavailable: "+error.getMessage()));
+            }
+        });
+    }
+    private void pairWithHub(String address,String code,String label){
+        message("Securing your private connection to the family PC…");
+        io.execute(()->{
+            try{
+                FamilyHubSync.pair(getApplicationContext(),address,code,label);
+                runOnUiThread(()->{
+                    message("Paired! Checking for new family memories…");
+                    requestFamilyHubSync(true);
+                });
+            }catch(Exception error){
+                runOnUiThread(()->new AlertDialog.Builder(this)
+                    .setTitle("Could not connect to your family PC")
+                    .setMessage(error.getMessage()+"\n\nMake sure your PC is on, Tailscale is connected, and your one-time invitation is correct.")
+                    .setPositiveButton("OK",null).show());
+            }
+        });
     }
     private static final class Store extends SQLiteOpenHelper {
         Store(Context c){super(c,"little_universe_v1.db",null,1);}
@@ -115,6 +167,10 @@ public final class MainActivity extends Activity {
         v.put("body",m.body);v.put("media",new JSONArray(m.media).toString());
         db.insertWithOnConflict("memories",null,v,SQLiteDatabase.CONFLICT_REPLACE);
         FeatureStore.claim(this,db,m.id);
+        if(FamilyHubSync.paired(this)){
+            familySyncHandler.removeCallbacks(familySyncTimer);
+            familySyncHandler.postDelayed(familySyncTimer,3000);
+        }
     }
     private String today(){return new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());}
     private int dp(float v){return (int)(getResources().getDisplayMetrics().density*v+.5f);}
@@ -791,6 +847,32 @@ public final class MainActivity extends Activity {
               .putString("dueDate",due.getText().toString().trim()).apply();
             render();message("Your family details are saved.");
         }),0,0);
+        section("Private family sync");
+        LinearLayout hub=card();
+        put(hub,eyebrow("♡  YOUR WINDOWS FAMILY HUB",MINT),0,9);
+        put(hub,headline("Everyone's memories. Together.",23),0,9);
+        put(hub,text("Pair once with your private family PC. Afterward, this phone exchanges new memories and original media automatically while Our Little Universe is open—even on mobile data.",14,MUTED,false),0,10);
+        put(hub,text("Connection: "+FamilyHubSync.lastStatus(this),12,MINT,false),0,12);
+        put(hub,text("PC's private HTTPS address",13,GOLD,true),0,5);
+        EditText hubUrl=input(FamilyHubSync.hubAddress(this),"https://your-pc.your-network.ts.net",false);
+        put(hub,hubUrl,0,12);
+        put(hub,text("One-time invitation code from your PC",13,GOLD,true),0,5);
+        EditText invitation=input("","Paste the code from the Windows app",false);
+        put(hub,invitation,0,12);
+        put(hub,text("My contributor name",13,GOLD,true),0,5);
+        EditText hubName=input(FeatureStore.author(this),"Dad, Mariah, Grandma…",false);
+        put(hub,hubName,0,12);
+        put(hub,button("♡   Pair with the family PC",true,()->pairWithHub(
+            hubUrl.getText().toString(),invitation.getText().toString(),hubName.getText().toString())),0,9);
+        put(hub,button("↻   Synchronize family memories now",false,()->requestFamilyHubSync(true)),0,9);
+        put(hub,button("Disconnect this phone",false,()->{
+            new AlertDialog.Builder(this).setTitle("Disconnect this phone?")
+                .setMessage("You will keep every memory saved locally, but automatic updates will stop until you pair again.")
+                .setNegativeButton("Keep connected",null)
+                .setPositiveButton("Disconnect",(d,w)->{
+                    FamilyHubSync.disconnect(this);render();
+                }).show();
+        }),0,5);
         section("Keep it forever");
         LinearLayout vault=card();
         put(vault,eyebrow("✧  YOUR PRIVATE ARCHIVE",MINT),0,10);

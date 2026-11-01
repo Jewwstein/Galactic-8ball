@@ -1,4 +1,4 @@
-name: Our Little Universe Web and Windows
+name: Our Little Universe Family Sync Web and Windows
 on:
   push:
     branches: [little-universe-v1]
@@ -29,7 +29,7 @@ jobs:
       - name: Upload standalone web files
         uses: actions/upload-artifact@v4
         with:
-          name: Our-Little-Universe-Web-PWA
+          name: Our-Little-Universe-FamilySync-Web-PWA
           path: our-little-universe-desktop/dist/
           retention-days: 90
       - name: Prepare GitHub Pages artifact
@@ -73,6 +73,6 @@ jobs:
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
-          name: Our-Little-Universe-Windows-Portable
+          name: Our-Little-Universe-FamilyHub-Windows-Portable
           path: our-little-universe-desktop/release/*.exe
           retention-days: 90
